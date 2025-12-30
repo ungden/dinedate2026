@@ -10,9 +10,6 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
   const pathname = usePathname();
   const { isLoading } = useAuth();
   
-  // Routes where we don't want the standard container padding or navigation
-  const isAuthPage = pathname === '/login' || pathname === '/register';
-
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-white">
@@ -26,10 +23,6 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
         </motion.div>
       </div>
     );
-  }
-
-  if (isAuthPage) {
-    return <main>{children}</main>;
   }
 
   return (

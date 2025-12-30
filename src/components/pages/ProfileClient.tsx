@@ -10,14 +10,14 @@ import {
   Edit2,
   MapPin,
   Calendar,
-  Grid,
   Heart,
   ChevronRight,
   ShieldCheck,
   LogOut,
   Bell,
   Star,
-  MessageCircle
+  MessageCircle,
+  Users
 } from 'lucide-react';
 import { useDateStore } from '@/hooks/useDateStore';
 import { useAuth } from '@/contexts/AuthContext';
@@ -34,7 +34,7 @@ export default function ProfileClient() {
   const notifications = getMyNotifications();
   const unreadNotifications = notifications.filter((n) => !n.read).length;
 
-  // Message counts
+  // Message counts (Conversations are essentially matches)
   const conversations = getMyConversations();
   const unreadMessages = conversations.filter((c) =>
       c.lastMessage &&
@@ -140,16 +140,20 @@ export default function ProfileClient() {
             </motion.div>
         </Link>
 
-        {/* Shortcuts Section */}
+        {/* Matches & Activity Section */}
         <div className="space-y-3">
             <h3 className="px-2 text-[14px] font-black text-gray-400 uppercase tracking-[0.2em]">Hoạt động</h3>
             <div className="ios-card bg-white divide-y divide-gray-50">
+                {/* Messages / Matches */}
                 <Link href="/messages" className="flex items-center justify-between p-4 hover:bg-gray-50 transition tap-highlight">
                     <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center">
-                            <MessageCircle className="w-5 h-5" />
+                        <div className="w-10 h-10 bg-rose-50 text-rose-600 rounded-xl flex items-center justify-center">
+                            <Users className="w-5 h-5" />
                         </div>
-                        <span className="font-bold text-gray-700">Tin nhắn</span>
+                        <div>
+                            <p className="font-bold text-gray-700">Danh sách Match</p>
+                            <p className="text-[11px] text-gray-400 font-medium">Trò chuyện với người đã kết nối</p>
+                        </div>
                     </div>
                     <div className="flex items-center gap-2">
                         {unreadMessages > 0 && (
@@ -238,7 +242,7 @@ export default function ProfileClient() {
             Đăng xuất
         </button>
 
-        <p className="text-center text-[11px] font-black text-gray-300 uppercase tracking-[0.3em] pb-10">DineDate Web v1.0.5</p>
+        <p className="text-center text-[11px] font-black text-gray-300 uppercase tracking-[0.3em] pb-10">DineDate Web v1.0.6</p>
       </div>
     </div>
   );

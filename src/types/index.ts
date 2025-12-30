@@ -192,6 +192,7 @@ export interface DateRequest {
   status: 'active' | 'matched' | 'expired' | 'completed';
   createdAt: string;
   expiresAt?: string; // auto-expire after 15 minutes for new requests
+  recommendedPartnerId?: string; // optional: partner được gợi ý (deal flow từ profile)
 }
 
 export type HiringAmount = 0 | 300000 | 500000 | 700000 | 1000000;

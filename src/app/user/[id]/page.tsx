@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useMemo } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
@@ -22,7 +22,8 @@ import {
   AlertTriangle,
   Check,
   Crown,
-  X
+  X,
+  Sparkles,
 } from 'lucide-react';
 import { useDateStore } from '@/hooks/useDateStore';
 import {
@@ -37,6 +38,7 @@ import { ServiceOffering, ZODIAC_LABELS, PERSONALITY_TAG_LABELS } from '@/types'
 import VoiceIntro from '@/components/VoiceIntro';
 import AuthModal from '@/components/AuthModal';
 import { useAuth } from '@/contexts/AuthContext';
+import { MatchingSheet } from '@/components/matching';
 
 export default function UserProfilePage() {
   const params = useParams();
@@ -60,8 +62,22 @@ export default function UserProfilePage() {
     actionType: 'generic'
   });
 
-  const { getUserById, getUserAverageRating, getUserReviews, createBooking, currentUser } =
-    useDateStore();
+  // Lean matching flow (deal/request from profile)
+  const [dealRequestId, setDealRequestId] = useState<string | null>(null);
+  const [isMatchingOpen, setIsMatchingOpen] = useState(false);
+
+  const {
+    getUserById,
+    getUserAverageRating,
+    getUserReviews,
+    createBooking,
+    currentUser,
+    createDateRequest,
+    getApplicationsForRequest,
+    selectApplicant,
+    deleteRequest,
+    dateRequests,
+  } = useDateStore();
 
   const { user: authUser } = useAuth();
 
@@ -110,6 +126,74 @@ export default function UserProfilePage() {
 
   const platformFee = Math.round(totalCost * 0.1); // 10% platform fee
 
+  const isCurrentUser = !!user && user.id === currentUser.id;
+
+  const dealRequest = useMemo(() => {
+    if (!dealRequestId) return null;
+    return dateRequests.find((r) => r.id === dealRequestId) || null;
+  }, [dateRequests, dealRequestId]);
+
+  const dealApplications = useMemo(() => {
+    if (!dealRequestId) return [];
+    return getApplicationsForRequest(dealRequestId);
+  }, [dealRequestId, getApplicationsForRequest]);
+
+  const openDealMatching = () => {
+    if (!user) return;
+
+    if (!authUser) {
+      setAuthModal({ isOpen: true, actionType: 'chat' });
+      return;
+    }
+
+    // choose default activity (first service activity if any)
+    const defaultActivity = user.services?.[0]?.activity ?? 'dining';
+    const activityLabel = getActivityLabel(defaultActivity);
+
+    const today = new Date();
+    const nowHour = today.getHours();
+    const dateForRequest = new Date();
+    // If it's late night, default to tomorrow
+    if (nowHour >= 20) {
+      dateForRequest.setDate(dateForRequest.getDate() + 1);
+    }
+
+    const yyyy = dateForRequest.getFullYear();
+    const mm = String(dateForRequest.getMonth() + 1).padStart(2, '0');
+    const dd = String(dateForRequest.getDate()).padStart(2, '0');
+    const dateStr = `${yyyy}-${mm}-${dd}`;
+
+    const newReq = createDateRequest({
+      activity: defaultActivity,
+      title: `Đi ${activityLabel} cùng ${user.name}`,
+      description: 'Mình muốn hẹn bạn đi cùng, nếu bạn rảnh thì ứng tuyển nhé!',
+      location: user.location,
+      date: dateStr,
+      time: '19:00',
+      hiringAmount: 0,
+      hiringOption: 'tier0',
+      maxParticipants: 2,
+      recommendedPartnerId: user.id,
+    });
+
+    setDealRequestId(newReq.id);
+    setIsMatchingOpen(true);
+  };
+
+  const handleDealSelectApplicant = (selectedUserId: string) => {
+    if (!dealRequestId) return;
+    selectApplicant(dealRequestId, selectedUserId);
+  };
+
+  const handleDealDelete = () => {
+    if (!dealRequestId) return;
+    if (confirm('Bạn có chắc muốn huỷ lời mời này?')) {
+      deleteRequest(dealRequestId);
+      setIsMatchingOpen(false);
+      setDealRequestId(null);
+    }
+  };
+
   if (!user) {
     return (
       <div className="text-center py-12">
@@ -129,8 +213,6 @@ export default function UserProfilePage() {
       </div>
     );
   }
-
-  const isCurrentUser = user.id === currentUser.id;
 
   return (
     <div className="max-w-4xl mx-auto pb-24">
@@ -269,7 +351,7 @@ export default function UserProfilePage() {
 
       {/* Main Content */}
       <div className="px-4 space-y-6">
-        {/* Voice Intro - Killer Feature */}
+        {/* Voice Intro */}
         {user.voiceIntroUrl && (
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -277,6 +359,35 @@ export default function UserProfilePage() {
             transition={{ delay: 0.1 }}
           >
             <VoiceIntro audioUrl={user.voiceIntroUrl} userName={user.name} />
+          </motion.div>
+        )}
+
+        {/* Quick "Deal" CTA (lean matching) */}
+        {!isCurrentUser && (
+          <motion.div
+            className="bg-white rounded-2xl border border-gray-100 p-4 flex items-center justify-between gap-3"
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.12 }}
+          >
+            <div className="min-w-0">
+              <p className="text-[11px] font-black text-gray-400 uppercase tracking-[0.2em]">
+                Hẹn nhanh (15 phút)
+              </p>
+              <p className="text-[15px] font-black text-gray-900 truncate mt-1">
+                Tạo lời mời và chọn partner ngay
+              </p>
+              <p className="text-[12px] text-gray-500 truncate mt-0.5">
+                Bạn sẽ thấy danh sách người ứng tuyển theo thời gian thực
+              </p>
+            </div>
+            <button
+              onClick={openDealMatching}
+              className="px-4 py-3 rounded-2xl bg-gradient-primary text-white font-black shadow-primary tap-highlight flex items-center gap-2 flex-shrink-0"
+            >
+              <Sparkles className="w-5 h-5" />
+              <span>Đề nghị</span>
+            </button>
           </motion.div>
         )}
 
@@ -495,7 +606,7 @@ export default function UserProfilePage() {
         )}
       </div>
 
-      {/* Sticky Booking Button */}
+      {/* Sticky Booking Button (existing) */}
       {!isCurrentUser && user.services && user.services.length > 0 && (
         <motion.div
           className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-100 p-4 z-40"
@@ -526,7 +637,7 @@ export default function UserProfilePage() {
         </motion.div>
       )}
 
-      {/* Booking Form Modal */}
+      {/* Booking Form Modal (existing) */}
       <AnimatePresence>
         {selectedService && !isCurrentUser && (
           <motion.div
@@ -706,6 +817,19 @@ export default function UserProfilePage() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Matching sheet for quick deal */}
+      {dealRequest && !isCurrentUser && (
+        <MatchingSheet
+          isOpen={isMatchingOpen}
+          onClose={() => setIsMatchingOpen(false)}
+          request={dealRequest}
+          applications={dealApplications}
+          onSelectApplicant={handleDealSelectApplicant}
+          onDeleteRequest={handleDealDelete}
+          onGoToMessages={() => router.push('/messages')}
+        />
+      )}
 
       <AuthModal
         isOpen={authModal.isOpen}

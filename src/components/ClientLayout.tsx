@@ -6,15 +6,12 @@ import Header from './Header';
 import BottomNavigation from './BottomNavigation';
 import { useAuth } from '@/contexts/AuthContext';
 
-const authRoutes = ['/login', '/register', '/forgot-password'];
-
 export default function ClientLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const { isLoading } = useAuth();
-  const isAuthRoute = authRoutes.includes(pathname);
 
   // Show loading spinner while checking auth
-  if (isLoading && !isAuthRoute) {
+  if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-mesh">
         <motion.div
@@ -33,12 +30,6 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
     );
   }
 
-  // Auth routes don't have header/nav
-  if (isAuthRoute) {
-    return <>{children}</>;
-  }
-
-  // Main routes with header and bottom nav
   return (
     <div className="min-h-screen bg-gray-50">
       <Header />

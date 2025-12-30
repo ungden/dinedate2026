@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
@@ -14,6 +14,7 @@ import {
   Send,
   Trash2,
   CheckCircle,
+  ChevronRight,
 } from 'lucide-react';
 import { useDateStore } from '@/hooks/useDateStore';
 import {
@@ -26,13 +27,16 @@ import {
   cn,
 } from '@/lib/utils';
 import RequestCountdown from '@/components/RequestCountdown';
+import { MatchingSheet } from '@/components/matching';
 
 export default function RequestDetailPage() {
   const params = useParams();
   const router = useRouter();
   const requestId = params.id as string;
+
   const [applyMessage, setApplyMessage] = useState('');
   const [showApplyForm, setShowApplyForm] = useState(false);
+  const [isMatchingOpen, setIsMatchingOpen] = useState(false);
 
   const {
     dateRequests,
@@ -55,6 +59,15 @@ export default function RequestDetailPage() {
     expireRequestsIfNeeded();
   }, [expireRequestsIfNeeded]);
 
+  useEffect(() => {
+    // auto-open matching when owner has applicants and request still active
+    if (!request) return;
+    if (!isOwner) return;
+    if (request.status !== 'active') return;
+    if (applications.length === 0) return;
+    setIsMatchingOpen(true);
+  }, [applications.length, isOwner, request?.status, request]);
+
   const handleApply = () => {
     if (!applyMessage.trim()) return;
     applyToRequest(requestId, applyMessage.trim());
@@ -63,10 +76,15 @@ export default function RequestDetailPage() {
   };
 
   const handleDelete = () => {
-    if (confirm('Bạn có chắc muốn xóa lời mời này?')) {
+    if (confirm('Bạn có chắc muốn huỷ/xóa lời mời này?')) {
       deleteRequest(requestId);
       router.push('/');
     }
+  };
+
+  const handleSelectApplicant = (userId: string) => {
+    selectApplicant(requestId, userId);
+    // keep sheet open to show "matched" banner
   };
 
   if (!request) {
@@ -88,20 +106,21 @@ export default function RequestDetailPage() {
   return (
     <div className="max-w-3xl mx-auto space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4">
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex items-start gap-4">
           <button
             onClick={() => router.back()}
             className="p-2 hover:bg-gray-100 rounded-lg transition"
           >
             <ArrowLeft className="w-5 h-5" />
           </button>
+
           <div className="space-y-1">
-            <h1 className="text-xl font-bold text-gray-900">Chi tiết lời mời</h1>
-            <div className="flex items-center gap-2">
+            <h1 className="text-xl font-black text-gray-900">Chi tiết lời mời</h1>
+            <div className="flex flex-wrap items-center gap-2">
               <RequestCountdown expiresAt={request.expiresAt} status={request.status} />
               {applications.length > 0 && (
-                <span className="text-sm text-gray-500">
+                <span className="text-sm text-gray-500 font-medium">
                   • {applications.length} người muốn đi cùng bạn
                 </span>
               )}
@@ -113,6 +132,7 @@ export default function RequestDetailPage() {
           <button
             onClick={handleDelete}
             className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition"
+            aria-label="Xóa lời mời"
           >
             <Trash2 className="w-5 h-5" />
           </button>
@@ -133,18 +153,19 @@ export default function RequestDetailPage() {
                 className="rounded-full object-cover"
               />
             </Link>
-            <div className="flex-1">
+
+            <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2">
                 <Link
                   href={`/user/${request.user.id}`}
-                  className="text-lg font-semibold text-gray-900 hover:underline"
+                  className="text-lg font-semibold text-gray-900 hover:underline truncate"
                 >
                   {request.user.name}
                 </Link>
                 {request.user.vipStatus.tier !== 'free' && (
                   <span
                     className={cn(
-                      'px-2 py-0.5 text-xs font-medium text-white rounded-full uppercase',
+                      'px-2 py-0.5 text-xs font-medium text-white rounded-full uppercase flex-shrink-0',
                       getVIPBadgeColor(request.user.vipStatus.tier)
                     )}
                   >
@@ -152,16 +173,17 @@ export default function RequestDetailPage() {
                   </span>
                 )}
               </div>
-              <p className="text-gray-500">{request.user.location}</p>
+              <p className="text-gray-500 truncate">{request.user.location}</p>
             </div>
+
             <div
               className={cn(
-                'px-4 py-2 rounded-full text-white font-medium flex items-center gap-2',
+                'px-4 py-2 rounded-full text-white font-medium flex items-center gap-2 flex-shrink-0',
                 getActivityColor(request.activity)
               )}
             >
               <span>{getActivityIcon(request.activity)}</span>
-              <span>{getActivityLabel(request.activity)}</span>
+              <span className="hidden sm:inline">{getActivityLabel(request.activity)}</span>
             </div>
           </div>
         </div>
@@ -181,9 +203,7 @@ export default function RequestDetailPage() {
 
         {/* Content */}
         <div className="p-6">
-          <h2 className="text-2xl font-bold text-gray-900 mb-3">
-            {request.title}
-          </h2>
+          <h2 className="text-2xl font-black text-gray-900 mb-3">{request.title}</h2>
           <p className="text-gray-600 mb-6">{request.description}</p>
 
           {/* Details Grid */}
@@ -192,9 +212,7 @@ export default function RequestDetailPage() {
               <Calendar className="w-6 h-6 text-primary-500" />
               <div>
                 <p className="text-sm text-gray-500">Ngày</p>
-                <p className="font-semibold text-gray-900">
-                  {formatDate(request.date)}
-                </p>
+                <p className="font-semibold text-gray-900">{formatDate(request.date)}</p>
               </div>
             </div>
             <div className="flex items-center gap-3 p-4 bg-gray-50 rounded-xl">
@@ -227,13 +245,30 @@ export default function RequestDetailPage() {
             <Wallet className="w-6 h-6 text-green-600" />
             <div>
               <p className="text-sm text-green-600">Mức chi trả</p>
-              <p className="text-xl font-bold text-green-600">
-                {request.hiringAmount > 0
-                  ? formatCurrency(request.hiringAmount)
-                  : 'Miễn phí'}
+              <p className="text-xl font-black text-green-600">
+                {request.hiringAmount > 0 ? formatCurrency(request.hiringAmount) : 'Miễn phí'}
               </p>
             </div>
           </div>
+
+          {/* Owner CTA to open matching */}
+          {isOwner && (
+            <div className="mt-6">
+              <button
+                onClick={() => setIsMatchingOpen(true)}
+                className={cn(
+                  'w-full py-4 rounded-2xl font-black text-lg tap-highlight transition flex items-center justify-center gap-2',
+                  request.status === 'active'
+                    ? 'bg-gradient-primary text-white shadow-primary'
+                    : 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                )}
+                disabled={request.status !== 'active'}
+              >
+                Xem ứng viên ({applications.length})
+                <ChevronRight className="w-5 h-5" />
+              </button>
+            </div>
+          )}
         </div>
 
         {/* Apply Section - for non-owner */}
@@ -290,59 +325,17 @@ export default function RequestDetailPage() {
         )}
       </div>
 
-      {/* Applicants (for owner) */}
+      {/* Matching sheet (owner) */}
       {isOwner && (
-        <div className="bg-white rounded-2xl border border-gray-100 p-6">
-          <h3 className="text-lg font-bold text-gray-900 mb-4">
-            Người muốn đi cùng bạn ({applications.length})
-          </h3>
-
-          {applications.length === 0 ? (
-            <p className="text-gray-500">Chưa có ai ứng tuyển.</p>
-          ) : (
-            <div className="space-y-4">
-              {applications.map((app) => (
-                <div
-                  key={app.id}
-                  className="flex items-start gap-4 p-4 bg-gray-50 rounded-xl"
-                >
-                  <Link href={`/user/${app.user.id}`}>
-                    <Image
-                      src={app.user.avatar}
-                      alt={app.user.name}
-                      width={48}
-                      height={48}
-                      className="rounded-full object-cover"
-                    />
-                  </Link>
-
-                  <div className="flex-1 min-w-0">
-                    <Link
-                      href={`/user/${app.user.id}`}
-                      className="font-semibold text-gray-900 hover:underline"
-                    >
-                      {app.user.name}
-                    </Link>
-                    <p className="text-sm text-gray-600 mt-1">"{app.message}"</p>
-                  </div>
-
-                  <button
-                    onClick={() => selectApplicant(requestId, app.userId)}
-                    disabled={request.status !== 'active'}
-                    className={cn(
-                      'px-4 py-2 rounded-xl font-semibold transition',
-                      request.status === 'active'
-                        ? 'bg-gradient-primary text-white hover:opacity-90'
-                        : 'bg-gray-200 text-gray-400 cursor-not-allowed'
-                    )}
-                  >
-                    Chọn
-                  </button>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
+        <MatchingSheet
+          isOpen={isMatchingOpen}
+          onClose={() => setIsMatchingOpen(false)}
+          request={request}
+          applications={applications}
+          onSelectApplicant={handleSelectApplicant}
+          onDeleteRequest={handleDelete}
+          onGoToMessages={() => router.push('/messages')}
+        />
       )}
     </div>
   );

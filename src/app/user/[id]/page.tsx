@@ -16,7 +16,7 @@ import {
   Wallet,
   Calendar,
   Clock,
-  X,
+  MessageCircle
 } from 'lucide-react';
 import { useDateStore } from '@/hooks/useDateStore';
 import { cn, formatCurrency, formatRelativeTime, getVIPBadgeColor, getActivityIcon, getActivityLabel } from '@/lib/utils';
@@ -48,14 +48,24 @@ export default function UserProfilePage() {
   const userId = params.id as string;
 
   const { user: authUser } = useAuth();
-  const { getUserById, getUserReviews, getUserAverageRating, createBooking, currentUser } =
+  const { getUserById, getUserReviews, getUserAverageRating, createBooking, currentUser, getMyConversations } =
     useDateStore();
 
   const user = getUserById(userId);
   const reviews = getUserReviews(userId);
   const rating = user?.rating || getUserAverageRating(userId);
 
-  const isCurrentUser = !!user && user.id === currentUser.id;
+  const isCurrentUser = !!user && !!currentUser && user.id === currentUser.id;
+
+  // Check if we have a match/conversation with this user
+  const existingConversation = useMemo(() => {
+    if (!currentUser || !user) return null;
+    return getMyConversations().find(c => 
+      c.participants.some(p => p.id === user.id)
+    );
+  }, [currentUser, user, getMyConversations]);
+
+  const canChat = !!existingConversation;
 
   const services = useMemo(() => {
     const list = user?.services || [];
@@ -202,6 +212,16 @@ export default function UserProfilePage() {
                     </span>
                   )}
                 </div>
+
+                {/* Conditional Chat Button */}
+                {canChat && !isCurrentUser && (
+                  <Link href={`/chat/${existingConversation.id}`} className="mt-3 block">
+                    <button className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-blue-50 text-blue-600 rounded-xl font-bold hover:bg-blue-100 transition-colors">
+                      <MessageCircle className="w-5 h-5" />
+                      Nhắn tin ngay
+                    </button>
+                  </Link>
+                )}
 
                 {user.bio ? (
                   <p className="text-[14px] text-gray-600 mt-3 line-clamp-2">{user.bio}</p>

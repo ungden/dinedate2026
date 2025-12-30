@@ -10,7 +10,6 @@ import {
 import { useRouter, usePathname } from 'next/navigation';
 import { supabase, isDemoMode } from '@/lib/supabase';
 import { User } from '@/types';
-import { CURRENT_USER } from '@/mocks/users';
 
 interface AuthContextType {
   user: User | null;
@@ -40,7 +39,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // Demo mode: check localStorage
         const savedUser = localStorage.getItem('dinedate-user');
         if (savedUser) {
-          setUser(JSON.parse(savedUser));
+          try {
+            setUser(JSON.parse(savedUser));
+          } catch (e) {
+            console.error('Error parsing saved user', e);
+            localStorage.removeItem('dinedate-user');
+          }
         }
         setIsLoading(false);
         return;
@@ -104,7 +108,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const isAuthRoute = authRoutes.includes(pathname);
 
-    // Check if route starts with /user/ (profile) or /request/ (request detail)
+    // Check if route starts with public prefixes
     const isPublicProfile = pathname.startsWith('/user/');
     const isPublicReview = pathname.startsWith('/reviews/');
     const isPublicRequest = pathname.startsWith('/request/');
@@ -120,22 +124,36 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [user, isLoading, pathname, router]);
 
   const login = async (email: string, password: string): Promise<{ error?: string }> => {
+    // 1. DEMO MODE LOGIC
     if (isDemoMode) {
-      // Demo mode: simple login
+      // Simulate network delay
+      await new Promise(resolve => setTimeout(resolve, 800));
+
+      // Generate a dynamic demo user based on the email provided
+      // instead of using a hardcoded static mock user.
       const demoUser: User = {
-        ...CURRENT_USER,
-        id: 'demo-user',
-        email,
-        name: email.split('@')[0],
+        id: `demo-${Date.now()}`,
+        name: email.split('@')[0] || 'User',
+        email: email,
+        age: 25,
+        avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${email}`,
+        bio: 'Đây là tài khoản demo.',
+        location: 'Việt Nam',
+        wallet: { balance: 1000000, escrowBalance: 0, currency: 'VND' },
+        vipStatus: { tier: 'free', benefits: [] },
+        onlineStatus: { isOnline: true, lastSeen: new Date().toISOString() },
+        isServiceProvider: false
       };
+
       setUser(demoUser);
       localStorage.setItem('dinedate-user', JSON.stringify(demoUser));
       router.push('/');
       return {};
     }
 
+    // 2. SUPABASE LOGIC
     if (!supabase) {
-      return { error: 'Supabase not configured' };
+      return { error: 'Kết nối máy chủ thất bại.' };
     }
 
     try {
@@ -145,7 +163,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       });
 
       if (error) {
-        return { error: error.message };
+        return { error: 'Email hoặc mật khẩu không chính xác' };
       }
 
       if (data.user) {
@@ -163,7 +181,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       return {};
     } catch (error) {
-      return { error: 'Đã có lỗi xảy ra' };
+      return { error: 'Đã có lỗi xảy ra khi đăng nhập' };
     }
   };
 
@@ -172,22 +190,32 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     password: string,
     name: string
   ): Promise<{ error?: string }> => {
+    // 1. DEMO MODE LOGIC
     if (isDemoMode) {
-      // Demo mode: simple register
+      await new Promise(resolve => setTimeout(resolve, 800));
+      
       const demoUser: User = {
-        ...CURRENT_USER,
-        id: 'demo-user-' + Date.now(),
-        email,
+        id: `demo-${Date.now()}`,
         name,
+        email,
+        age: 25,
+        avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${email}`,
+        bio: '',
+        location: 'Việt Nam',
+        wallet: { balance: 0, escrowBalance: 0, currency: 'VND' },
+        vipStatus: { tier: 'free', benefits: [] },
+        onlineStatus: { isOnline: true, lastSeen: new Date().toISOString() },
       };
+      
       setUser(demoUser);
       localStorage.setItem('dinedate-user', JSON.stringify(demoUser));
       router.push('/');
       return {};
     }
 
+    // 2. SUPABASE LOGIC
     if (!supabase) {
-      return { error: 'Supabase not configured' };
+      return { error: 'Kết nối máy chủ thất bại.' };
     }
 
     try {
@@ -204,7 +232,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       if (data.user) {
-        // Create user profile
         const newUser: Partial<User> = {
           id: data.user.id,
           name,
@@ -224,7 +251,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       return {};
     } catch (error) {
-      return { error: 'Đã có lỗi xảy ra' };
+      return { error: 'Đã có lỗi xảy ra khi đăng ký' };
     }
   };
 

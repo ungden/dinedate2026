@@ -4,7 +4,6 @@ import { useMemo, useState } from 'react';
 import { motion } from '@/lib/motion';
 import { Search, Sparkles } from 'lucide-react';
 import { useDateStore } from '@/hooks/useDateStore';
-import { cn } from '@/lib/utils';
 import PartnerCard from '@/components/PartnerCard';
 import BackToTop from '@/components/BackToTop';
 
@@ -71,7 +70,7 @@ export default function HomeClient() {
             </motion.div>
           ))
         ) : (
-          <div className="py-20 text-center bg-white rounded-[32px] shadow-soft border border-gray-50">
+          <div className="py-20 text-center bg-white rounded-[32px] shadow-[var(--shadow-soft)] border border-gray-50">
             <div className="text-6xl mb-4">🔍</div>
             <h3 className="text-lg font-black text-gray-900">Không có kết quả</h3>
             <p className="text-gray-400 text-sm mt-1">

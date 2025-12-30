@@ -8,6 +8,7 @@ import { useDateStore } from '@/hooks/useDateStore';
 import { ActivityType } from '@/types';
 import DateRequestCard from '@/components/DateRequestCard';
 import ActivityFilter from '@/components/ActivityFilter';
+import BackToTop from '@/components/BackToTop';
 
 export default function HomeClient() {
   const [selectedActivity, setSelectedActivity] = useState<ActivityType | undefined>();
@@ -17,8 +18,8 @@ export default function HomeClient() {
 
   return (
     <div className="space-y-8 pb-20 bg-mesh min-h-screen max-w-7xl mx-auto">
-      {/* 1. Category Bar - Responsive Container */}
-      <div className="sticky top-[60px] z-30 bg-white/80 backdrop-blur-xl border-b border-gray-100/50 py-4 -mx-4 px-4 sm:-mx-6 sm:px-6 lg:rounded-b-[32px] lg:shadow-soft">
+      {/* 1. Category Bar - Removed Sticky, keeping it static at the top */}
+      <div className="bg-white border-b border-gray-100/50 py-4 -mx-4 px-4 sm:-mx-6 sm:px-6 lg:rounded-b-[32px] lg:shadow-soft">
         <div className="max-w-7xl mx-auto">
             <ActivityFilter
                 selected={selectedActivity}
@@ -28,14 +29,13 @@ export default function HomeClient() {
       </div>
 
       <div className="space-y-8 px-2 md:px-4 lg:px-0">
-        {/* 2. Premium Hero Banner - Desktop Layout */}
+        {/* 2. Premium Hero Banner */}
         {!selectedActivity && (
             <Link href="/create-request">
                 <motion.div 
                     className="relative bg-gray-900 rounded-[32px] md:rounded-[40px] p-8 md:p-12 text-white shadow-2xl overflow-hidden group"
                     whileTap={{ scale: 0.98 }}
                 >
-                    {/* Abstract background elements */}
                     <div className="absolute -top-24 -right-24 w-80 h-80 bg-primary-500/20 rounded-full blur-[100px] group-hover:bg-primary-500/30 transition-colors duration-500" />
                     <div className="absolute -bottom-20 -left-20 w-64 h-64 bg-purple-500/10 rounded-full blur-[80px]" />
                     
@@ -75,7 +75,7 @@ export default function HomeClient() {
             )}
         </div>
 
-        {/* 4. The Feed - Grid Layout for Desktop */}
+        {/* 4. The Feed */}
         <AnimatePresence mode="popLayout">
             {requests.length > 0 ? (
                 <motion.div
@@ -109,6 +109,9 @@ export default function HomeClient() {
             )}
         </AnimatePresence>
       </div>
+
+      {/* Floating Action Button for scrolling back up */}
+      <BackToTop />
     </div>
   );
 }

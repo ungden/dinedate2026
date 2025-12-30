@@ -4,24 +4,12 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { MapPin, Star, Zap, Crown } from 'lucide-react';
 import { User } from '@/types';
-import { cn, formatCurrency, getVIPBadgeColor } from '@/lib/utils';
-
-function getBaseHourly(user: User) {
-  if (user.hourlyRate && user.hourlyRate > 0) return user.hourlyRate;
-
-  const minServicePrice =
-    user.services && user.services.length > 0
-      ? Math.min(...user.services.map((s) => s.price || 0).filter(Boolean))
-      : 0;
-
-  return minServicePrice || 0;
-}
+import { cn, getVIPBadgeColor } from '@/lib/utils';
 
 export default function PartnerCard({ partner, distance }: { partner: User; distance?: number }) {
   const isOnline = !!partner.onlineStatus?.isOnline;
   const isVip = partner.vipStatus?.tier && partner.vipStatus.tier !== 'free';
 
-  const baseHourly = getBaseHourly(partner);
   const imageSrc = partner.images?.[0] || partner.avatar;
 
   return (
@@ -84,14 +72,6 @@ export default function PartnerCard({ partner, distance }: { partner: User; dist
                     </span>
                   )}
                 </div>
-              </div>
-
-              <div className="text-right flex-shrink-0">
-                <p className="text-[11px] text-gray-400 font-black uppercase tracking-wider">Giá từ</p>
-                <p className="text-[18px] font-black text-gray-900 leading-none">
-                  {baseHourly > 0 ? formatCurrency(baseHourly) : '—'}
-                </p>
-                <p className="text-[11px] text-gray-500 font-bold">/giờ</p>
               </div>
             </div>
 

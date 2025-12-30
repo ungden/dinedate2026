@@ -142,7 +142,7 @@ export default function UserProfilePage() {
         <h3 className="text-lg font-semibold text-gray-900 mb-2">
           Không tìm thấy người dùng
         </h3>
-        <Link href="/members" className="text-primary-600 hover:underline">
+        <Link href="/" className="text-primary-600 hover:underline">
           Quay lại danh sách Partner
         </Link>
       </div>

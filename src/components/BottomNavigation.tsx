@@ -15,8 +15,8 @@ import { useAuth } from '@/contexts/AuthContext';
 import { cn } from '@/lib/utils';
 
 const navItems = [
-    { href: '/', label: 'Khám phá', icon: Compass },
-    { href: '/members', label: 'Partner', icon: Users },
+    { href: '/', label: 'Partner', icon: Users },
+    { href: '/discover', label: 'Khám phá', icon: Compass },
     { href: '/messages', label: 'Tin nhắn', icon: MessageCircle },
     { href: '/notifications', label: 'Thông báo', icon: BellRing },
     { href: '/profile', label: 'Cá nhân', icon: UserCircle2 },

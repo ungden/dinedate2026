@@ -1,7 +1,7 @@
-import HomeClient from '@/components/pages/HomeClient';
+import MembersClient from '@/components/pages/MembersClient';
 
 export const dynamic = 'force-dynamic';
 
 export default function HomePage() {
-  return <HomeClient />;
+  return <MembersClient />;
 }

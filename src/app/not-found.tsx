@@ -39,12 +39,12 @@ export default function NotFound() {
           </p>
           <ul className="text-sm text-gray-500 space-y-2">
             <li>
-              <Link href="/" className="hover:text-primary-600 transition-colors">
+              <Link href="/discover" className="hover:text-primary-600 transition-colors">
                 Khám phá các lời mời hẹn
               </Link>
             </li>
             <li>
-              <Link href="/members" className="hover:text-primary-600 transition-colors">
+              <Link href="/" className="hover:text-primary-600 transition-colors">
                 Tìm kiếm thành viên
               </Link>
             </li>

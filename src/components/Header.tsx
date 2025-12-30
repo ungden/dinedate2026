@@ -25,8 +25,8 @@ export default function Header() {
   ).length;
 
   const navLinks = [
-    { href: '/', label: 'Khám phá', icon: Compass },
-    { href: '/members', label: 'Partner', icon: Users },
+    { href: '/', label: 'Partner', icon: Users },
+    { href: '/discover', label: 'Khám phá', icon: Compass },
     { href: '/messages', label: 'Tin nhắn', icon: MessageCircle, badge: unreadMessages },
   ];
 

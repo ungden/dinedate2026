@@ -3,11 +3,10 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeft, Calendar, Clock, MapPin, Users, Wallet } from 'lucide-react';
+import { ArrowLeft, Calendar, Clock, MapPin, Wallet } from 'lucide-react';
 import { useDateStore } from '@/hooks/useDateStore';
 import { ActivityType, HiringAmount } from '@/types';
 import {
-  formatCurrency,
   getActivityIcon,
   getActivityLabel,
   cn,
@@ -88,7 +87,6 @@ export default function CreateRequestClient() {
     date: '',
     time: '19:00',
     hiringAmount: 0 as HiringAmount,
-    maxParticipants: 2,
   });
 
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -124,7 +122,7 @@ export default function CreateRequestClient() {
       time: formData.time,
       hiringAmount: formData.hiringAmount,
       hiringOption: `tier${hiringOptions.findIndex((h) => h.amount === formData.hiringAmount)}`,
-      maxParticipants: formData.maxParticipants,
+      maxParticipants: 2, // Hardcode 1-1 match (Owner + 1 Guest)
     });
 
     router.push('/');
@@ -329,44 +327,7 @@ export default function CreateRequestClient() {
           </div>
         </div>
 
-        {/* Max Participants */}
-        <div className="bg-white rounded-2xl border border-gray-100 p-6">
-          <div className="flex items-center gap-2 mb-4">
-            <Users className="w-5 h-5 text-primary-500" />
-            <h2 className="text-lg font-semibold text-gray-900">
-              Số người tham gia tối đa
-            </h2>
-          </div>
-          <div className="flex items-center gap-4">
-            <button
-              type="button"
-              onClick={() =>
-                setFormData({
-                  ...formData,
-                  maxParticipants: Math.max(2, formData.maxParticipants - 1),
-                })
-              }
-              className="w-12 h-12 rounded-xl bg-gray-100 text-gray-600 font-bold text-xl hover:bg-gray-200 transition"
-            >
-              -
-            </button>
-            <span className="text-2xl font-bold text-gray-900 w-12 text-center">
-              {formData.maxParticipants}
-            </span>
-            <button
-              type="button"
-              onClick={() =>
-                setFormData({
-                  ...formData,
-                  maxParticipants: Math.min(10, formData.maxParticipants + 1),
-                })
-              }
-              className="w-12 h-12 rounded-xl bg-gray-100 text-gray-600 font-bold text-xl hover:bg-gray-200 transition"
-            >
-              +
-            </button>
-          </div>
-        </div>
+        {/* Removed "Max Participants" Section */}
 
         {/* Submit */}
         <button

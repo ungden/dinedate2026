@@ -3,7 +3,7 @@
 import Image from 'next/image';
 import Link from 'next/link';
 import { motion } from '@/lib/motion';
-import { Calendar, Clock, MapPin, Users, Heart } from 'lucide-react';
+import { Calendar, Clock, MapPin, Users, Heart, Sparkles } from 'lucide-react';
 import { DateRequest } from '@/types';
 import {
   formatCurrency,
@@ -51,10 +51,13 @@ export default function DateRequestCard({ request }: { request: DateRequest }) {
                 <span className="px-2 py-1 bg-primary-500 text-white text-[10px] font-black uppercase rounded-lg shadow-sm">
                     {getActivityLabel(request.activity)}
                 </span>
-                <div className="flex items-center gap-1.5 px-2 py-1 bg-white/20 backdrop-blur-md rounded-lg text-white text-[10px] font-bold">
-                    <Users className="w-3 h-3" />
-                    {request.currentParticipants}/{request.maxParticipants}
-                </div>
+                {/* Thay thế hiển thị số lượng 1/3 bằng trạng thái */}
+                {request.status === 'active' && (
+                    <div className="flex items-center gap-1.5 px-2 py-1 bg-green-500/80 backdrop-blur-md rounded-lg text-white text-[10px] font-bold">
+                        <Sparkles className="w-3 h-3" />
+                        Đang tìm người
+                    </div>
+                )}
              </div>
              <h3 className="text-white font-bold text-[18px] leading-tight drop-shadow-md">
                 {request.title}

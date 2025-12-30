@@ -9,7 +9,6 @@ import {
   Calendar,
   Clock,
   MapPin,
-  Users,
   Wallet,
   Send,
   Trash2,
@@ -197,22 +196,14 @@ export default function RequestDetailPage() {
                 <p className="font-semibold text-gray-900">{request.time}</p>
               </div>
             </div>
-            <div className="flex items-center gap-3 p-4 bg-gray-50 rounded-xl">
+            <div className="col-span-2 flex items-center gap-3 p-4 bg-gray-50 rounded-xl">
               <MapPin className="w-6 h-6 text-primary-500" />
               <div>
                 <p className="text-sm text-gray-500">Địa điểm</p>
                 <p className="font-semibold text-gray-900">{request.location}</p>
               </div>
             </div>
-            <div className="flex items-center gap-3 p-4 bg-gray-50 rounded-xl">
-              <Users className="w-6 h-6 text-primary-500" />
-              <div>
-                <p className="text-sm text-gray-500">Số người</p>
-                <p className="font-semibold text-gray-900">
-                  {request.currentParticipants}/{request.maxParticipants}
-                </p>
-              </div>
-            </div>
+            {/* Removed 'Số người' Grid Item */}
           </div>
 
           {/* Hiring Amount */}

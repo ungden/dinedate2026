@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
@@ -9,7 +9,6 @@ import {
   ArrowLeft,
   MapPin,
   Star,
-  MessageCircle,
   Calendar,
   Clock,
   Heart,
@@ -23,7 +22,6 @@ import {
   Check,
   Crown,
   X,
-  Sparkles,
 } from 'lucide-react';
 import { useDateStore } from '@/hooks/useDateStore';
 import {
@@ -55,20 +53,14 @@ export default function UserProfilePage() {
   });
   const [authModal, setAuthModal] = useState<{
     isOpen: boolean;
-    actionType: 'book' | 'chat' | 'like' | 'generic';
+    actionType: 'book' | 'like' | 'generic';
   }>({
     isOpen: false,
     actionType: 'generic',
   });
 
-  const {
-    getUserById,
-    getUserAverageRating,
-    getUserReviews,
-    createBooking,
-    currentUser,
-    getOrCreateConversationWithUser,
-  } = useDateStore();
+  const { getUserById, getUserAverageRating, getUserReviews, createBooking, currentUser } =
+    useDateStore();
 
   const { user: authUser } = useAuth();
 
@@ -89,16 +81,6 @@ export default function UserProfilePage() {
     if (images && images.length > 1) {
       setCurrentImageIndex((prev) => (prev - 1 + images.length) % images.length);
     }
-  };
-
-  const openChatWithUser = () => {
-    if (!authUser) {
-      setAuthModal({ isOpen: true, actionType: 'chat' });
-      return;
-    }
-    const conversationId = getOrCreateConversationWithUser(userId);
-    if (!conversationId) return;
-    router.push(`/chat/${conversationId}`);
   };
 
   const handleBook = () => {
@@ -289,35 +271,6 @@ export default function UserProfilePage() {
           </motion.div>
         )}
 
-        {/* 1-1 CTA */}
-        {!isCurrentUser && (
-          <motion.div
-            className="bg-white rounded-2xl border border-gray-100 p-4 flex items-center justify-between gap-3"
-            initial={{ opacity: 0, y: 16 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.12 }}
-          >
-            <div className="min-w-0">
-              <p className="text-[11px] font-black text-gray-400 uppercase tracking-[0.2em]">
-                Hẹn 1-1
-              </p>
-              <p className="text-[15px] font-black text-gray-900 truncate mt-1">
-                Gửi đề nghị và chat riêng ngay
-              </p>
-              <p className="text-[12px] text-gray-500 truncate mt-0.5">
-                Nếu muốn đi nhóm, hai bạn sẽ tự rủ thêm người sau
-              </p>
-            </div>
-            <button
-              onClick={openChatWithUser}
-              className="px-4 py-3 rounded-2xl bg-gradient-primary text-white font-black shadow-primary tap-highlight flex items-center gap-2 flex-shrink-0"
-            >
-              <Sparkles className="w-5 h-5" />
-              <span>Đề nghị</span>
-            </button>
-          </motion.div>
-        )}
-
         {/* Quick Info Cards */}
         <motion.div
           className="grid grid-cols-2 sm:grid-cols-4 gap-3"
@@ -381,7 +334,7 @@ export default function UserProfilePage() {
                   key={tag}
                   className="px-3 py-1.5 bg-primary-50 text-primary-700 rounded-full text-sm font-medium"
                 >
-                  {PERSONALITY_TAG_LABEL_LABELS[tag] ?? PERSONALITY_TAG_LABELS[tag]}
+                  {PERSONALITY_TAG_LABELS[tag]}
                 </span>
               ))}
             </div>
@@ -532,7 +485,7 @@ export default function UserProfilePage() {
         )}
       </div>
 
-      {/* Sticky Booking Button */}
+      {/* Sticky Booking Button (booking-only) */}
       {!isCurrentUser && user.services && user.services.length > 0 && (
         <motion.div
           className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-100 p-4 z-40"
@@ -540,16 +493,10 @@ export default function UserProfilePage() {
           animate={{ y: 0 }}
           transition={{ delay: 0.5 }}
         >
-          <div className="max-w-4xl mx-auto flex items-center gap-4">
-            <button
-              onClick={openChatWithUser}
-              className="w-14 h-14 bg-gray-100 rounded-xl flex items-center justify-center hover:bg-gray-200 transition"
-            >
-              <MessageCircle className="w-6 h-6 text-gray-600" />
-            </button>
+          <div className="max-w-4xl mx-auto">
             <button
               onClick={() => setSelectedService(user.services![0])}
-              className="flex-1 py-4 bg-gradient-to-r from-primary-500 to-purple-500 text-white rounded-xl font-bold text-lg shadow-lg shadow-primary-500/30 hover:opacity-90 transition"
+              className="w-full py-4 bg-gradient-to-r from-primary-500 to-purple-500 text-white rounded-xl font-bold text-lg shadow-lg shadow-primary-500/30 hover:opacity-90 transition"
             >
               Đặt lịch ngay - {formatCurrency(user.hourlyRate || user.services[0].price)}/h
             </button>
@@ -741,5 +688,3 @@ export default function UserProfilePage() {
     </div>
   );
 }
-
-const PERSONALITY_TAG_LABEL_LABELS: Record<string, string> = {};

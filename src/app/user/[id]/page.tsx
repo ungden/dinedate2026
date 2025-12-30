@@ -1,55 +1,84 @@
 'use client';
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from '@/lib/motion';
 import {
   ArrowLeft,
-  MapPin,
-  Star,
-  Calendar,
-  Clock,
   Heart,
   Share2,
-  ChevronLeft,
-  ChevronRight,
-  Ruler,
-  Briefcase,
-  Shield,
-  AlertTriangle,
-  Check,
-  Crown,
+  MapPin,
+  Star,
+  ShieldCheck,
+  BadgeCheck,
+  Wallet,
+  Calendar,
+  Clock,
   X,
 } from 'lucide-react';
 import { useDateStore } from '@/hooks/useDateStore';
-import {
-  formatCurrency,
-  getActivityIcon,
-  getActivityLabel,
-  getVIPBadgeColor,
-  formatRelativeTime,
-  cn,
-} from '@/lib/utils';
-import { ServiceOffering, ZODIAC_LABELS, PERSONALITY_TAG_LABELS } from '@/types';
-import AuthModal from '@/components/AuthModal';
+import { cn, formatCurrency, formatRelativeTime, getVIPBadgeColor, getActivityIcon, getActivityLabel } from '@/lib/utils';
+import { ServiceOffering } from '@/types';
 import { useAuth } from '@/contexts/AuthContext';
+import AuthModal from '@/components/AuthModal';
+
+type PackageKey = '3h' | '5h' | '1d';
+
+const PACKAGES: { key: PackageKey; label: string; hours: number }[] = [
+  { key: '3h', label: '3 giờ', hours: 3 },
+  { key: '5h', label: '5 giờ', hours: 5 },
+  { key: '1d', label: '1 ngày', hours: 10 },
+];
+
+function getBaseHourlyPrice(userHourlyRate?: number, servicePrice?: number) {
+  return userHourlyRate && userHourlyRate > 0 ? userHourlyRate : servicePrice || 0;
+}
+
+function calcTotal(baseHourly: number, hours: number) {
+  const subTotal = baseHourly * hours;
+  const platformFee = Math.round(subTotal * 0.1);
+  return { subTotal, platformFee, total: subTotal + platformFee };
+}
 
 export default function UserProfilePage() {
   const params = useParams();
   const router = useRouter();
   const userId = params.id as string;
 
-  const [currentImageIndex, setCurrentImageIndex] = useState(0);
-  const [selectedService, setSelectedService] = useState<ServiceOffering | null>(null);
-  const [bookingHours, setBookingHours] = useState(2);
+  const { user: authUser } = useAuth();
+  const { getUserById, getUserReviews, getUserAverageRating, createBooking, currentUser } =
+    useDateStore();
+
+  const user = getUserById(userId);
+  const reviews = getUserReviews(userId);
+  const rating = user?.rating || getUserAverageRating(userId);
+
+  const isCurrentUser = !!user && user.id === currentUser.id;
+
+  const services = useMemo(() => {
+    const list = user?.services || [];
+    return list.filter((s) => s.available);
+  }, [user?.services]);
+
+  const [selectedServiceId, setSelectedServiceId] = useState<string | null>(null);
+  const [selectedPackage, setSelectedPackage] = useState<PackageKey>('3h');
+
+  const selectedService: ServiceOffering | null =
+    services.find((s) => s.id === selectedServiceId) || null;
+
+  const baseHourly = getBaseHourlyPrice(user?.hourlyRate, selectedService?.price);
+  const packageHours = PACKAGES.find((p) => p.key === selectedPackage)?.hours || 3;
+  const pricing = calcTotal(baseHourly, packageHours);
+
   const [bookingForm, setBookingForm] = useState({
     date: '',
     time: '19:00',
     location: '',
     message: '',
   });
+
   const [authModal, setAuthModal] = useState<{
     isOpen: boolean;
     actionType: 'book' | 'like' | 'generic';
@@ -58,71 +87,11 @@ export default function UserProfilePage() {
     actionType: 'generic',
   });
 
-  const { getUserById, getUserAverageRating, getUserReviews, createBooking, currentUser } =
-    useDateStore();
-
-  const { user: authUser } = useAuth();
-
-  const user = getUserById(userId);
-  const rating = user?.rating || getUserAverageRating(userId);
-  const reviews = getUserReviews(userId);
-  const images = user?.images || [user?.avatar];
-
-  const isCurrentUser = !!user && user.id === currentUser.id;
-
-  const nextImage = () => {
-    if (images && images.length > 1) {
-      setCurrentImageIndex((prev) => (prev + 1) % images.length);
-    }
-  };
-
-  const prevImage = () => {
-    if (images && images.length > 1) {
-      setCurrentImageIndex((prev) => (prev - 1 + images.length) % images.length);
-    }
-  };
-
-  const handleBook = () => {
-    if (!authUser) {
-      setAuthModal({ isOpen: true, actionType: 'book' });
-      return;
-    }
-
-    if (!selectedService || !bookingForm.date || !bookingForm.location) return;
-
-    createBooking(
-      userId,
-      selectedService.id,
-      bookingForm.date,
-      bookingForm.time,
-      bookingForm.location,
-      bookingForm.message
-    );
-
-    setSelectedService(null);
-    setBookingForm({ date: '', time: '19:00', location: '', message: '' });
-    alert('Đã gửi yêu cầu booking thành công! 🎉');
-  };
-
-  const totalCost = selectedService
-    ? (user?.hourlyRate || selectedService.price) * bookingHours
-    : 0;
-
-  const platformFee = Math.round(totalCost * 0.1);
-
   if (!user) {
     return (
-      <div className="text-center py-12">
-        <motion.div
-          className="text-6xl mb-4"
-          animate={{ scale: [1, 1.1, 1] }}
-          transition={{ duration: 2, repeat: Infinity }}
-        >
-          😢
-        </motion.div>
-        <h3 className="text-lg font-semibold text-gray-900 mb-2">
-          Không tìm thấy người dùng
-        </h3>
+      <div className="text-center py-16">
+        <div className="text-6xl mb-4">😢</div>
+        <h3 className="text-lg font-semibold text-gray-900 mb-2">Không tìm thấy người dùng</h3>
         <Link href="/" className="text-primary-600 hover:underline">
           Quay lại danh sách Partner
         </Link>
@@ -130,550 +99,463 @@ export default function UserProfilePage() {
     );
   }
 
+  const coverImage = user.images?.[0] || user.avatar;
+
+  const openBookingForService = (serviceId: string) => {
+    if (isCurrentUser) return;
+    setSelectedServiceId(serviceId);
+    setSelectedPackage('3h');
+    setBookingForm({ date: '', time: '19:00', location: '', message: '' });
+  };
+
+  const handleBook = () => {
+    if (!authUser) {
+      setAuthModal({ isOpen: true, actionType: 'book' });
+      return;
+    }
+    if (!selectedServiceId || !selectedService) return;
+    if (!bookingForm.date || !bookingForm.location) return;
+
+    createBooking(
+      userId,
+      selectedServiceId,
+      bookingForm.date,
+      bookingForm.time,
+      bookingForm.location,
+      bookingForm.message
+    );
+
+    setSelectedServiceId(null);
+    alert('Đã gửi yêu cầu booking thành công! 🎉');
+  };
+
   return (
-    <div className="max-w-4xl mx-auto pb-24">
-      {/* Floating Back Button */}
-      <motion.button
-        onClick={() => router.back()}
-        className="fixed top-20 left-4 z-30 w-10 h-10 bg-white/90 backdrop-blur-sm rounded-full shadow-lg flex items-center justify-center"
-        whileHover={{ scale: 1.1 }}
-        whileTap={{ scale: 0.9 }}
-      >
-        <ArrowLeft className="w-5 h-5" />
-      </motion.button>
-
-      {/* Media Gallery */}
-      <div className="relative aspect-[3/4] md:aspect-[16/9] mb-6 rounded-b-3xl overflow-hidden">
-        <AnimatePresence mode="wait">
-          <motion.div
-            key={currentImageIndex}
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.3 }}
-            className="absolute inset-0"
-          >
-            <Image
-              src={images?.[currentImageIndex] || user.avatar}
-              alt={user.name}
-              fill
-              className="object-cover"
-              priority
-            />
-          </motion.div>
-        </AnimatePresence>
-
-        <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-black/20" />
-
-        {images && images.length > 1 && (
-          <>
-            <button
-              onClick={prevImage}
-              className="absolute left-4 top-1/2 -translate-y-1/2 w-10 h-10 bg-white/30 backdrop-blur-sm rounded-full flex items-center justify-center hover:bg-white/50 transition"
-            >
-              <ChevronLeft className="w-6 h-6 text-white" />
-            </button>
-            <button
-              onClick={nextImage}
-              className="absolute right-4 top-1/2 -translate-y-1/2 w-10 h-10 bg-white/30 backdrop-blur-sm rounded-full flex items-center justify-center hover:bg-white/50 transition"
-            >
-              <ChevronRight className="w-6 h-6 text-white" />
-            </button>
-
-            <div className="absolute bottom-24 left-1/2 -translate-x-1/2 flex gap-2">
-              {images.map((_, idx) => (
-                <button
-                  key={idx}
-                  onClick={() => setCurrentImageIndex(idx)}
-                  className={cn(
-                    'w-2 h-2 rounded-full transition-all',
-                    idx === currentImageIndex ? 'w-6 bg-white' : 'bg-white/50 hover:bg-white/70'
-                  )}
-                />
-              ))}
-            </div>
-          </>
-        )}
-
-        <div className="absolute top-4 right-4 flex gap-2">
-          <motion.button
-            className="w-10 h-10 bg-white/30 backdrop-blur-sm rounded-full flex items-center justify-center p-2 hover:bg-white/40 transition"
-            whileHover={{ scale: 1.1 }}
-            whileTap={{ scale: 0.9 }}
-            onClick={() => !authUser && setAuthModal({ isOpen: true, actionType: 'like' })}
-          >
-            <Heart className="w-5 h-5 text-white" />
-          </motion.button>
-          <motion.button
-            className="w-10 h-10 bg-white/30 backdrop-blur-sm rounded-full flex items-center justify-center p-2 hover:bg-white/40 transition"
-            whileHover={{ scale: 1.1 }}
-            whileTap={{ scale: 0.9 }}
-          >
-            <Share2 className="w-5 h-5 text-white" />
-          </motion.button>
+    <div className="max-w-4xl mx-auto pb-28">
+      {/* Top media */}
+      <div className="relative">
+        <div className="relative aspect-[3/4] md:aspect-[16/9] overflow-hidden rounded-b-[28px]">
+          <Image src={coverImage} alt={user.name} fill className="object-cover" priority />
+          <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-black/10" />
         </div>
 
-        {user.vipStatus.tier !== 'free' && (
-          <div
-            className={cn(
-              'absolute top-4 left-4 flex items-center gap-1.5 px-3 py-1.5 rounded-full',
-              getVIPBadgeColor(user.vipStatus.tier)
-            )}
+        {/* Top controls */}
+        <div className="absolute top-4 left-4 right-4 flex items-center justify-between">
+          <button
+            onClick={() => router.back()}
+            className="w-10 h-10 bg-white/90 backdrop-blur-sm rounded-full shadow flex items-center justify-center"
+            aria-label="Quay lại"
           >
-            <Crown className="w-4 h-4 text-white" />
-            <span className="text-white text-sm font-semibold capitalize">
-              {user.vipStatus.tier}
-            </span>
-          </div>
-        )}
+            <ArrowLeft className="w-5 h-5 text-gray-800" />
+          </button>
 
-        <div className="absolute bottom-4 left-4 right-4">
-          <div className="flex items-end justify-between">
-            <div>
-              <h1 className="text-3xl font-bold text-white mb-1">
-                {user.name},{' '}
-                {user.birthYear ? new Date().getFullYear() - user.birthYear : user.age}
-              </h1>
-              <div className="flex items-center gap-3 text-white/90">
-                <div className="flex items-center gap-1">
-                  <MapPin className="w-4 h-4" />
-                  <span>{user.location}</span>
-                </div>
-                {rating > 0 && (
-                  <div className="flex items-center gap-1">
-                    <Star className="w-4 h-4 fill-yellow-400 text-yellow-400" />
-                    <span className="font-semibold">{rating.toFixed(1)}</span>
-                    <span className="text-white/70">({user.reviewCount || reviews.length})</span>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => !authUser && setAuthModal({ isOpen: true, actionType: 'like' })}
+              className="w-10 h-10 bg-white/90 backdrop-blur-sm rounded-full shadow flex items-center justify-center"
+              aria-label="Yêu thích"
+            >
+              <Heart className="w-5 h-5 text-gray-800" />
+            </button>
+            <button
+              className="w-10 h-10 bg-white/90 backdrop-blur-sm rounded-full shadow flex items-center justify-center"
+              aria-label="Chia sẻ"
+            >
+              <Share2 className="w-5 h-5 text-gray-800" />
+            </button>
+          </div>
+        </div>
+
+        {/* Main info card */}
+        <div className="-mt-10 px-4 relative z-10">
+          <div className="bg-white rounded-[28px] shadow-soft border border-gray-100 p-5">
+            <div className="flex items-start gap-4">
+              <div className="relative w-16 h-16 rounded-2xl overflow-hidden ring-2 ring-white shadow-sm flex-shrink-0">
+                <Image src={user.avatar} alt={user.name} fill className="object-cover" />
+              </div>
+
+              <div className="min-w-0 flex-1">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <h1 className="text-[22px] font-black text-gray-900 truncate">{user.name}</h1>
+                    <div className="flex flex-wrap items-center gap-2 mt-1 text-sm text-gray-500">
+                      <span className="inline-flex items-center gap-1">
+                        <MapPin className="w-4 h-4 text-primary-500" />
+                        <span className="truncate max-w-[220px]">{user.location}</span>
+                      </span>
+                      <span className="text-gray-300">•</span>
+                      <span className="inline-flex items-center gap-1">
+                        <Star className="w-4 h-4 text-yellow-500 fill-yellow-500" />
+                        <span className="font-bold text-yellow-700">{rating ? rating.toFixed(1) : '0.0'}</span>
+                        <span className="text-gray-400">({user.reviewCount || reviews.length} đánh giá)</span>
+                      </span>
+                    </div>
                   </div>
+
+                  {user.vipStatus.tier !== 'free' && (
+                    <span
+                      className={cn(
+                        'px-2.5 py-1 rounded-xl text-[11px] font-black text-white uppercase tracking-tight flex-shrink-0',
+                        getVIPBadgeColor(user.vipStatus.tier)
+                      )}
+                    >
+                      {user.vipStatus.tier}
+                    </span>
+                  )}
+                </div>
+
+                {user.bio ? (
+                  <p className="text-[14px] text-gray-600 mt-3 line-clamp-2">{user.bio}</p>
+                ) : (
+                  <p className="text-[14px] text-gray-400 mt-3 italic">Chưa có mô tả.</p>
                 )}
               </div>
             </div>
 
-            {user.onlineStatus?.isOnline && (
-              <div className="flex items-center gap-1.5 px-3 py-1.5 bg-green-500/90 rounded-full">
-                <span className="w-2 h-2 bg-white rounded-full animate-pulse" />
-                <span className="text-white text-sm font-medium">Đang rảnh</span>
+            {/* Trust badges */}
+            <div className="mt-4 bg-green-50 border border-green-100 rounded-2xl p-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
+                <div className="flex items-start gap-2">
+                  <div className="w-9 h-9 rounded-xl bg-green-100 flex items-center justify-center flex-shrink-0">
+                    <ShieldCheck className="w-5 h-5 text-green-700" />
+                  </div>
+                  <div>
+                    <p className="font-bold text-green-900">Giao dịch qua ví</p>
+                    <p className="text-green-800/80 text-[13px] leading-snug">
+                      Thanh toán giữ trong escrow, an toàn hơn
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-start gap-2">
+                  <div className="w-9 h-9 rounded-xl bg-green-100 flex items-center justify-center flex-shrink-0">
+                    <BadgeCheck className="w-5 h-5 text-green-700" />
+                  </div>
+                  <div>
+                    <p className="font-bold text-green-900">Rõ ràng gói cước</p>
+                    <p className="text-green-800/80 text-[13px] leading-snug">
+                      Chọn combo 3 giờ, 5 giờ, 1 ngày kèm giá
+                    </p>
+                  </div>
+                </div>
               </div>
-            )}
+            </div>
+
+            {/* Small meta row */}
+            <div className="mt-4 flex flex-wrap items-center gap-3 text-xs text-gray-500">
+              {user.onlineStatus?.isOnline ? (
+                <span className="inline-flex items-center gap-2 px-3 py-1.5 bg-green-50 text-green-700 rounded-full font-bold">
+                  <span className="w-2 h-2 bg-green-600 rounded-full animate-pulse" />
+                  Đang hoạt động
+                </span>
+              ) : (
+                <span className="inline-flex items-center gap-2 px-3 py-1.5 bg-gray-100 text-gray-600 rounded-full font-bold">
+                  Hoạt động {user.onlineStatus?.lastSeen ? formatRelativeTime(user.onlineStatus.lastSeen) : 'gần đây'}
+                </span>
+              )}
+
+              {user.hourlyRate ? (
+                <span className="inline-flex items-center gap-2 px-3 py-1.5 bg-primary-50 text-primary-700 rounded-full font-black">
+                  <Wallet className="w-4 h-4" />
+                  {formatCurrency(user.hourlyRate)}/giờ
+                </span>
+              ) : null}
+            </div>
           </div>
         </div>
       </div>
 
-      <div className="px-4 space-y-6">
-        {/* Quick Info Cards */}
-        <motion.div
-          className="grid grid-cols-2 sm:grid-cols-4 gap-3"
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.15 }}
-        >
-          {user.height && (
-            <div className="bg-white rounded-xl p-3 border border-gray-100 text-center">
-              <Ruler className="w-5 h-5 text-primary-500 mx-auto mb-1" />
-              <p className="text-sm text-gray-500">Chiều cao</p>
-              <p className="font-semibold text-gray-900">{user.height} cm</p>
-            </div>
-          )}
-          {user.zodiac && (
-            <div className="bg-white rounded-xl p-3 border border-gray-100 text-center">
-              <span className="text-2xl">{ZODIAC_LABELS[user.zodiac]?.split(' ')[0]}</span>
-              <p className="text-sm text-gray-500">Cung hoàng đạo</p>
-              <p className="font-semibold text-gray-900">{ZODIAC_LABELS[user.zodiac]?.split(' ')[1]}</p>
-            </div>
-          )}
-          {user.occupation && (
-            <div className="bg-white rounded-xl p-3 border border-gray-100 text-center">
-              <Briefcase className="w-5 h-5 text-primary-500 mx-auto mb-1" />
-              <p className="text-sm text-gray-500">Nghề nghiệp</p>
-              <p className="font-semibold text-gray-900 truncate">{user.occupation}</p>
-            </div>
-          )}
-          {user.hourlyRate && (
-            <div className="bg-gradient-to-br from-primary-500 to-purple-500 rounded-xl p-3 text-center text-white">
-              <Clock className="w-5 h-5 mx-auto mb-1" />
-              <p className="text-sm text-white/80">Giá thuê</p>
-              <p className="font-bold">{formatCurrency(user.hourlyRate)}/h</p>
-            </div>
-          )}
-        </motion.div>
+      {/* Services */}
+      <div className="px-4 mt-6 space-y-4">
+        <div className="flex items-center justify-between">
+          <h2 className="text-[18px] font-black text-gray-900">Dịch vụ của tôi</h2>
+          <span className="text-[12px] font-bold text-gray-400">
+            {services.length} dịch vụ
+          </span>
+        </div>
 
-        {/* Bio */}
-        <motion.div
-          className="bg-white rounded-2xl p-5 border border-gray-100"
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.2 }}
-        >
-          <h2 className="font-bold text-gray-900 mb-2">Giới thiệu</h2>
-          <p className="text-gray-600 leading-relaxed">{user.bio}</p>
-        </motion.div>
+        {services.length === 0 ? (
+          <div className="bg-white rounded-[28px] border border-gray-100 p-6 text-center">
+            <div className="text-5xl mb-3">🧾</div>
+            <p className="font-bold text-gray-900">Chưa có dịch vụ hiển thị</p>
+            <p className="text-sm text-gray-500 mt-1">Partner có thể bật “Có sẵn” trong mục Quản lý dịch vụ.</p>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {services.map((service) => {
+              const base = getBaseHourlyPrice(user.hourlyRate, service.price);
+              const selectedForThis = selectedServiceId === service.id;
 
-        {/* Personality Tags */}
-        {user.personalityTags && user.personalityTags.length > 0 && (
-          <motion.div
-            className="bg-white rounded-2xl p-5 border border-gray-100"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.25 }}
-          >
-            <h2 className="font-bold text-gray-900 mb-3">Tính cách</h2>
-            <div className="flex flex-wrap gap-2">
-              {user.personalityTags.map((tag) => (
-                <span
-                  key={tag}
-                  className="px-3 py-1.5 bg-primary-50 text-primary-700 rounded-full text-sm font-medium"
-                >
-                  {PERSONALITY_TAG_LABELS[tag]}
-                </span>
-              ))}
-            </div>
-          </motion.div>
-        )}
+              const price3h = calcTotal(base, 3).total;
+              const price5h = calcTotal(base, 5).total;
+              const price1d = calcTotal(base, 10).total;
 
-        {/* Restrictions */}
-        {user.restrictions && user.restrictions.length > 0 && (
-          <motion.div
-            className="bg-orange-50 rounded-2xl p-5 border border-orange-100"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.3 }}
-          >
-            <div className="flex items-center gap-2 mb-3">
-              <Shield className="w-5 h-5 text-orange-600" />
-              <h2 className="font-bold text-orange-900">Quy định riêng</h2>
-            </div>
-            <ul className="space-y-2">
-              {user.restrictions.map((restriction, idx) => (
-                <li
-                  key={idx}
-                  className="flex items-center gap-2 text-orange-800 text-sm"
-                >
-                  <AlertTriangle className="w-4 h-4 flex-shrink-0" />
-                  <span>{restriction}</span>
-                </li>
-              ))}
-            </ul>
-          </motion.div>
-        )}
+              return (
+                <div key={service.id} className="bg-white rounded-[28px] border border-gray-100 shadow-soft overflow-hidden">
+                  <div className="p-5">
+                    <div className="flex items-start gap-4">
+                      <div className="w-12 h-12 rounded-2xl bg-gray-100 flex items-center justify-center text-2xl flex-shrink-0">
+                        {getActivityIcon(service.activity)}
+                      </div>
 
-        {/* Services */}
-        {user.services && user.services.length > 0 && (
-          <motion.div
-            className="bg-white rounded-2xl p-5 border border-gray-100"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.35 }}
-          >
-            <h2 className="font-bold text-gray-900 mb-4">
-              Dịch vụ & Giá ({user.services.length})
-            </h2>
-            <div className="space-y-3">
-              {user.services.map((service) => (
-                <motion.div
-                  key={service.id}
-                  className={cn(
-                    'flex items-start gap-4 p-4 rounded-xl border-2 transition cursor-pointer',
-                    selectedService?.id === service.id
-                      ? 'border-primary-500 bg-primary-50'
-                      : 'border-gray-100 hover:border-primary-200 hover:bg-gray-50'
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0">
+                            <p className="text-[16px] font-black text-gray-900 truncate">{service.title}</p>
+                            <p className="text-[12px] text-gray-500 font-medium mt-0.5">
+                              {getActivityLabel(service.activity)}
+                            </p>
+                          </div>
+                          <div className="text-right flex-shrink-0">
+                            <p className="text-[12px] text-gray-400 font-bold">Từ</p>
+                            <p className="text-[18px] font-black text-gray-900 leading-none">
+                              {formatCurrency(base)}/giờ
+                            </p>
+                          </div>
+                        </div>
+
+                        {service.description ? (
+                          <p className="text-[13px] text-gray-600 mt-2 line-clamp-2">{service.description}</p>
+                        ) : null}
+
+                        {/* Package pills */}
+                        <div className="mt-4 flex flex-wrap gap-2">
+                          {[
+                            { key: '3h' as const, label: '3 giờ', price: price3h },
+                            { key: '5h' as const, label: '5 giờ', price: price5h },
+                            { key: '1d' as const, label: '1 ngày', price: price1d },
+                          ].map((p) => {
+                            const active = selectedForThis && selectedPackage === p.key;
+                            return (
+                              <button
+                                key={p.key}
+                                onClick={() => {
+                                  openBookingForService(service.id);
+                                  setSelectedPackage(p.key);
+                                }}
+                                className={cn(
+                                  'px-4 py-2 rounded-full border text-sm font-bold transition',
+                                  active
+                                    ? 'border-primary-500 bg-primary-50 text-primary-700'
+                                    : 'border-gray-200 bg-white text-gray-700 hover:bg-gray-50'
+                                )}
+                              >
+                                <span>{p.label}</span>
+                                <span className="text-gray-300 mx-2">•</span>
+                                <span className={cn(active ? 'text-primary-700' : 'text-gray-700')}>
+                                  {formatCurrency(p.price)}
+                                </span>
+                              </button>
+                            );
+                          })}
+                        </div>
+
+                        {/* Primary action */}
+                        <div className="mt-4 flex items-center justify-between gap-3">
+                          <div className="min-w-0">
+                            <p className="text-[12px] text-gray-400 font-bold">Tổng (đã gồm phí)</p>
+                            <p className="text-[20px] font-black text-primary-600 leading-none">
+                              {formatCurrency(
+                                selectedForThis
+                                  ? pricing.total
+                                  : price3h
+                              )}
+                            </p>
+                          </div>
+
+                          <button
+                            onClick={() => openBookingForService(service.id)}
+                            className="px-5 py-3 rounded-2xl bg-gradient-primary text-white font-black shadow-primary hover:opacity-90 transition flex items-center justify-center gap-2"
+                          >
+                            Đặt
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {selectedForThis && (
+                    <div className="px-5 pb-5 -mt-2">
+                      <div className="bg-gray-50 rounded-2xl p-4 border border-gray-100">
+                        <div className="grid grid-cols-2 gap-3">
+                          <div>
+                            <label className="text-xs font-black text-gray-500 uppercase tracking-wider">
+                              Ngày
+                            </label>
+                            <div className="mt-2 relative">
+                              <Calendar className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                              <input
+                                type="date"
+                                value={bookingForm.date}
+                                min={new Date().toISOString().split('T')[0]}
+                                onChange={(e) => setBookingForm({ ...bookingForm, date: e.target.value })}
+                                className="w-full pl-9 pr-3 py-2.5 rounded-xl bg-white border border-gray-200 focus:ring-2 focus:ring-primary-500/20 outline-none"
+                              />
+                            </div>
+                          </div>
+
+                          <div>
+                            <label className="text-xs font-black text-gray-500 uppercase tracking-wider">
+                              Giờ bắt đầu
+                            </label>
+                            <div className="mt-2 relative">
+                              <Clock className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                              <input
+                                type="time"
+                                value={bookingForm.time}
+                                onChange={(e) => setBookingForm({ ...bookingForm, time: e.target.value })}
+                                className="w-full pl-9 pr-3 py-2.5 rounded-xl bg-white border border-gray-200 focus:ring-2 focus:ring-primary-500/20 outline-none"
+                              />
+                            </div>
+                          </div>
+
+                          <div className="col-span-2">
+                            <label className="text-xs font-black text-gray-500 uppercase tracking-wider">
+                              Địa điểm
+                            </label>
+                            <input
+                              type="text"
+                              value={bookingForm.location}
+                              onChange={(e) => setBookingForm({ ...bookingForm, location: e.target.value })}
+                              placeholder="VD: Quán cafe ABC, Quận 1"
+                              className="mt-2 w-full px-3 py-2.5 rounded-xl bg-white border border-gray-200 focus:ring-2 focus:ring-primary-500/20 outline-none"
+                            />
+                          </div>
+
+                          <div className="col-span-2">
+                            <label className="text-xs font-black text-gray-500 uppercase tracking-wider">
+                              Lời nhắn (tuỳ chọn)
+                            </label>
+                            <textarea
+                              value={bookingForm.message}
+                              onChange={(e) => setBookingForm({ ...bookingForm, message: e.target.value })}
+                              placeholder="Ghi chú ngắn..."
+                              rows={2}
+                              className="mt-2 w-full px-3 py-2.5 rounded-xl bg-white border border-gray-200 focus:ring-2 focus:ring-primary-500/20 outline-none resize-none"
+                            />
+                          </div>
+                        </div>
+
+                        <div className="mt-4 bg-white rounded-xl border border-gray-100 p-3">
+                          <div className="flex items-center justify-between text-sm">
+                            <span className="text-gray-600 font-medium">
+                              Tạm tính ({formatCurrency(baseHourly)}/giờ × {packageHours} giờ)
+                            </span>
+                            <span className="font-black text-gray-900">{formatCurrency(pricing.subTotal)}</span>
+                          </div>
+                          <div className="flex items-center justify-between text-sm mt-1">
+                            <span className="text-gray-600 font-medium">Phí nền tảng (10%)</span>
+                            <span className="font-black text-gray-900">{formatCurrency(pricing.platformFee)}</span>
+                          </div>
+                          <div className="flex items-center justify-between mt-2 pt-2 border-t border-gray-100">
+                            <span className="font-black text-gray-900">Tổng</span>
+                            <span className="font-black text-primary-600 text-lg">{formatCurrency(pricing.total)}</span>
+                          </div>
+                        </div>
+
+                        <div className="mt-4 flex gap-3">
+                          <button
+                            onClick={() => setSelectedServiceId(null)}
+                            className="flex-1 py-3 rounded-xl bg-gray-100 text-gray-700 font-black hover:bg-gray-200 transition"
+                          >
+                            Đóng
+                          </button>
+                          <button
+                            onClick={handleBook}
+                            disabled={!bookingForm.date || !bookingForm.location}
+                            className={cn(
+                              'flex-1 py-3 rounded-xl font-black transition shadow-primary',
+                              bookingForm.date && bookingForm.location
+                                ? 'bg-gradient-primary text-white hover:opacity-90'
+                                : 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                            )}
+                          >
+                            Xác nhận đặt
+                          </button>
+                        </div>
+                      </div>
+                    </div>
                   )}
-                  onClick={() => !isCurrentUser && setSelectedService(service)}
-                  whileHover={{ scale: 1.01 }}
-                  whileTap={{ scale: 0.99 }}
-                >
-                  <div className="w-12 h-12 bg-gradient-to-br from-primary-100 to-purple-100 rounded-xl flex items-center justify-center text-2xl flex-shrink-0">
-                    {getActivityIcon(service.activity)}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <h3 className="font-semibold text-gray-900">
-                        {service.title}
-                      </h3>
-                      <span className="text-xs px-2 py-0.5 bg-gray-100 text-gray-600 rounded-full">
-                        {getActivityLabel(service.activity)}
-                      </span>
-                    </div>
-                    <p className="text-sm text-gray-600 mt-1">
-                      {service.description}
-                    </p>
-                  </div>
-                  <div className="text-right flex-shrink-0">
-                    <p className="font-bold text-lg text-primary-600">
-                      {formatCurrency(service.price)}
-                    </p>
-                    <div className="flex items-center gap-1 justify-end">
-                      {service.available ? (
-                        <>
-                          <Check className="w-3 h-3 text-green-500" />
-                          <span className="text-xs text-green-600">Có sẵn</span>
-                        </>
-                      ) : (
-                        <span className="text-xs text-gray-500">Tạm ngưng</span>
-                      )}
-                    </div>
-                  </div>
-                </motion.div>
-              ))}
-            </div>
-          </motion.div>
+                </div>
+              );
+            })}
+          </div>
         )}
 
-        {/* Reviews */}
-        {reviews.length > 0 && (
-          <motion.div
-            className="bg-white rounded-2xl p-5 border border-gray-100"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.4 }}
-          >
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="font-bold text-gray-900">Đánh giá ({reviews.length})</h2>
-              <Link
-                href={`/reviews/${userId}`}
-                className="text-primary-600 font-medium hover:underline text-sm"
-              >
-                Xem tất cả
-              </Link>
+        {/* Reviews - compact */}
+        <div className="pt-2">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-[16px] font-black text-gray-900">Đánh giá</h3>
+            <span className="text-[12px] text-gray-400 font-bold">{reviews.length} lượt</span>
+          </div>
+
+          {reviews.length === 0 ? (
+            <div className="bg-white rounded-[28px] border border-gray-100 p-6 text-center text-gray-500">
+              Chưa có đánh giá.
             </div>
-            <div className="space-y-4">
-              {reviews.slice(0, 3).map((review) => (
-                <div key={review.id} className="flex gap-3">
-                  <Image
-                    src={review.reviewer.avatar}
-                    alt={review.reviewer.name}
-                    width={40}
-                    height={40}
-                    className="rounded-full"
-                  />
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className="font-medium text-gray-900">
-                        {review.reviewer.name}
-                      </span>
-                      <div className="flex items-center gap-0.5">
+          ) : (
+            <div className="bg-white rounded-[28px] border border-gray-100 overflow-hidden">
+              <div className="divide-y divide-gray-100">
+                {reviews.slice(0, 3).map((r) => (
+                  <div key={r.id} className="p-4 flex gap-3">
+                    <Image
+                      src={r.reviewer.avatar}
+                      alt={r.reviewer.name}
+                      width={40}
+                      height={40}
+                      className="rounded-full object-cover"
+                    />
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between gap-3">
+                        <p className="font-bold text-gray-900 truncate">{r.reviewer.name}</p>
+                        <span className="text-xs text-gray-400 font-bold">{formatRelativeTime(r.createdAt)}</span>
+                      </div>
+                      <div className="flex items-center gap-1 mt-1">
                         {Array.from({ length: 5 }).map((_, i) => (
                           <Star
                             key={i}
                             className={cn(
                               'w-3.5 h-3.5',
-                              i < review.rating ? 'text-yellow-500 fill-current' : 'text-gray-300'
+                              i < r.rating ? 'text-yellow-500 fill-yellow-500' : 'text-gray-300'
                             )}
                           />
                         ))}
                       </div>
+                      <p className="text-sm text-gray-600 mt-2 line-clamp-2">{r.comment}</p>
                     </div>
-                    <p className="text-sm text-gray-600">{review.comment}</p>
-                    <p className="text-xs text-gray-400 mt-1">
-                      {formatRelativeTime(review.createdAt)}
-                    </p>
                   </div>
-                </div>
-              ))}
+                ))}
+              </div>
+
+              <div className="p-4 bg-gray-50 border-t border-gray-100">
+                <Link href="/reviews" className="text-primary-600 font-black text-sm hover:underline">
+                  Xem tất cả đánh giá
+                </Link>
+              </div>
             </div>
-          </motion.div>
-        )}
+          )}
+        </div>
       </div>
 
-      {/* Sticky Booking Button (booking-only) */}
-      {!isCurrentUser && user.services && user.services.length > 0 && (
-        <motion.div
-          className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-100 p-4 z-40"
-          initial={{ y: 100 }}
-          animate={{ y: 0 }}
-          transition={{ delay: 0.5 }}
-        >
-          <div className="max-w-4xl mx-auto">
-            <button
-              onClick={() => setSelectedService(user.services![0])}
-              className="w-full py-4 bg-gradient-to-r from-primary-500 to-purple-500 text-white rounded-xl font-bold text-lg shadow-lg shadow-primary-500/30 hover:opacity-90 transition"
-            >
-              Đặt lịch ngay - {formatCurrency(user.hourlyRate || user.services[0].price)}/h
-            </button>
-          </div>
-        </motion.div>
-      )}
-
-      {/* Booking Form Modal */}
-      <AnimatePresence>
-        {selectedService && !isCurrentUser && (
-          <motion.div
-            className="fixed inset-0 bg-black/50 flex items-end sm:items-center justify-center z-50 p-0 sm:p-4"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-          >
-            <motion.div
-              className="bg-white rounded-t-3xl sm:rounded-2xl w-full sm:max-w-md max-h-[90vh] overflow-y-auto"
-              initial={{ y: 100 }}
-              animate={{ y: 0 }}
-              exit={{ y: 100 }}
-            >
-              <div className="sticky top-0 bg-white border-b border-gray-100 px-6 py-4 flex items-center justify-between">
-                <div>
-                  <h2 className="text-xl font-bold text-gray-900">Đặt lịch hẹn</h2>
-                  <p className="text-sm text-gray-500">với {user.name}</p>
-                </div>
-                <button
-                  onClick={() => setSelectedService(null)}
-                  className="w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center hover:bg-gray-200 transition"
-                >
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
-
-              <div className="p-6 space-y-5">
-                <div className="flex items-center gap-3 p-3 bg-primary-50 rounded-xl">
-                  <span className="text-2xl">{getActivityIcon(selectedService.activity)}</span>
-                  <div className="flex-1">
-                    <p className="font-semibold text-gray-900">{selectedService.title}</p>
-                    <p className="text-sm text-gray-600">{getActivityLabel(selectedService.activity)}</p>
-                  </div>
-                  <p className="font-bold text-primary-600">{formatCurrency(selectedService.price)}/h</p>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    <Clock className="w-4 h-4 inline mr-1" />
-                    Thời lượng
-                  </label>
-                  <div className="flex gap-2">
-                    {[2, 3, 4, 5].map((hours) => (
-                      <button
-                        key={hours}
-                        onClick={() => setBookingHours(hours)}
-                        className={cn(
-                          'flex-1 py-3 rounded-xl font-medium transition',
-                          bookingHours === hours
-                            ? 'bg-primary-500 text-white'
-                            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                        )}
-                      >
-                        {hours}h
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      <Calendar className="w-4 h-4 inline mr-1" />
-                      Ngày
-                    </label>
-                    <input
-                      type="date"
-                      value={bookingForm.date}
-                      onChange={(e) =>
-                        setBookingForm({ ...bookingForm, date: e.target.value })
-                      }
-                      min={new Date().toISOString().split('T')[0]}
-                      className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary-500 outline-none"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      <Clock className="w-4 h-4 inline mr-1" />
-                      Giờ bắt đầu
-                    </label>
-                    <input
-                      type="time"
-                      value={bookingForm.time}
-                      onChange={(e) =>
-                        setBookingForm({ ...bookingForm, time: e.target.value })
-                      }
-                      className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary-500 outline-none"
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    <MapPin className="w-4 h-4 inline mr-1" />
-                    Địa điểm hẹn
-                  </label>
-                  <input
-                    type="text"
-                    value={bookingForm.location}
-                    onChange={(e) =>
-                      setBookingForm({ ...bookingForm, location: e.target.value })
-                    }
-                    placeholder="VD: Quán cafe ABC, Quận 1"
-                    className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary-500 outline-none"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Lời nhắn (tùy chọn)
-                  </label>
-                  <textarea
-                    value={bookingForm.message}
-                    onChange={(e) =>
-                      setBookingForm({ ...bookingForm, message: e.target.value })
-                    }
-                    placeholder="Gửi lời nhắn cho Partner..."
-                    rows={2}
-                    className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary-500 outline-none resize-none"
-                  />
-                </div>
-
-                <div className="bg-gray-50 rounded-xl p-4 space-y-2">
-                  <div className="flex justify-between text-sm">
-                    <span className="text-gray-600">
-                      {formatCurrency(user.hourlyRate || selectedService.price)} × {bookingHours} giờ
-                    </span>
-                    <span className="font-medium">{formatCurrency(totalCost)}</span>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-gray-600">Phí nền tảng (10%)</span>
-                    <span className="font-medium">{formatCurrency(platformFee)}</span>
-                  </div>
-                  <div className="border-t border-gray-200 pt-2 flex justify-between">
-                    <span className="font-bold text-gray-900">Tổng cộng</span>
-                    <span className="font-bold text-xl text-primary-600">
-                      {formatCurrency(totalCost + platformFee)}
-                    </span>
-                  </div>
-                </div>
-
-                <div className="flex items-start gap-2 p-3 bg-yellow-50 rounded-xl text-sm">
-                  <AlertTriangle className="w-5 h-5 text-yellow-600 flex-shrink-0 mt-0.5" />
-                  <p className="text-yellow-800">
-                    Yêu cầu đặt cọc 100% để xác nhận lịch hẹn. Tiền sẽ được giữ trong ví escrow cho đến khi hoàn thành.
-                  </p>
-                </div>
-
-                <div className="flex gap-3">
-                  <button
-                    onClick={() => setSelectedService(null)}
-                    className="flex-1 py-4 bg-gray-100 text-gray-700 rounded-xl font-medium hover:bg-gray-200 transition"
-                  >
-                    Hủy
-                  </button>
-                  <button
-                    onClick={handleBook}
-                    disabled={!bookingForm.date || !bookingForm.location}
-                    className={cn(
-                      'flex-1 py-4 rounded-xl font-bold transition',
-                      bookingForm.date && bookingForm.location
-                        ? 'bg-gradient-to-r from-primary-500 to-purple-500 text-white hover:opacity-90'
-                        : 'bg-gray-200 text-gray-400 cursor-not-allowed'
-                    )}
-                  >
-                    Đặt lịch - {formatCurrency(totalCost + platformFee)}
-                  </button>
-                </div>
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
+      {/* Auth modal */}
       <AuthModal
         isOpen={authModal.isOpen}
         onClose={() => setAuthModal({ ...authModal, isOpen: false })}
         actionType={authModal.actionType}
       />
+
+      {/* Sticky bottom quick action */}
+      {!isCurrentUser && services.length > 0 && (
+        <div className="fixed bottom-0 left-0 right-0 z-40 md:static md:z-auto">
+          <div className="md:hidden bg-white/80 backdrop-blur-xl border-t border-gray-200/60 p-4 pb-[calc(env(safe-area-inset-bottom)+16px)]">
+            <button
+              onClick={() => openBookingForService(services[0].id)}
+              className="w-full py-4 rounded-2xl bg-gradient-primary text-white font-black shadow-primary hover:opacity-90 transition"
+            >
+              Chọn gói & đặt nhanh
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

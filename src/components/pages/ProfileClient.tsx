@@ -16,17 +16,31 @@ import {
   ShieldCheck,
   LogOut,
   Bell,
-  Star
+  Star,
+  MessageCircle
 } from 'lucide-react';
 import { useDateStore } from '@/hooks/useDateStore';
 import { useAuth } from '@/contexts/AuthContext';
 import { formatCurrency, getVIPBadgeColor, cn } from '@/lib/utils';
 
 export default function ProfileClient() {
-  const { currentUser, getMyRequests, getMyApplications } = useDateStore();
+  const { currentUser, getMyRequests, getMyApplications, getMyNotifications, getMyConversations } = useDateStore();
   const { logout } = useAuth();
+  
   const myRequests = getMyRequests();
   const myApplications = getMyApplications();
+  
+  // Notification counts
+  const notifications = getMyNotifications();
+  const unreadNotifications = notifications.filter((n) => !n.read).length;
+
+  // Message counts
+  const conversations = getMyConversations();
+  const unreadMessages = conversations.filter((c) =>
+      c.lastMessage &&
+      !c.lastMessage.read &&
+      c.lastMessage.senderId !== currentUser.id
+  ).length;
 
   return (
     <div className="safe-bottom -mt-6 -mx-4 bg-gray-50 min-h-screen">
@@ -126,9 +140,59 @@ export default function ProfileClient() {
             </motion.div>
         </Link>
 
+        {/* Shortcuts Section */}
+        <div className="space-y-3">
+            <h3 className="px-2 text-[14px] font-black text-gray-400 uppercase tracking-[0.2em]">Hoạt động</h3>
+            <div className="ios-card bg-white divide-y divide-gray-50">
+                <Link href="/messages" className="flex items-center justify-between p-4 hover:bg-gray-50 transition tap-highlight">
+                    <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center">
+                            <MessageCircle className="w-5 h-5" />
+                        </div>
+                        <span className="font-bold text-gray-700">Tin nhắn</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                        {unreadMessages > 0 && (
+                            <span className="w-5 h-5 flex items-center justify-center bg-primary-500 text-white text-[10px] font-bold rounded-full">
+                                {unreadMessages}
+                            </span>
+                        )}
+                        <ChevronRight className="w-4 h-4 text-gray-300" />
+                    </div>
+                </Link>
+
+                <Link href="/notifications" className="flex items-center justify-between p-4 hover:bg-gray-50 transition tap-highlight">
+                    <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 bg-purple-50 text-purple-600 rounded-xl flex items-center justify-center">
+                            <Bell className="w-5 h-5" />
+                        </div>
+                        <span className="font-bold text-gray-700">Thông báo</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                        {unreadNotifications > 0 && (
+                            <span className="w-5 h-5 flex items-center justify-center bg-primary-500 text-white text-[10px] font-bold rounded-full">
+                                {unreadNotifications}
+                            </span>
+                        )}
+                        <ChevronRight className="w-4 h-4 text-gray-300" />
+                    </div>
+                </Link>
+
+                <Link href="/manage-bookings" className="flex items-center justify-between p-4 hover:bg-gray-50 transition tap-highlight">
+                    <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 bg-orange-50 text-orange-600 rounded-xl flex items-center justify-center">
+                            <Calendar className="w-5 h-5" />
+                        </div>
+                        <span className="font-bold text-gray-700">Lịch hẹn của tôi</span>
+                    </div>
+                    <ChevronRight className="w-4 h-4 text-gray-300" />
+                </Link>
+            </div>
+        </div>
+
         {/* Account Settings Section */}
         <div className="space-y-3">
-            <h3 className="px-2 text-[14px] font-black text-gray-400 uppercase tracking-[0.2em]">Tiện ích cá nhân</h3>
+            <h3 className="px-2 text-[14px] font-black text-gray-400 uppercase tracking-[0.2em]">Tài khoản</h3>
             <div className="ios-card bg-white divide-y divide-gray-50">
                 <Link href="/vip-subscription" className="flex items-center justify-between p-4 hover:bg-gray-50 transition tap-highlight">
                     <div className="flex items-center gap-3">
@@ -143,32 +207,6 @@ export default function ProfileClient() {
                     </div>
                 </Link>
 
-                <Link href="/manage-bookings" className="flex items-center justify-between p-4 hover:bg-gray-50 transition tap-highlight">
-                    <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center">
-                            <Calendar className="w-5 h-5" />
-                        </div>
-                        <span className="font-bold text-gray-700">Lịch hẹn của tôi</span>
-                    </div>
-                    <ChevronRight className="w-4 h-4 text-gray-300" />
-                </Link>
-
-                <Link href="/notifications" className="flex items-center justify-between p-4 hover:bg-gray-50 transition tap-highlight">
-                    <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 bg-purple-50 text-purple-600 rounded-xl flex items-center justify-center">
-                            <Bell className="w-5 h-5" />
-                        </div>
-                        <span className="font-bold text-gray-700">Cài đặt thông báo</span>
-                    </div>
-                    <ChevronRight className="w-4 h-4 text-gray-300" />
-                </Link>
-            </div>
-        </div>
-
-        {/* Support Section */}
-        <div className="space-y-3">
-            <h3 className="px-2 text-[14px] font-black text-gray-400 uppercase tracking-[0.2em]">Hỗ trợ & Bảo mật</h3>
-            <div className="ios-card bg-white divide-y divide-gray-50">
                 <Link href="/safety" className="flex items-center justify-between p-4 hover:bg-gray-50 transition tap-highlight">
                     <div className="flex items-center gap-3">
                         <div className="w-10 h-10 bg-green-50 text-green-600 rounded-xl flex items-center justify-center">
@@ -200,7 +238,7 @@ export default function ProfileClient() {
             Đăng xuất
         </button>
 
-        <p className="text-center text-[11px] font-black text-gray-300 uppercase tracking-[0.3em] pb-10">DineDate Web v1.0.4</p>
+        <p className="text-center text-[11px] font-black text-gray-300 uppercase tracking-[0.3em] pb-10">DineDate Web v1.0.5</p>
       </div>
     </div>
   );

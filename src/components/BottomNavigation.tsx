@@ -7,28 +7,24 @@ import {
   Compass, 
   Users, 
   MessageCircle, 
-  Bell, 
   User 
 } from 'lucide-react';
 import { useDateStore } from '@/hooks/useDateStore';
 import { useAuth } from '@/contexts/AuthContext';
 import { cn } from '@/lib/utils';
 
+// Reduced to 4 items: Home, Discover, Messages, Profile
 const navItems = [
-    { href: '/', label: 'Home', icon: Users },
+    { href: '/', label: 'Partner', icon: Users },
     { href: '/discover', label: 'Khám phá', icon: Compass },
     { href: '/messages', label: 'Tin nhắn', icon: MessageCircle },
-    { href: '/notifications', label: 'Thông báo', icon: Bell },
     { href: '/profile', label: 'Cá nhân', icon: User },
 ];
 
 export default function BottomNavigation() {
     const pathname = usePathname();
     const { user } = useAuth();
-    const { getMyNotifications, getMyConversations } = useDateStore();
-
-    const notifications = user ? getMyNotifications() : [];
-    const unreadNotifications = notifications.filter((n) => !n.read).length;
+    const { getMyConversations } = useDateStore();
 
     const conversations = user ? getMyConversations() : [];
     const unreadMessages = conversations.filter((c) =>
@@ -38,8 +34,9 @@ export default function BottomNavigation() {
     ).length;
 
     const getBadgeCount = (href: string) => {
-        if (href === '/notifications') return unreadNotifications;
         if (href === '/messages') return unreadMessages;
+        // Notifications are now in Profile, so we could potentially show a dot on Profile if needed,
+        // but for now we'll keep it simple as requested.
         return 0;
     };
 
@@ -70,7 +67,7 @@ export default function BottomNavigation() {
                                             "w-[26px] h-[26px] transition-all duration-300",
                                             isActive && "fill-current"
                                         )}
-                                        strokeWidth={isActive ? 0 : 2} // Switch to filled icon style
+                                        strokeWidth={isActive ? 0 : 2}
                                     />
 
                                     {/* Active Dot */}

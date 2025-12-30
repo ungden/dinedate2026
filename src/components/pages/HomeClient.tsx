@@ -2,22 +2,12 @@
 
 import { useState } from 'react';
 import { motion, AnimatePresence } from '@/lib/motion';
-import { Plus } from 'lucide-react';
+import { Plus, Sparkles } from 'lucide-react';
 import Link from 'next/link';
 import { useDateStore } from '@/hooks/useDateStore';
 import { ActivityType } from '@/types';
 import DateRequestCard from '@/components/DateRequestCard';
 import ActivityFilter from '@/components/ActivityFilter';
-
-const containerVariants = {
-  hidden: { opacity: 0 },
-  visible: {
-    opacity: 1,
-    transition: {
-      staggerChildren: 0.1,
-    },
-  },
-};
 
 export default function HomeClient() {
   const [selectedActivity, setSelectedActivity] = useState<ActivityType | undefined>();
@@ -26,76 +16,88 @@ export default function HomeClient() {
   const requests = getRequestsByActivity(selectedActivity);
 
   return (
-    <div className="space-y-6 pb-20">
-      {/* Category Filters - Sticky under header */}
-      <div className="sticky top-[60px] z-30 bg-white/95 backdrop-blur-xl border-b border-gray-100 py-3 -mx-4 px-4 sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8">
+    <div className="space-y-6 pb-20 bg-mesh min-h-screen">
+      {/* 1. Category Bar - More Native Style */}
+      <div className="sticky top-[60px] z-30 bg-white/80 backdrop-blur-xl border-b border-gray-100/50 py-4 -mx-4 px-4 sm:-mx-6 sm:px-6">
         <ActivityFilter
           selected={selectedActivity}
           onSelect={setSelectedActivity}
         />
       </div>
 
-      {/* Main Feed */}
-      <div className="space-y-4">
-        {/* Create Request CTA - Banner Style */}
-        <Link href="/create-request">
-            <motion.div 
-                className="bg-gradient-to-r from-primary-500 to-rose-600 rounded-3xl p-5 text-white shadow-lg shadow-primary-500/20 relative overflow-hidden"
-                whileTap={{ scale: 0.98 }}
-            >
-                <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full blur-2xl -translate-y-1/2 translate-x-1/2" />
-                
-                <div className="relative z-10 flex items-center justify-between">
-                    <div>
-                        <h2 className="font-bold text-lg">Tạo cuộc hẹn mới</h2>
-                        <p className="text-white/80 text-sm">Tìm người đồng hành ngay</p>
+      <div className="space-y-5 px-1">
+        {/* 2. Premium Hero Banner */}
+        {!selectedActivity && (
+            <Link href="/create-request">
+                <motion.div 
+                    className="relative bg-gray-900 rounded-[32px] p-6 text-white shadow-xl shadow-gray-900/10 overflow-hidden"
+                    whileTap={{ scale: 0.97 }}
+                >
+                    {/* Abstract background shapes */}
+                    <div className="absolute -top-12 -right-12 w-48 h-48 bg-primary-500/20 rounded-full blur-3xl" />
+                    <div className="absolute -bottom-8 -left-8 w-32 h-32 bg-purple-500/20 rounded-full blur-2xl" />
+                    
+                    <div className="relative z-10 flex items-center justify-between">
+                        <div className="space-y-1">
+                            <div className="flex items-center gap-2 mb-1">
+                                <Sparkles className="w-4 h-4 text-yellow-400 fill-yellow-400" />
+                                <span className="text-[11px] font-black uppercase tracking-[0.2em] text-white/60">Ready to Meet?</span>
+                            </div>
+                            <h2 className="text-[22px] font-black leading-tight">Đăng lời mời<br/>hẹn hò ngay</h2>
+                            <p className="text-white/50 text-[13px] font-medium pt-1">Tìm người đồng hành trong tích tắc</p>
+                        </div>
+                        <div className="w-14 h-14 bg-gradient-primary rounded-2xl flex items-center justify-center shadow-lg shadow-primary-500/40">
+                            <Plus className="w-8 h-8 text-white stroke-[3px]" />
+                        </div>
                     </div>
-                    <div className="w-10 h-10 bg-white/20 backdrop-blur-sm rounded-full flex items-center justify-center">
-                        <Plus className="w-6 h-6 text-white" />
-                    </div>
-                </div>
-            </motion.div>
-        </Link>
+                </motion.div>
+            </Link>
+        )}
 
-        {/* Section Title */}
-        <div className="flex items-center justify-between px-1">
-            <h3 className="font-bold text-lg text-gray-900">
-                {selectedActivity ? 'Kết quả lọc' : 'Dành cho bạn'}
+        {/* 3. Feed Header */}
+        <div className="flex items-center justify-between px-2 pt-2">
+            <h3 className="text-[19px] font-black text-gray-900 tracking-tight">
+                {selectedActivity ? 'Đang hiển thị' : 'Dành riêng cho bạn'}
             </h3>
-            <span className="text-xs font-medium text-gray-500 bg-gray-100 px-2 py-1 rounded-md">
-                {requests.length} kết quả
-            </span>
+            {requests.length > 0 && (
+                <div className="px-3 py-1 bg-white rounded-full border border-gray-100 text-[11px] font-bold text-gray-400">
+                    {requests.length} TIN ĐĂNG
+                </div>
+            )}
         </div>
 
-        {/* Feed Grid */}
-        {requests.length > 0 ? (
-          <motion.div
-            className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3"
-            variants={containerVariants}
-            initial="hidden"
-            animate="visible"
-          >
-            {requests.map((request) => (
-              <motion.div 
-                key={request.id}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-              >
-                <DateRequestCard request={request} />
-              </motion.div>
-            ))}
-          </motion.div>
-        ) : (
-          <div className="text-center py-20">
-            <div className="text-6xl mb-4 grayscale opacity-50">🦕</div>
-            <h3 className="text-lg font-bold text-gray-900 mb-2">
-              Chưa có lời mời nào
-            </h3>
-            <p className="text-gray-500 text-sm max-w-xs mx-auto">
-              Hãy là người đầu tiên tạo lời mời trong danh mục này!
-            </p>
-          </div>
-        )}
+        {/* 4. The Feed */}
+        <AnimatePresence mode="popLayout">
+            {requests.length > 0 ? (
+                <motion.div
+                    className="grid gap-5"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                >
+                    {requests.map((request, idx) => (
+                        <motion.div 
+                            key={request.id}
+                            initial={{ opacity: 0, y: 30 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ delay: idx * 0.05, duration: 0.4 }}
+                        >
+                            <DateRequestCard request={request} />
+                        </motion.div>
+                    ))}
+                </motion.div>
+            ) : (
+                <motion.div 
+                    initial={{ opacity: 0, scale: 0.9 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    className="py-24 text-center"
+                >
+                    <div className="text-7xl mb-6">🏜️</div>
+                    <h3 className="text-xl font-black text-gray-900 mb-2">Chưa có ai ở đây cả</h3>
+                    <p className="text-gray-400 text-sm px-10">Hãy thử đổi danh mục hoặc quay lại sau một chút nhé!</p>
+                </motion.div>
+            )}
+        </AnimatePresence>
       </div>
     </div>
   );

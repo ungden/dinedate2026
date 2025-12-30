@@ -13,16 +13,16 @@
 
 ## Tính năng chính
 
-### 1. Khám phá (Home)
-- Xem danh sách lời mời hẹn hò công khai
-- Tìm kiếm theo tiêu đề, mô tả, địa điểm
-- Lọc theo loại hoạt động (Ăn uống, Cafe/Bar, Xem phim, Du lịch)
-
-### 2. Thành viên
-- Browse tất cả thành viên
+### 1. Partner (Home)
+- Browse tất cả thành viên (Partner) ngay tại trang chủ
 - Tìm kiếm theo tên, địa điểm
 - Lọc theo loại hoạt động, trạng thái online, nhà cung cấp dịch vụ
 - Xem grid hoặc list view
+
+### 2. Khám phá (Discover)
+- Xem danh sách lời mời hẹn hò công khai
+- Tìm kiếm theo tiêu đề, mô tả, địa điểm
+- Lọc theo loại hoạt động (Ăn uống, Cafe/Bar, Xem phim, Du lịch)
 
 ### 3. Service Booking
 - Xem dịch vụ của từng user
@@ -54,9 +54,9 @@
 ```
 src/
 ├── app/                    # Next.js App Router pages
-│   ├── page.tsx           # Home - Khám phá
+│   ├── page.tsx           # Home - Danh sách Partner
+│   ├── discover/          # Khám phá - Lời mời hẹn hò
 │   ├── layout.tsx         # Root layout
-│   ├── members/           # Thành viên
 │   ├── messages/          # Tin nhắn
 │   ├── notifications/     # Thông báo
 │   ├── profile/           # Hồ sơ
@@ -71,6 +71,7 @@ src/
 ├── components/            # React components
 │   ├── Header.tsx
 │   ├── DateRequestCard.tsx
+│   ├── PartnerCard.tsx
 │   └── ActivityFilter.tsx
 ├── hooks/                 # Custom hooks
 │   └── useDateStore.ts    # Zustand store
@@ -103,8 +104,8 @@ npm start
 ## Navigation
 
 ### Main Tabs
-1. **Khám phá** - Browse date requests
-2. **Thành viên** - Browse all members
+1. **Partner** - Browse members (Trang chủ)
+2. **Khám phá** - Browse date requests
 3. **Tin nhắn** - Conversations
 4. **Thông báo** - Notifications
 5. **Hồ sơ** - User profile

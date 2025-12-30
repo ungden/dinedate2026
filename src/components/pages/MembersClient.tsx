@@ -113,7 +113,7 @@ export default function MembersClient() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 max-w-2xl mx-auto">
       {/* Header with Location & Wallet */}
       <motion.div
         className="flex items-center justify-between"
@@ -254,10 +254,10 @@ export default function MembersClient() {
         </p>
       </motion.div>
 
-      {/* Partners Grid - 2 columns on mobile, 3 on tablet, 4 on desktop */}
+      {/* Partners List - Single Column */}
       {partners.length > 0 ? (
         <motion.div
-          className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4"
+          className="flex flex-col gap-3"
           variants={containerVariants}
           initial="hidden"
           animate="visible"
@@ -267,13 +267,12 @@ export default function MembersClient() {
               key={partner.id}
               variants={itemVariants}
               style={{
-                // Stagger animation delay based on index
                 transitionDelay: `${index * 0.05}s`
               }}
             >
               <PartnerCard
                 partner={partner}
-                distance={Math.random() * 10} // Mock distance - would be calculated from coordinates
+                distance={Math.random() * 10} // Mock distance
               />
             </motion.div>
           ))}

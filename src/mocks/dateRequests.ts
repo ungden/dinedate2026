@@ -1,0 +1,77 @@
+import { DateRequest } from '@/types';
+import { MOCK_USERS } from './users';
+
+export const MOCK_DATE_REQUESTS: DateRequest[] = [
+  {
+    id: '1',
+    userId: '1',
+    user: MOCK_USERS[0],
+    activity: 'dining',
+    title: 'Thưởng thức BBQ Hàn Quốc',
+    description: 'Mình muốn thử nhà hàng BBQ mới ở Quận 1, ai cùng đi không?',
+    location: 'Quận 1, TP.HCM',
+    date: '2025-01-15',
+    time: '19:00',
+    hiringAmount: 500000,
+    hiringOption: 'tier2',
+    maxParticipants: 2,
+    currentParticipants: 1,
+    applicants: [],
+    status: 'active',
+    createdAt: '2025-01-10T10:00:00Z'
+  },
+  {
+    id: '2',
+    userId: '2',
+    user: MOCK_USERS[1],
+    activity: 'movies',
+    title: 'Xem phim bom tấn mới',
+    description: 'Có ai muốn cùng xem phim Marvel mới không? Rạp CGV Landmark',
+    location: 'Quận 1, TP.HCM',
+    date: '2025-01-12',
+    time: '20:30',
+    hiringAmount: 300000,
+    hiringOption: 'tier1',
+    maxParticipants: 2,
+    currentParticipants: 1,
+    applicants: [MOCK_USERS[2]],
+    status: 'active',
+    createdAt: '2025-01-09T15:30:00Z'
+  },
+  {
+    id: '3',
+    userId: '3',
+    user: MOCK_USERS[2],
+    activity: 'drinking',
+    title: 'Rooftop bar chill cuối tuần',
+    description: 'Cuối tuần lên rooftop bar ngắm thành phố, ai tham gia không?',
+    location: 'Quận 1, TP.HCM',
+    date: '2025-01-18',
+    time: '21:00',
+    hiringAmount: 700000,
+    hiringOption: 'tier3',
+    maxParticipants: 3,
+    currentParticipants: 1,
+    applicants: [],
+    status: 'active',
+    createdAt: '2025-01-08T20:15:00Z'
+  },
+  {
+    id: '4',
+    userId: '4',
+    user: MOCK_USERS[3],
+    activity: 'travel',
+    title: 'Vũng Tàu 1 ngày',
+    description: 'Đi Vũng Tàu 1 ngày cuối tuần, tắm biển và ăn hải sản',
+    location: 'Vũng Tàu',
+    date: '2025-01-19',
+    time: '07:00',
+    hiringAmount: 1000000,
+    hiringOption: 'tier4',
+    maxParticipants: 2,
+    currentParticipants: 1,
+    applicants: [MOCK_USERS[0]],
+    status: 'active',
+    createdAt: '2025-01-07T12:00:00Z'
+  }
+];

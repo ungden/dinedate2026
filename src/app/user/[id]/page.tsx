@@ -33,7 +33,6 @@ import {
   cn,
 } from '@/lib/utils';
 import { ServiceOffering, ZODIAC_LABELS, PERSONALITY_TAG_LABELS } from '@/types';
-import VoiceIntro from '@/components/VoiceIntro';
 import AuthModal from '@/components/AuthModal';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -261,16 +260,6 @@ export default function UserProfilePage() {
       </div>
 
       <div className="px-4 space-y-6">
-        {user.voiceIntroUrl && (
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.1 }}
-          >
-            <VoiceIntro audioUrl={user.voiceIntroUrl} userName={user.name} />
-          </motion.div>
-        )}
-
         {/* Quick Info Cards */}
         <motion.div
           className="grid grid-cols-2 sm:grid-cols-4 gap-3"

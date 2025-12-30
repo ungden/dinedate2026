@@ -62,7 +62,7 @@ export default function RequestDetailPage() {
   const handleDelete = () => {
     if (confirm('Bạn có chắc muốn huỷ/xóa lời mời này?')) {
       deleteRequest(requestId);
-      router.push('/');
+      router.push('/discover');
     }
   };
 
@@ -72,8 +72,8 @@ export default function RequestDetailPage() {
         <h3 className="text-lg font-semibold text-gray-900 mb-2">
           Không tìm thấy lời mời
         </h3>
-        <Link href="/" className="text-primary-600 hover:underline">
-          Quay lại trang chủ
+        <Link href="/discover" className="text-primary-600 hover:underline">
+          Quay lại danh sách Khám phá
         </Link>
       </div>
     );

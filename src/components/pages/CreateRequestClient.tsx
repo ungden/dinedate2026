@@ -125,7 +125,7 @@ export default function CreateRequestClient() {
       maxParticipants: 2, // Hardcode 1-1 match (Owner + 1 Guest)
     });
 
-    router.push('/');
+    router.push('/discover');
   };
 
   return (

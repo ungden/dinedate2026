@@ -198,7 +198,7 @@ export default function MessagesClient() {
           </p>
 
           <div className="flex flex-col sm:flex-row gap-3 justify-center">
-            <Link href="/">
+            <Link href="/discover">
               <motion.button
                 className="btn-primary"
                 whileHover={{ scale: 1.03 }}
@@ -207,7 +207,7 @@ export default function MessagesClient() {
                 Khám phá lời mời
               </motion.button>
             </Link>
-            <Link href="/members">
+            <Link href="/">
               <motion.button
                 className="btn-secondary"
                 whileHover={{ scale: 1.03 }}

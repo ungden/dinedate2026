@@ -1,18 +1,18 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { motion, AnimatePresence } from '@/lib/motion';
 import {
   Search,
   MapPin,
   Filter,
-  X,
   ChevronDown,
   Wallet,
-  Sparkles
+  Sparkles,
+  ArrowUpDown,
 } from 'lucide-react';
-import { useDateStore } from '@/hooks/useDateStore'
-import { ActivityType } from '@/types';
+import { useDateStore } from '@/hooks/useDateStore';
+import { ActivityType, User } from '@/types';
 import { cn, formatCurrency } from '@/lib/utils';
 import PartnerCard from '@/components/PartnerCard';
 import SmartFilter from '@/components/SmartFilter';
@@ -27,6 +27,17 @@ const LOCATIONS = [
   'Quận Phú Nhuận, TP.HCM',
 ];
 
+type SortMode = 'recommended' | 'available' | 'price_low' | 'rating_high';
+
+function getBaseHourly(u: User) {
+  if (u.hourlyRate && u.hourlyRate > 0) return u.hourlyRate;
+  const minServicePrice =
+    u.services && u.services.length > 0
+      ? Math.min(...u.services.map((s) => s.price || 0).filter(Boolean))
+      : 0;
+  return minServicePrice || 0;
+}
+
 export default function MembersClient() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedLocation, setSelectedLocation] = useState('Tất cả');
@@ -35,77 +46,121 @@ export default function MembersClient() {
   const [selectedActivities, setSelectedActivities] = useState<ActivityType[]>([]);
   const [availableNow, setAvailableNow] = useState(false);
   const [availableTonight, setAvailableTonight] = useState(false);
+  const [sortMode, setSortMode] = useState<SortMode>('recommended');
 
   const { getAllUsers, currentUser } = useDateStore();
   const allUsers = getAllUsers();
 
   const partners = useMemo(() => {
-    return allUsers.filter((user) => {
+    const filtered = allUsers.filter((user) => {
       if (!user.isServiceProvider) return false;
+
       if (searchQuery) {
         const query = searchQuery.toLowerCase();
-        if (!user.name.toLowerCase().includes(query) && !user.location.toLowerCase().includes(query)) return false;
+        if (!user.name.toLowerCase().includes(query) && !user.location.toLowerCase().includes(query)) {
+          return false;
+        }
       }
+
       if (selectedLocation !== 'Tất cả' && !user.location.includes(selectedLocation.split(',')[0])) return false;
+
       if (selectedActivities.length > 0) {
         const hasMatchingService = user.services?.some((s) => selectedActivities.includes(s.activity));
         if (!hasMatchingService) return false;
       }
+
       if (availableNow && !user.availableNow && !user.onlineStatus?.isOnline) return false;
       if (availableTonight && !user.availableTonight) return false;
+
       return true;
     });
-  }, [allUsers, searchQuery, selectedLocation, selectedActivities, availableNow, availableTonight]);
+
+    const sorted = [...filtered].sort((a, b) => {
+      if (sortMode === 'available') {
+        const aScore = (a.availableNow || a.onlineStatus?.isOnline) ? 1 : 0;
+        const bScore = (b.availableNow || b.onlineStatus?.isOnline) ? 1 : 0;
+        if (bScore !== aScore) return bScore - aScore;
+        return (b.rating ?? 0) - (a.rating ?? 0);
+      }
+
+      if (sortMode === 'price_low') {
+        return getBaseHourly(a) - getBaseHourly(b);
+      }
+
+      if (sortMode === 'rating_high') {
+        return (b.rating ?? 0) - (a.rating ?? 0);
+      }
+
+      // recommended: VIP first, then rating
+      const aVip = a.vipStatus?.tier && a.vipStatus.tier !== 'free' ? 1 : 0;
+      const bVip = b.vipStatus?.tier && b.vipStatus.tier !== 'free' ? 1 : 0;
+      if (bVip !== aVip) return bVip - aVip;
+      return (b.rating ?? 0) - (a.rating ?? 0);
+    });
+
+    return sorted;
+  }, [
+    allUsers,
+    searchQuery,
+    selectedLocation,
+    selectedActivities,
+    availableNow,
+    availableTonight,
+    sortMode,
+  ]);
 
   const activeFiltersCount = selectedActivities.length + (availableNow ? 1 : 0) + (availableTonight ? 1 : 0);
 
   return (
     <div className="space-y-6 pb-24 bg-mesh min-h-screen">
-      {/* 1. Sticky Header Controls */}
+      {/* Sticky header controls */}
       <div className="sticky top-[60px] z-30 -mx-4 px-4 bg-white/80 backdrop-blur-xl border-b border-gray-100/50 py-4 space-y-4">
         <div className="flex items-center justify-between">
-            <div className="relative">
-                <button
-                    onClick={() => setShowLocationPicker(!showLocationPicker)}
-                    className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-100 rounded-full text-gray-900 text-[13px] font-bold tap-highlight"
+          <div className="relative">
+            <button
+              onClick={() => setShowLocationPicker(!showLocationPicker)}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-100 rounded-full text-gray-900 text-[13px] font-black tap-highlight"
+            >
+              <MapPin className="w-4 h-4 text-primary-500" />
+              <span>{selectedLocation}</span>
+              <ChevronDown className={cn('w-3.5 h-3.5 transition-transform', showLocationPicker && 'rotate-180')} />
+            </button>
+
+            <AnimatePresence>
+              {showLocationPicker && (
+                <motion.div
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: 10 }}
+                  className="absolute top-full left-0 mt-2 w-56 bg-white rounded-3xl shadow-2xl border border-gray-100 py-3 z-50"
                 >
-                    <MapPin className="w-4 h-4 text-primary-500" />
-                    <span>{selectedLocation}</span>
-                    <ChevronDown className={cn('w-3.5 h-3.5 transition-transform', showLocationPicker && 'rotate-180')} />
-                </button>
+                  {LOCATIONS.map((loc) => (
+                    <button
+                      key={loc}
+                      onClick={() => {
+                        setSelectedLocation(loc);
+                        setShowLocationPicker(false);
+                      }}
+                      className={cn(
+                        'w-full px-5 py-2.5 text-left text-sm hover:bg-gray-50 transition-colors',
+                        selectedLocation === loc ? 'text-primary-600 font-black bg-primary-50/50' : 'text-gray-600 font-medium'
+                      )}
+                    >
+                      {loc}
+                    </button>
+                  ))}
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
 
-                <AnimatePresence>
-                    {showLocationPicker && (
-                        <motion.div
-                            initial={{ opacity: 0, y: 10 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            exit={{ opacity: 0, y: 10 }}
-                            className="absolute top-full left-0 mt-2 w-56 bg-white rounded-3xl shadow-2xl border border-gray-100 py-3 z-50"
-                        >
-                            {LOCATIONS.map((loc) => (
-                                <button
-                                    key={loc}
-                                    onClick={() => { setSelectedLocation(loc); setShowLocationPicker(false); }}
-                                    className={cn(
-                                        'w-full px-5 py-2.5 text-left text-sm hover:bg-gray-50 transition-colors',
-                                        selectedLocation === loc ? 'text-primary-600 font-black bg-primary-50/50' : 'text-gray-600 font-medium'
-                                    )}
-                                >
-                                    {loc}
-                                </button>
-                            ))}
-                        </motion.div>
-                    )}
-                </AnimatePresence>
-            </div>
-
-            <div className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-primary-500 to-purple-500 rounded-full text-white text-[13px] font-black shadow-lg shadow-primary-500/20">
-                <Wallet className="w-3.5 h-3.5" />
-                <span>{formatCurrency(currentUser.wallet.balance)}</span>
-            </div>
+          <div className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-primary-500 to-purple-500 rounded-full text-white text-[13px] font-black shadow-lg shadow-primary-500/20">
+            <Wallet className="w-3.5 h-3.5" />
+            <span>{formatCurrency(currentUser.wallet.balance)}</span>
+          </div>
         </div>
 
-        {/* 2. Search Area */}
+        {/* Search + Filter */}
         <div className="flex gap-2">
           <div className="relative flex-1 group">
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 group-focus-within:text-primary-500 transition-colors" />
@@ -134,7 +189,33 @@ export default function MembersClient() {
           </button>
         </div>
 
-        {/* 3. Smart Filter Panel */}
+        {/* Sort row */}
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2 text-[12px] font-black text-gray-500 uppercase tracking-wider">
+            <Sparkles className="w-4 h-4 text-primary-500" />
+            Partner
+          </div>
+
+          <div className="flex items-center gap-2">
+            <div className="hidden sm:flex items-center gap-2 text-xs font-black text-gray-400">
+              <ArrowUpDown className="w-4 h-4" />
+              Sắp xếp:
+            </div>
+
+            <select
+              value={sortMode}
+              onChange={(e) => setSortMode(e.target.value as SortMode)}
+              className="h-10 px-3 rounded-2xl bg-gray-100 text-gray-800 text-sm font-black outline-none"
+            >
+              <option value="recommended">Gợi ý</option>
+              <option value="available">Rảnh ngay</option>
+              <option value="price_low">Giá thấp</option>
+              <option value="rating_high">Rating cao</option>
+            </select>
+          </div>
+        </div>
+
+        {/* Smart Filter Panel */}
         <AnimatePresence>
           {showFilters && (
             <motion.div
@@ -151,7 +232,11 @@ export default function MembersClient() {
                   onAvailableNowChange={setAvailableNow}
                   availableTonight={availableTonight}
                   onAvailableTonightChange={setAvailableTonight}
-                  onClear={() => { setSelectedActivities([]); setAvailableNow(false); setAvailableTonight(false); }}
+                  onClear={() => {
+                    setSelectedActivities([]);
+                    setAvailableNow(false);
+                    setAvailableTonight(false);
+                  }}
                 />
               </div>
             </motion.div>
@@ -159,24 +244,19 @@ export default function MembersClient() {
         </AnimatePresence>
       </div>
 
-      {/* 4. Results */}
+      {/* Results */}
       <div className="px-1 space-y-4">
-        <div className="flex items-center gap-2 px-2">
-            <Sparkles className="w-4 h-4 text-primary-500" />
-            <p className="text-[15px] font-black text-gray-900 uppercase tracking-widest">Partner hàng đầu</p>
-        </div>
-
         <div className="flex flex-col gap-4">
           {partners.length > 0 ? (
             partners.map((partner, idx) => (
-                <motion.div
-                    key={partner.id}
-                    initial={{ opacity: 0, scale: 0.95 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    transition={{ delay: idx * 0.05 }}
-                >
-                    <PartnerCard partner={partner} distance={Math.random() * 5} />
-                </motion.div>
+              <motion.div
+                key={partner.id}
+                initial={{ opacity: 0, y: 14 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: idx * 0.03 }}
+              >
+                <PartnerCard partner={partner} distance={Math.random() * 5} />
+              </motion.div>
             ))
           ) : (
             <div className="py-20 text-center">

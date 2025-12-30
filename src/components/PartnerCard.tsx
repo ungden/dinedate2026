@@ -1,85 +1,165 @@
 'use client';
 
-import { motion } from '@/lib/motion';
 import Image from 'next/image';
 import Link from 'next/link';
-import { MapPin, Star, Crown, ChevronRight, Clock } from 'lucide-react';
+import { MapPin, Star, Zap, Crown, ChevronRight } from 'lucide-react';
 import { User } from '@/types';
-import { cn, getVIPBadgeColor, formatCurrency } from '@/lib/utils';
+import { cn, formatCurrency, getVIPBadgeColor } from '@/lib/utils';
 
-interface PartnerCardProps {
-    partner: User;
-    distance?: number;
+type PackageKey = '3h' | '5h' | '1d';
+
+const PACKAGES: { key: PackageKey; label: string; hours: number }[] = [
+  { key: '3h', label: '3 giờ', hours: 3 },
+  { key: '5h', label: '5 giờ', hours: 5 },
+  { key: '1d', label: '1 ngày', hours: 10 },
+];
+
+function getBaseHourly(partner: User) {
+  if (partner.hourlyRate && partner.hourlyRate > 0) return partner.hourlyRate;
+
+  const minServicePrice =
+    partner.services && partner.services.length > 0
+      ? Math.min(...partner.services.map((s) => s.price || 0).filter(Boolean))
+      : 0;
+
+  return minServicePrice || 0;
 }
 
-export default function PartnerCard({ partner, distance }: PartnerCardProps) {
-    const isOnline = partner.onlineStatus?.isOnline;
+function calcPackageTotal(baseHourly: number, hours: number) {
+  const subTotal = baseHourly * hours;
+  const fee = Math.round(subTotal * 0.1);
+  return subTotal + fee;
+}
 
-    return (
-        <Link href={`/user/${partner.id}`} className="block tap-highlight">
-            <div className="ios-card p-4 flex gap-4 bg-white relative">
-                {/* 1. Image Holder with High-end Badge */}
-                <div className="relative w-24 h-24 sm:w-28 sm:h-28 flex-shrink-0">
-                    <Image
-                        src={partner.images?.[0] || partner.avatar}
-                        alt={partner.name}
-                        fill
-                        className="object-cover rounded-2xl shadow-sm"
-                    />
-                    {isOnline && (
-                        <div className="absolute -top-1 -right-1 w-4 h-4 bg-green-500 border-2 border-white rounded-full z-10 shadow-sm" />
-                    )}
+export default function PartnerCard({ partner, distance }: { partner: User; distance?: number }) {
+  const isOnline = !!partner.onlineStatus?.isOnline;
+  const isVip = partner.vipStatus?.tier && partner.vipStatus.tier !== 'free';
+
+  const baseHourly = getBaseHourly(partner);
+  const packages = PACKAGES.map((p) => ({
+    ...p,
+    total: calcPackageTotal(baseHourly, p.hours),
+  }));
+
+  const imageSrc = partner.images?.[0] || partner.avatar;
+
+  return (
+    <Link href={`/user/${partner.id}`} className="block tap-highlight">
+      <div className="bg-white rounded-[28px] border border-gray-100 shadow-[var(--shadow-soft)] overflow-hidden">
+        <div className="p-4 sm:p-5 flex gap-4">
+          {/* Image */}
+          <div className="relative w-24 h-24 sm:w-28 sm:h-28 flex-shrink-0">
+            <Image
+              src={imageSrc}
+              alt={partner.name}
+              fill
+              className="object-cover rounded-2xl"
+            />
+
+            {isOnline && (
+              <span className="absolute top-2 left-2 px-2 py-1 rounded-full text-[10px] font-black bg-green-500 text-white shadow">
+                LIVE
+              </span>
+            )}
+
+            {isVip && (
+              <span
+                className={cn(
+                  'absolute bottom-2 left-2 inline-flex items-center gap-1 px-2 py-1 rounded-full text-[10px] font-black text-white uppercase shadow',
+                  getVIPBadgeColor(partner.vipStatus.tier)
+                )}
+              >
+                <Crown className="w-3 h-3" />
+                VIP
+              </span>
+            )}
+          </div>
+
+          {/* Content */}
+          <div className="flex-1 min-w-0">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <h3 className="text-[17px] sm:text-[18px] font-black text-gray-900 truncate">
+                  {partner.name}
+                </h3>
+
+                <div className="mt-1 flex flex-wrap items-center gap-2 text-[12px] text-gray-500">
+                  <span className="inline-flex items-center gap-1 px-2 py-1 bg-yellow-50 rounded-lg">
+                    <Star className="w-3.5 h-3.5 text-yellow-500 fill-yellow-500" />
+                    <span className="font-black text-yellow-700">
+                      {(partner.rating ?? 0).toFixed(1) || '0.0'}
+                    </span>
+                    <span className="text-gray-400">
+                      ({partner.reviewCount ?? 0})
+                    </span>
+                  </span>
+
+                  <span className="inline-flex items-center gap-1">
+                    <MapPin className="w-3.5 h-3.5 text-primary-500" />
+                    <span className="truncate max-w-[160px]">
+                      {partner.location?.split(',')?.[0] || partner.location}
+                    </span>
+                  </span>
+
+                  {typeof distance === 'number' && (
+                    <span className="text-gray-400 font-bold">
+                      • {distance.toFixed(1)}km
+                    </span>
+                  )}
                 </div>
+              </div>
 
-                {/* 2. Content */}
-                <div className="flex-1 min-w-0 flex flex-col justify-between py-0.5">
-                    <div>
-                        <div className="flex items-center justify-between mb-1">
-                            <h3 className="text-[17px] font-bold text-gray-900 truncate pr-2">
-                                {partner.name}
-                            </h3>
-                            {partner.vipStatus.tier !== 'free' && (
-                                <span className={cn(
-                                    "px-2 py-0.5 rounded-lg text-[10px] font-black text-white uppercase tracking-tighter",
-                                    getVIPBadgeColor(partner.vipStatus.tier)
-                                )}>
-                                    {partner.vipStatus.tier}
-                                </span>
-                            )}
-                        </div>
-
-                        <div className="flex items-center gap-2 mb-2">
-                            <div className="flex items-center gap-0.5 px-1.5 py-0.5 bg-yellow-50 rounded-lg">
-                                <Star className="w-3 h-3 text-yellow-500 fill-yellow-500" />
-                                <span className="text-[12px] font-bold text-yellow-700">{partner.rating?.toFixed(1) || '5.0'}</span>
-                            </div>
-                            <span className="text-[12px] text-gray-400">•</span>
-                            <div className="flex items-center gap-1 text-gray-500">
-                                <MapPin className="w-3 h-3" />
-                                <span className="text-[12px] truncate">{partner.location.split(',')[0]}</span>
-                            </div>
-                        </div>
-
-                        <p className="text-[13px] text-gray-500 line-clamp-1 italic mb-2">
-                            &quot;{partner.bio}&quot;
-                        </p>
-                    </div>
-
-                    {/* 3. Bottom Row: Price & Action */}
-                    <div className="flex items-center justify-between">
-                        <div className="flex items-baseline gap-1">
-                            <span className="text-[16px] font-black text-primary-600">
-                                {formatCurrency(partner.hourlyRate || 0)}
-                            </span>
-                            <span className="text-[11px] text-gray-400 font-medium">/giờ</span>
-                        </div>
-                        
-                        <div className="flex items-center gap-1 text-primary-600 font-bold text-[13px]">
-                            Chi tiết <ChevronRight className="w-4 h-4" />
-                        </div>
-                    </div>
-                </div>
+              <div className="flex-shrink-0 flex items-center gap-1 text-primary-600 font-black text-[12px]">
+                Chi tiết <ChevronRight className="w-4 h-4" />
+              </div>
             </div>
-        </Link>
-    );
+
+            {/* Bio */}
+            {partner.bio ? (
+              <p className="mt-2 text-[13px] text-gray-500 line-clamp-2">
+                “{partner.bio}”
+              </p>
+            ) : null}
+
+            {/* Pricing */}
+            <div className="mt-3 flex items-baseline justify-between gap-3">
+              <div className="min-w-0">
+                <p className="text-[11px] font-black text-gray-400 uppercase tracking-wider">
+                  Giá từ
+                </p>
+                <p className="text-[16px] sm:text-[18px] font-black text-gray-900 leading-none">
+                  {formatCurrency(baseHourly)}
+                  <span className="text-[11px] text-gray-400 font-bold">/giờ</span>
+                </p>
+              </div>
+
+              {partner.availableNow || isOnline ? (
+                <span className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-green-50 text-green-700 text-[12px] font-black">
+                  <Zap className="w-4 h-4" />
+                  Rảnh ngay
+                </span>
+              ) : null}
+            </div>
+
+            {/* Package combos */}
+            {baseHourly > 0 && (
+              <div className="mt-3 flex flex-wrap gap-2">
+                {packages.map((p) => (
+                  <div
+                    key={p.key}
+                    className="px-3 py-1.5 rounded-full bg-gray-100 text-gray-700 text-[12px] font-black"
+                    title="Đã gồm phí nền tảng"
+                  >
+                    {p.label}
+                    <span className="text-gray-300 mx-2">•</span>
+                    {formatCurrency(p.total)}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </Link>
+  );
 }

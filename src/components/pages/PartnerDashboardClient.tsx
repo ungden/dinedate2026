@@ -15,7 +15,6 @@ import {
     XCircle,
     MapPin,
     Star,
-    User,
     ChevronRight,
     Zap,
     Timer
@@ -65,7 +64,7 @@ export default function PartnerDashboardClient() {
     const [isOnline, setIsOnline] = useState(true);
     const [showNewRequest, setShowNewRequest] = useState(false);
     const [countdown, setCountdown] = useState(300); // 5 minutes in seconds
-    const { getBookingsForProvider, currentUser } = useDateStore();
+    const { getReceivedBookings, currentUser } = useDateStore();
 
     // Mock statistics
     const todayEarnings = 1200000;

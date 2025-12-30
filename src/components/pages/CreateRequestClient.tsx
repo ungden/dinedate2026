@@ -13,7 +13,7 @@ import {
   cn,
 } from '@/lib/utils';
 
-const activities: ActivityType[] = ['dining', 'drinking', 'movies', 'travel'];
+const activities: ActivityType[] = ['dining', 'drinking', 'movies', 'travel', 'cafe', 'karaoke', 'tour_guide'];
 
 const hiringOptions: { amount: HiringAmount; label: string }[] = [
   { amount: 0, label: 'Miễn phí' },
@@ -39,10 +39,10 @@ const titleSuggestions: Record<ActivityType, string[]> = {
     'Buffet cuối tuần',
   ],
   drinking: [
-    'Cafe sáng cuối tuần',
     'Rooftop bar chill',
     'Wine tasting tối thứ 7',
     'Cocktail party',
+    'Đi pub nghe nhạc acoustic',
   ],
   movies: [
     'Xem phim bom tấn mới',
@@ -55,6 +55,24 @@ const titleSuggestions: Record<ActivityType, string[]> = {
     'Khám phá Đà Lạt',
     'City tour Sài Gòn',
     'Phượt cuối tuần',
+  ],
+  cafe: [
+    'Cafe sáng cuối tuần',
+    'Tìm quán cafe làm việc',
+    'Cafe sống ảo',
+    'Trò chuyện tại quán quen',
+  ],
+  karaoke: [
+    'Hát cho nhau nghe',
+    'Karaoke xả stress',
+    'Luyện giọng cuối tuần',
+    'Tiệc karaoke sinh nhật',
+  ],
+  tour_guide: [
+    'Dẫn tour quanh thành phố',
+    'Food tour quận 5',
+    'Khám phá địa điểm lịch sử',
+    'Tour chụp ảnh',
   ],
 };
 

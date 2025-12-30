@@ -29,7 +29,7 @@
   --info: 59, 130, 246;
 
   /* Spacing */
-  --bottom-nav-height: 80px;
+  --bottom-nav-height: 60px; /* Reduced for cleaner look + safe area */
   --header-height: 64px;
 
   /* Border Radius */
@@ -65,10 +65,10 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
-/* Mobile bottom nav compensation */
+/* Mobile bottom nav compensation - Updated for new Nav height */
 @media (max-width: 768px) {
   .main-content {
-    padding-bottom: calc(var(--bottom-nav-height) + 16px);
+    padding-bottom: calc(var(--bottom-nav-height) + env(safe-area-inset-bottom) + 20px);
   }
 }
 
@@ -524,76 +524,10 @@ body {
   color: rgb(var(--error));
 }
 
-/* ===== BOTTOM NAV STYLES ===== */
-.bottom-nav {
-  position: fixed;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  height: var(--bottom-nav-height);
-  background: rgba(255, 255, 255, 0.95);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  border-top: 1px solid rgba(0, 0, 0, 0.05);
-  z-index: 50;
-  padding-bottom: env(safe-area-inset-bottom, 0);
-}
-
-.dark .bottom-nav {
-  background: rgba(31, 41, 55, 0.95);
-  border-top-color: rgba(255, 255, 255, 0.1);
-}
-
-.bottom-nav-item {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 4px;
-  flex: 1;
-  padding: 8px 0;
-  transition: all 0.2s ease;
-}
-
-.bottom-nav-item.active {
-  color: rgb(var(--primary-500));
-}
-
-.bottom-nav-item.active .bottom-nav-icon {
-  transform: scale(1.1);
-}
-
-.bottom-nav-icon {
-  position: relative;
-  transition: transform 0.2s ease;
-}
-
-.bottom-nav-label {
-  font-size: 11px;
-  font-weight: 500;
-}
-
-.bottom-nav-badge {
-  position: absolute;
-  top: -6px;
-  right: -10px;
-  min-width: 18px;
-  height: 18px;
-  padding: 0 5px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: rgb(var(--error));
-  color: white;
-  font-size: 10px;
-  font-weight: 700;
-  border-radius: var(--radius-full);
-}
-
 /* ===== TOAST STYLES ===== */
 .toast {
   position: fixed;
-  bottom: calc(var(--bottom-nav-height) + 16px);
+  bottom: calc(var(--bottom-nav-height) + 20px); /* Adjusted for safe area */
   left: 50%;
   transform: translateX(-50%);
   padding: 12px 20px;
@@ -658,11 +592,4 @@ body {
 
 .vip-platinum {
   background: linear-gradient(135deg, #E5E4E2 0%, #A0A0A0 100%);
-}
-
-/* ===== RESPONSIVE ===== */
-@media (min-width: 768px) {
-  .bottom-nav {
-    display: none;
-  }
 }

@@ -22,7 +22,15 @@ export interface UserOnlineStatus {
   lastSeen?: string;
 }
 
-export type TransactionType = 'top_up' | 'booking_payment' | 'booking_earning' | 'vip_payment' | 'refund' | 'withdrawal' | 'escrow_hold' | 'escrow_release';
+export type TransactionType =
+  | 'top_up'
+  | 'booking_payment'
+  | 'booking_earning'
+  | 'vip_payment'
+  | 'refund'
+  | 'withdrawal'
+  | 'escrow_hold'
+  | 'escrow_release';
 export type TransactionStatus = 'pending' | 'completed' | 'failed' | 'refunded';
 
 export interface Transaction {
@@ -52,13 +60,29 @@ export interface Payment {
 }
 
 // Enhanced Activity Types for DineDate
-export type ActivityType = 'dining' | 'drinking' | 'movies' | 'travel' | 'cafe' | 'karaoke' | 'tour_guide';
+export type ActivityType =
+  | 'dining'
+  | 'drinking'
+  | 'movies'
+  | 'travel'
+  | 'cafe'
+  | 'karaoke'
+  | 'tour_guide';
 
 // Zodiac signs in Vietnamese
 export type ZodiacType =
-  | 'aries' | 'taurus' | 'gemini' | 'cancer'
-  | 'leo' | 'virgo' | 'libra' | 'scorpio'
-  | 'sagittarius' | 'capricorn' | 'aquarius' | 'pisces';
+  | 'aries'
+  | 'taurus'
+  | 'gemini'
+  | 'cancer'
+  | 'leo'
+  | 'virgo'
+  | 'libra'
+  | 'scorpio'
+  | 'sagittarius'
+  | 'capricorn'
+  | 'aquarius'
+  | 'pisces';
 
 export const ZODIAC_LABELS: Record<ZodiacType, string> = {
   aries: '♈ Bạch Dương',
@@ -77,9 +101,18 @@ export const ZODIAC_LABELS: Record<ZodiacType, string> = {
 
 // Personality tags
 export type PersonalityTag =
-  | 'fun' | 'listener' | 'extrovert' | 'introvert'
-  | 'adventurous' | 'creative' | 'romantic' | 'friendly'
-  | 'caring' | 'humorous' | 'intellectual' | 'sporty';
+  | 'fun'
+  | 'listener'
+  | 'extrovert'
+  | 'introvert'
+  | 'adventurous'
+  | 'creative'
+  | 'romantic'
+  | 'friendly'
+  | 'caring'
+  | 'humorous'
+  | 'intellectual'
+  | 'sporty';
 
 export const PERSONALITY_TAG_LABELS: Record<PersonalityTag, string> = {
   fun: '🎉 Vui vẻ',
@@ -156,8 +189,9 @@ export interface DateRequest {
   maxParticipants: number;
   currentParticipants: number;
   applicants: User[];
-  status: 'active' | 'matched' | 'completed';
+  status: 'active' | 'matched' | 'expired' | 'completed';
   createdAt: string;
+  expiresAt?: string; // auto-expire after 15 minutes for new requests
 }
 
 export type HiringAmount = 0 | 300000 | 500000 | 700000 | 1000000;

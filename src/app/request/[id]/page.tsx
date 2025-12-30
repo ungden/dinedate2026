@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
@@ -12,9 +12,8 @@ import {
   Users,
   Wallet,
   Send,
-  Check,
-  X,
   Trash2,
+  CheckCircle,
 } from 'lucide-react';
 import { useDateStore } from '@/hooks/useDateStore';
 import {
@@ -26,6 +25,7 @@ import {
   getVIPBadgeColor,
   cn,
 } from '@/lib/utils';
+import RequestCountdown from '@/components/RequestCountdown';
 
 export default function RequestDetailPage() {
   const params = useParams();
@@ -38,11 +38,11 @@ export default function RequestDetailPage() {
     dateRequests,
     currentUser,
     applyToRequest,
-    getApplicationsForRequest,
     getMyApplications,
-    acceptApplication,
-    rejectApplication,
+    getApplicationsForRequest,
     deleteRequest,
+    selectApplicant,
+    expireRequestsIfNeeded,
   } = useDateStore();
 
   const request = dateRequests.find((r) => r.id === requestId);
@@ -50,6 +50,10 @@ export default function RequestDetailPage() {
   const myApplications = getMyApplications();
   const hasApplied = myApplications.some((a) => a.requestId === requestId);
   const isOwner = request?.userId === currentUser.id;
+
+  useEffect(() => {
+    expireRequestsIfNeeded();
+  }, [expireRequestsIfNeeded]);
 
   const handleApply = () => {
     if (!applyMessage.trim()) return;
@@ -78,6 +82,9 @@ export default function RequestDetailPage() {
     );
   }
 
+  const isExpired = request.status === 'expired';
+  const isMatched = request.status === 'matched';
+
   return (
     <div className="max-w-3xl mx-auto space-y-6">
       {/* Header */}
@@ -89,8 +96,19 @@ export default function RequestDetailPage() {
           >
             <ArrowLeft className="w-5 h-5" />
           </button>
-          <h1 className="text-xl font-bold text-gray-900">Chi tiết lời mời</h1>
+          <div className="space-y-1">
+            <h1 className="text-xl font-bold text-gray-900">Chi tiết lời mời</h1>
+            <div className="flex items-center gap-2">
+              <RequestCountdown expiresAt={request.expiresAt} status={request.status} />
+              {applications.length > 0 && (
+                <span className="text-sm text-gray-500">
+                  • {applications.length} người muốn đi cùng bạn
+                </span>
+              )}
+            </div>
+          </div>
         </div>
+
         {isOwner && (
           <button
             onClick={handleDelete}
@@ -147,6 +165,19 @@ export default function RequestDetailPage() {
             </div>
           </div>
         </div>
+
+        {/* Status banners */}
+        {isExpired && (
+          <div className="p-4 bg-red-50 border-b border-red-100 text-red-700 text-sm font-medium">
+            Lời mời đã hết hạn sau 15 phút. Bạn có thể tạo lời mời mới.
+          </div>
+        )}
+        {isMatched && (
+          <div className="p-4 bg-green-50 border-b border-green-100 text-green-700 text-sm font-medium flex items-center gap-2">
+            <CheckCircle className="w-5 h-5" />
+            Đã match! Bạn có thể vào Tin nhắn để trò chuyện.
+          </div>
+        )}
 
         {/* Content */}
         <div className="p-6">
@@ -205,8 +236,8 @@ export default function RequestDetailPage() {
           </div>
         </div>
 
-        {/* Apply Section */}
-        {!isOwner && !hasApplied && (
+        {/* Apply Section - for non-owner */}
+        {!isOwner && !hasApplied && request.status === 'active' && (
           <div className="p-6 border-t border-gray-100">
             {showApplyForm ? (
               <div className="space-y-4">
@@ -235,7 +266,7 @@ export default function RequestDetailPage() {
                     )}
                   >
                     <Send className="w-5 h-5" />
-                    Gửi ứng tuyển
+                    Ứng tuyển
                   </button>
                 </div>
               </div>
@@ -244,13 +275,13 @@ export default function RequestDetailPage() {
                 onClick={() => setShowApplyForm(true)}
                 className="w-full py-3 bg-gradient-primary text-white rounded-xl font-semibold hover:opacity-90 transition shadow-primary"
               >
-                Ứng tuyển ngay
+                Tôi muốn đi cùng
               </button>
             )}
           </div>
         )}
 
-        {hasApplied && (
+        {!isOwner && hasApplied && (
           <div className="p-6 border-t border-gray-100 bg-green-50">
             <p className="text-center text-green-600 font-medium">
               Bạn đã ứng tuyển lời mời này
@@ -260,91 +291,57 @@ export default function RequestDetailPage() {
       </div>
 
       {/* Applicants (for owner) */}
-      {isOwner && applications.length > 0 && (
+      {isOwner && (
         <div className="bg-white rounded-2xl border border-gray-100 p-6">
           <h3 className="text-lg font-bold text-gray-900 mb-4">
-            Người ứng tuyển ({applications.length})
+            Người muốn đi cùng bạn ({applications.length})
           </h3>
-          <div className="space-y-4">
-            {applications.map((app) => (
-              <div
-                key={app.id}
-                className="flex items-start gap-4 p-4 bg-gray-50 rounded-xl"
-              >
-                <Link href={`/user/${app.user.id}`}>
-                  <Image
-                    src={app.user.avatar}
-                    alt={app.user.name}
-                    width={48}
-                    height={48}
-                    className="rounded-full object-cover"
-                  />
-                </Link>
-                <div className="flex-1 min-w-0">
-                  <Link
-                    href={`/user/${app.user.id}`}
-                    className="font-semibold text-gray-900 hover:underline"
-                  >
-                    {app.user.name}
+
+          {applications.length === 0 ? (
+            <p className="text-gray-500">Chưa có ai ứng tuyển.</p>
+          ) : (
+            <div className="space-y-4">
+              {applications.map((app) => (
+                <div
+                  key={app.id}
+                  className="flex items-start gap-4 p-4 bg-gray-50 rounded-xl"
+                >
+                  <Link href={`/user/${app.user.id}`}>
+                    <Image
+                      src={app.user.avatar}
+                      alt={app.user.name}
+                      width={48}
+                      height={48}
+                      className="rounded-full object-cover"
+                    />
                   </Link>
-                  <p className="text-sm text-gray-600 mt-1">"{app.message}"</p>
-                </div>
-                {app.status === 'pending' ? (
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => rejectApplication(app.id)}
-                      className="p-2 text-red-600 hover:bg-red-100 rounded-lg transition"
+
+                  <div className="flex-1 min-w-0">
+                    <Link
+                      href={`/user/${app.user.id}`}
+                      className="font-semibold text-gray-900 hover:underline"
                     >
-                      <X className="w-5 h-5" />
-                    </button>
-                    <button
-                      onClick={() => acceptApplication(app.id)}
-                      className="p-2 text-green-600 hover:bg-green-100 rounded-lg transition"
-                    >
-                      <Check className="w-5 h-5" />
-                    </button>
+                      {app.user.name}
+                    </Link>
+                    <p className="text-sm text-gray-600 mt-1">"{app.message}"</p>
                   </div>
-                ) : (
-                  <span
+
+                  <button
+                    onClick={() => selectApplicant(requestId, app.userId)}
+                    disabled={request.status !== 'active'}
                     className={cn(
-                      'px-3 py-1 rounded-full text-sm font-medium',
-                      app.status === 'accepted'
-                        ? 'bg-green-100 text-green-700'
-                        : 'bg-red-100 text-red-700'
+                      'px-4 py-2 rounded-xl font-semibold transition',
+                      request.status === 'active'
+                        ? 'bg-gradient-primary text-white hover:opacity-90'
+                        : 'bg-gray-200 text-gray-400 cursor-not-allowed'
                     )}
                   >
-                    {app.status === 'accepted' ? 'Đã chấp nhận' : 'Đã từ chối'}
-                  </span>
-                )}
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Current Applicants Preview */}
-      {!isOwner && request.applicants.length > 0 && (
-        <div className="bg-white rounded-2xl border border-gray-100 p-6">
-          <h3 className="text-lg font-bold text-gray-900 mb-4">
-            Đã có {request.applicants.length} người ứng tuyển
-          </h3>
-          <div className="flex -space-x-3">
-            {request.applicants.slice(0, 5).map((applicant) => (
-              <Image
-                key={applicant.id}
-                src={applicant.avatar}
-                alt={applicant.name}
-                width={40}
-                height={40}
-                className="rounded-full border-2 border-white"
-              />
-            ))}
-            {request.applicants.length > 5 && (
-              <div className="w-10 h-10 rounded-full bg-gray-200 border-2 border-white flex items-center justify-center text-sm font-medium text-gray-600">
-                +{request.applicants.length - 5}
-              </div>
-            )}
-          </div>
+                    Chọn
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
     </div>

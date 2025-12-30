@@ -21,6 +21,19 @@ import { MOCK_DATE_REQUESTS } from '@/mocks/dateRequests';
 import { CURRENT_USER, MOCK_USERS } from '@/mocks/users';
 import { MOCK_REVIEWS } from '@/mocks/reviews';
 
+const REQUEST_TTL_MINUTES = 15;
+
+const addMinutesIso = (minutes: number) => {
+  const d = new Date();
+  d.setMinutes(d.getMinutes() + minutes);
+  return d.toISOString();
+};
+
+const isExpired = (expiresAt?: string) => {
+  if (!expiresAt) return false;
+  return new Date(expiresAt).getTime() <= Date.now();
+};
+
 interface DateStore {
   // State
   dateRequests: DateRequest[];
@@ -36,10 +49,25 @@ interface DateStore {
   isLoaded: boolean;
 
   // Actions - Date Requests
-  createDateRequest: (request: Omit<DateRequest, 'id' | 'userId' | 'user' | 'currentParticipants' | 'applicants' | 'status' | 'createdAt'>) => DateRequest;
+  createDateRequest: (
+    request: Omit<
+      DateRequest,
+      | 'id'
+      | 'userId'
+      | 'user'
+      | 'currentParticipants'
+      | 'applicants'
+      | 'status'
+      | 'createdAt'
+      | 'expiresAt'
+    >
+  ) => DateRequest;
   deleteRequest: (requestId: string) => void;
   updateRequest: (requestId: string, updates: Partial<DateRequest>) => void;
   applyToRequest: (requestId: string, message: string) => void;
+  selectApplicant: (requestId: string, applicantUserId: string) => void;
+  expireRequestsIfNeeded: () => void;
+
   getRequestsByActivity: (activity?: ActivityType) => DateRequest[];
   getMyRequests: () => DateRequest[];
   getMyApplications: () => Application[];
@@ -68,7 +96,14 @@ interface DateStore {
   addReview: (review: Omit<Review, 'id' | 'createdAt'>) => Review;
 
   // Actions - Bookings
-  createBooking: (providerId: string, serviceId: string, date: string, time: string, location: string, message: string) => ServiceBooking | undefined;
+  createBooking: (
+    providerId: string,
+    serviceId: string,
+    date: string,
+    time: string,
+    location: string,
+    message: string
+  ) => ServiceBooking | undefined;
   acceptBooking: (bookingId: string) => void;
   rejectBooking: (bookingId: string) => void;
   getMyBookings: () => ServiceBooking[];
@@ -103,9 +138,33 @@ export const useDateStore = create<DateStore>()(
       transactions: [],
       isLoaded: true,
 
+      expireRequestsIfNeeded: () => {
+        const { dateRequests } = get();
+        const now = Date.now();
+
+        const hasAnyToExpire = dateRequests.some(
+          (r) =>
+            r.status === 'active' &&
+            r.expiresAt &&
+            new Date(r.expiresAt).getTime() <= now
+        );
+
+        if (!hasAnyToExpire) return;
+
+        set((state) => ({
+          dateRequests: state.dateRequests.map((r) => {
+            if (r.status !== 'active') return r;
+            if (!r.expiresAt) return r;
+            if (new Date(r.expiresAt).getTime() > now) return r;
+            return { ...r, status: 'expired' as const };
+          }),
+        }));
+      },
+
       // Date Request Actions
       createDateRequest: (request) => {
         const { currentUser } = get();
+
         const newRequest: DateRequest = {
           ...request,
           id: Date.now().toString(),
@@ -115,10 +174,13 @@ export const useDateStore = create<DateStore>()(
           applicants: [],
           status: 'active',
           createdAt: new Date().toISOString(),
+          expiresAt: addMinutesIso(REQUEST_TTL_MINUTES),
         };
+
         set((state) => ({
           dateRequests: [newRequest, ...state.dateRequests],
         }));
+
         return newRequest;
       },
 
@@ -142,6 +204,21 @@ export const useDateStore = create<DateStore>()(
         const request = dateRequests.find((r) => r.id === requestId);
         if (!request) return;
 
+        // Disallow apply to non-active/expired/matched requests
+        if (request.status !== 'active') return;
+        if (isExpired(request.expiresAt)) {
+          set((state) => ({
+            dateRequests: state.dateRequests.map((r) =>
+              r.id === requestId ? { ...r, status: 'expired' as const } : r
+            ),
+          }));
+          return;
+        }
+
+        // Prevent duplicate apply
+        const alreadyApplied = request.applicants.some((u) => u.id === currentUser.id);
+        if (alreadyApplied) return;
+
         const application: Application = {
           id: Date.now().toString(),
           requestId,
@@ -156,8 +233,8 @@ export const useDateStore = create<DateStore>()(
           id: Date.now().toString(),
           userId: request.userId,
           type: 'application',
-          title: 'Có người ứng tuyển mới',
-          message: `${currentUser.name} đã ứng tuyển lời mời "${request.title}"`,
+          title: 'Có người muốn đi cùng bạn',
+          message: `${currentUser.name} muốn tham gia "${request.title}"`,
           data: { requestId, applicationId: application.id },
           read: false,
           createdAt: new Date().toISOString(),
@@ -170,6 +247,75 @@ export const useDateStore = create<DateStore>()(
               ? { ...req, applicants: [...req.applicants, currentUser] }
               : req
           ),
+          notifications: [notification, ...state.notifications],
+        }));
+      },
+
+      // 1-step match: customer selects an applicant -> match immediately + create conversation
+      selectApplicant: (requestId, applicantUserId) => {
+        const { dateRequests, applications, currentUser, conversations, users } = get();
+        const request = dateRequests.find((r) => r.id === requestId);
+        if (!request) return;
+
+        if (request.userId !== currentUser.id) return; // only owner can select
+        if (request.status !== 'active') return;
+
+        if (isExpired(request.expiresAt)) {
+          set((state) => ({
+            dateRequests: state.dateRequests.map((r) =>
+              r.id === requestId ? { ...r, status: 'expired' as const } : r
+            ),
+          }));
+          return;
+        }
+
+        const applicant =
+          request.applicants.find((u) => u.id === applicantUserId) ||
+          users.find((u) => u.id === applicantUserId);
+
+        if (!applicant) return;
+
+        const existingConversation = conversations.find(
+          (c) =>
+            c.participants.some((p) => p.id === applicant.id) &&
+            c.participants.some((p) => p.id === currentUser.id)
+        );
+
+        const newConversation: Conversation | null = existingConversation
+          ? null
+          : {
+              id: Date.now().toString(),
+              participants: [currentUser, applicant],
+              updatedAt: new Date().toISOString(),
+            };
+
+        const notification: Notification = {
+          id: Date.now().toString(),
+          userId: applicant.id,
+          type: 'accepted',
+          title: 'Bạn đã được chọn',
+          message: `${currentUser.name} đã chọn bạn cho "${request.title}". Hai bạn đã match!`,
+          data: { requestId, conversationId: newConversation?.id || existingConversation?.id },
+          read: false,
+          createdAt: new Date().toISOString(),
+        };
+
+        set((state) => ({
+          dateRequests: state.dateRequests.map((r) =>
+            r.id === requestId ? { ...r, status: 'matched' as const } : r
+          ),
+          applications: state.applications.map((app) => {
+            if (app.requestId !== requestId) return app;
+            if (app.userId === applicant.id) return { ...app, status: 'accepted' as const };
+            return { ...app, status: 'rejected' as const };
+          }),
+          conversations: newConversation
+            ? [newConversation, ...state.conversations]
+            : state.conversations.map((c) =>
+                c.id === existingConversation?.id
+                  ? { ...c, updatedAt: new Date().toISOString() }
+                  : c
+              ),
           notifications: [notification, ...state.notifications],
         }));
       },
@@ -195,6 +341,7 @@ export const useDateStore = create<DateStore>()(
         return applications.filter((app) => app.requestId === requestId);
       },
 
+      // Legacy actions kept for compatibility with existing UI; not used in 1-step match flow.
       acceptApplication: (applicationId) => {
         const { applications, dateRequests, currentUser, conversations } = get();
         const application = applications.find((a) => a.id === applicationId);
@@ -691,7 +838,7 @@ export const useDateStore = create<DateStore>()(
       },
 
       payForBooking: (bookingId) => {
-        const { bookings, currentUser, users } = get();
+        const { bookings, currentUser } = get();
         const booking = bookings.find((b) => b.id === bookingId);
         if (!booking) return null;
 

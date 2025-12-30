@@ -18,7 +18,8 @@ export const MOCK_DATE_REQUESTS: DateRequest[] = [
     currentParticipants: 1,
     applicants: [],
     status: 'active',
-    createdAt: '2025-01-10T10:00:00Z'
+    createdAt: '2025-01-10T10:00:00Z',
+    expiresAt: '2030-01-01T00:00:00Z',
   },
   {
     id: '2',
@@ -36,7 +37,8 @@ export const MOCK_DATE_REQUESTS: DateRequest[] = [
     currentParticipants: 1,
     applicants: [MOCK_USERS[2]],
     status: 'active',
-    createdAt: '2025-01-09T15:30:00Z'
+    createdAt: '2025-01-09T15:30:00Z',
+    expiresAt: '2030-01-01T00:00:00Z',
   },
   {
     id: '3',
@@ -54,7 +56,8 @@ export const MOCK_DATE_REQUESTS: DateRequest[] = [
     currentParticipants: 1,
     applicants: [],
     status: 'active',
-    createdAt: '2025-01-08T20:15:00Z'
+    createdAt: '2025-01-08T20:15:00Z',
+    expiresAt: '2030-01-01T00:00:00Z',
   },
   {
     id: '4',
@@ -72,6 +75,7 @@ export const MOCK_DATE_REQUESTS: DateRequest[] = [
     currentParticipants: 1,
     applicants: [MOCK_USERS[0]],
     status: 'active',
-    createdAt: '2025-01-07T12:00:00Z'
-  }
+    createdAt: '2025-01-07T12:00:00Z',
+    expiresAt: '2030-01-01T00:00:00Z',
+  },
 ];

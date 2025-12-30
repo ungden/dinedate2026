@@ -9,12 +9,9 @@ import {
   TrendingUp,
   MapPin,
   Filter,
-  Heart,
   Users,
   Star,
   ArrowRight,
-  Clock,
-  Flame
 } from 'lucide-react';
 import Link from 'next/link';
 import Image from 'next/image';
@@ -67,121 +64,68 @@ export default function HomeClient() {
   // Get online users for sidebar
   const onlineUsers = getAllUsers().filter(u => u.onlineStatus?.isOnline).slice(0, 6);
 
-  // Get recent requests
-  const recentRequests = [...dateRequests]
-    .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-    .slice(0, 3);
-
   return (
-    <div className="space-y-8">
-      {/* Hero Section - Full Width Premium */}
+    <div className="space-y-6">
+      {/* Compact Hero Section */}
       <motion.div
-        className="relative rounded-3xl overflow-hidden"
+        className="relative rounded-3xl overflow-hidden shadow-lg"
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
       >
         {/* Background Image with Overlay */}
-        <div className="absolute inset-0 bg-gradient-to-br from-primary-500 via-primary-600 to-purple-700">
-          <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PGRlZnM+PHBhdHRlcm4gaWQ9ImdyaWQiIHdpZHRoPSI2MCIgaGVpZ2h0PSI2MCIgcGF0dGVyblVuaXRzPSJ1c2VyU3BhY2VPblVzZSI+PHBhdGggZD0iTSA2MCAwIEwgMCAwIDAgNjAiIGZpbGw9Im5vbmUiIHN0cm9rZT0icmdiYSgyNTUsMjU1LDI1NSwwLjA1KSIgc3Ryb2tlLXdpZHRoPSIxIi8+PC9wYXR0ZXJuPjwvZGVmcz48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSJ1cmwoI2dyaWQpIi8+PC9zdmc+')] opacity-50" />
-          <div className="absolute top-0 right-0 w-96 h-96 bg-white/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2" />
-          <div className="absolute bottom-0 left-0 w-80 h-80 bg-purple-500/20 rounded-full blur-3xl translate-y-1/2 -translate-x-1/2" />
+        <div className="absolute inset-0 bg-gradient-to-r from-primary-500 to-purple-600">
+          <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2" />
+          <div className="absolute bottom-0 left-0 w-40 h-40 bg-purple-500/20 rounded-full blur-2xl translate-y-1/2 -translate-x-1/2" />
         </div>
 
-        <div className="relative z-10 p-8 md:p-12 lg:p-16">
-          <div className="max-w-4xl">
-            <motion.div
-              className="flex items-center gap-2 mb-4"
-              initial={{ opacity: 0, x: -20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: 0.1 }}
-            >
-              <span className="px-4 py-1.5 bg-white/20 backdrop-blur-sm rounded-full text-white/90 text-sm font-medium flex items-center gap-2">
-                <Flame className="w-4 h-4" />
-                Nền tảng hẹn hò #1 Việt Nam
-              </span>
-            </motion.div>
-
+        <div className="relative z-10 p-6 md:p-8 flex flex-col md:flex-row items-center justify-between gap-6">
+          <div className="flex-1 text-center md:text-left">
             <motion.h1
-              className="text-3xl md:text-4xl lg:text-5xl xl:text-6xl font-bold text-white mb-4 leading-tight"
-              initial={{ opacity: 0, y: 20 }}
+              className="text-2xl md:text-3xl font-bold text-white mb-2"
+              initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.2 }}
             >
-              Khám phá những
-              <br />
-              <span className="text-transparent bg-clip-text bg-gradient-to-r from-yellow-300 to-pink-300">
-                lời mời hẹn hò
-              </span>
-              {' '}tuyệt vời
+              Khám phá lời mời hẹn hò
             </motion.h1>
 
             <motion.p
-              className="text-white/80 text-lg md:text-xl mb-8 max-w-2xl"
-              initial={{ opacity: 0, y: 20 }}
+              className="text-white/90 text-sm md:text-base mb-0 max-w-xl mx-auto md:mx-0"
+              initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.3 }}
             >
-              Kết nối với những người thú vị, tham gia các hoạt động vui vẻ
-              và tạo ra những kỷ niệm đẹp cùng DineDate.
+              Kết nối với những người thú vị và tạo ra những kỷ niệm đẹp cùng DineDate.
             </motion.p>
-
-            <motion.div
-              className="flex flex-wrap gap-4"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.4 }}
-            >
-              <Link href="/create-request">
-                <motion.button
-                  className="flex items-center gap-2 px-8 py-4 bg-white text-primary-600 rounded-2xl font-bold shadow-xl hover:shadow-2xl transition-all"
-                  whileHover={{ scale: 1.02, y: -2 }}
-                  whileTap={{ scale: 0.98 }}
-                >
-                  <Plus className="w-5 h-5" />
-                  Tạo lời mời
-                </motion.button>
-              </Link>
-              <Link href="/members">
-                <motion.button
-                  className="flex items-center gap-2 px-8 py-4 bg-white/20 backdrop-blur-sm text-white rounded-2xl font-bold border border-white/30 hover:bg-white/30 transition-all"
-                  whileHover={{ scale: 1.02, y: -2 }}
-                  whileTap={{ scale: 0.98 }}
-                >
-                  <Users className="w-5 h-5" />
-                  Khám phá thành viên
-                </motion.button>
-              </Link>
-            </motion.div>
           </div>
 
-          {/* Stats Row */}
           <motion.div
-            className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-12 pt-8 border-t border-white/20"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.5 }}
+            className="flex flex-wrap gap-3 shrink-0 justify-center md:justify-end"
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.4 }}
           >
-            {[
-              { value: `${dateRequests.length}+`, label: 'Lời mời', icon: Heart },
-              { value: `${getAllUsers().length}+`, label: 'Thành viên', icon: Users },
-              { value: '4.9', label: 'Đánh giá', icon: Star },
-              { value: '24/7', label: 'Hỗ trợ', icon: Clock },
-            ].map((stat, index) => (
-              <motion.div
-                key={stat.label}
-                className="text-center md:text-left"
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.5 + index * 0.1 }}
+            <Link href="/create-request">
+              <motion.button
+                className="flex items-center gap-2 px-5 py-2.5 bg-white text-primary-600 rounded-xl font-bold shadow-lg text-sm hover:bg-gray-50 transition-colors"
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
               >
-                <div className="flex items-center justify-center md:justify-start gap-2 mb-1">
-                  <stat.icon className="w-5 h-5 text-white/60" />
-                  <span className="text-2xl md:text-3xl font-bold text-white">{stat.value}</span>
-                </div>
-                <span className="text-sm text-white/60">{stat.label}</span>
-              </motion.div>
-            ))}
+                <Plus className="w-4 h-4" />
+                Tạo lời mời
+              </motion.button>
+            </Link>
+            <Link href="/members">
+              <motion.button
+                className="flex items-center gap-2 px-5 py-2.5 bg-white/20 backdrop-blur-sm text-white rounded-xl font-bold border border-white/30 text-sm hover:bg-white/30 transition-colors"
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+              >
+                <Users className="w-4 h-4" />
+                Thành viên
+              </motion.button>
+            </Link>
           </motion.div>
         </div>
       </motion.div>

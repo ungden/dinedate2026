@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
@@ -38,7 +38,6 @@ import { ServiceOffering, ZODIAC_LABELS, PERSONALITY_TAG_LABELS } from '@/types'
 import VoiceIntro from '@/components/VoiceIntro';
 import AuthModal from '@/components/AuthModal';
 import { useAuth } from '@/contexts/AuthContext';
-import { MatchingSheet } from '@/components/matching';
 
 export default function UserProfilePage() {
   const params = useParams();
@@ -59,12 +58,8 @@ export default function UserProfilePage() {
     actionType: 'book' | 'chat' | 'like' | 'generic';
   }>({
     isOpen: false,
-    actionType: 'generic'
+    actionType: 'generic',
   });
-
-  // Lean matching flow (deal/request from profile)
-  const [dealRequestId, setDealRequestId] = useState<string | null>(null);
-  const [isMatchingOpen, setIsMatchingOpen] = useState(false);
 
   const {
     getUserById,
@@ -72,11 +67,7 @@ export default function UserProfilePage() {
     getUserReviews,
     createBooking,
     currentUser,
-    createDateRequest,
-    getApplicationsForRequest,
-    selectApplicant,
-    deleteRequest,
-    dateRequests,
+    getOrCreateConversationWithUser,
   } = useDateStore();
 
   const { user: authUser } = useAuth();
@@ -85,6 +76,8 @@ export default function UserProfilePage() {
   const rating = user?.rating || getUserAverageRating(userId);
   const reviews = getUserReviews(userId);
   const images = user?.images || [user?.avatar];
+
+  const isCurrentUser = !!user && user.id === currentUser.id;
 
   const nextImage = () => {
     if (images && images.length > 1) {
@@ -96,6 +89,16 @@ export default function UserProfilePage() {
     if (images && images.length > 1) {
       setCurrentImageIndex((prev) => (prev - 1 + images.length) % images.length);
     }
+  };
+
+  const openChatWithUser = () => {
+    if (!authUser) {
+      setAuthModal({ isOpen: true, actionType: 'chat' });
+      return;
+    }
+    const conversationId = getOrCreateConversationWithUser(userId);
+    if (!conversationId) return;
+    router.push(`/chat/${conversationId}`);
   };
 
   const handleBook = () => {
@@ -124,75 +127,7 @@ export default function UserProfilePage() {
     ? (user?.hourlyRate || selectedService.price) * bookingHours
     : 0;
 
-  const platformFee = Math.round(totalCost * 0.1); // 10% platform fee
-
-  const isCurrentUser = !!user && user.id === currentUser.id;
-
-  const dealRequest = useMemo(() => {
-    if (!dealRequestId) return null;
-    return dateRequests.find((r) => r.id === dealRequestId) || null;
-  }, [dateRequests, dealRequestId]);
-
-  const dealApplications = useMemo(() => {
-    if (!dealRequestId) return [];
-    return getApplicationsForRequest(dealRequestId);
-  }, [dealRequestId, getApplicationsForRequest]);
-
-  const openDealMatching = () => {
-    if (!user) return;
-
-    if (!authUser) {
-      setAuthModal({ isOpen: true, actionType: 'chat' });
-      return;
-    }
-
-    // choose default activity (first service activity if any)
-    const defaultActivity = user.services?.[0]?.activity ?? 'dining';
-    const activityLabel = getActivityLabel(defaultActivity);
-
-    const today = new Date();
-    const nowHour = today.getHours();
-    const dateForRequest = new Date();
-    // If it's late night, default to tomorrow
-    if (nowHour >= 20) {
-      dateForRequest.setDate(dateForRequest.getDate() + 1);
-    }
-
-    const yyyy = dateForRequest.getFullYear();
-    const mm = String(dateForRequest.getMonth() + 1).padStart(2, '0');
-    const dd = String(dateForRequest.getDate()).padStart(2, '0');
-    const dateStr = `${yyyy}-${mm}-${dd}`;
-
-    const newReq = createDateRequest({
-      activity: defaultActivity,
-      title: `Đi ${activityLabel} cùng ${user.name}`,
-      description: 'Mình muốn hẹn bạn đi cùng, nếu bạn rảnh thì ứng tuyển nhé!',
-      location: user.location,
-      date: dateStr,
-      time: '19:00',
-      hiringAmount: 0,
-      hiringOption: 'tier0',
-      maxParticipants: 2,
-      recommendedPartnerId: user.id,
-    });
-
-    setDealRequestId(newReq.id);
-    setIsMatchingOpen(true);
-  };
-
-  const handleDealSelectApplicant = (selectedUserId: string) => {
-    if (!dealRequestId) return;
-    selectApplicant(dealRequestId, selectedUserId);
-  };
-
-  const handleDealDelete = () => {
-    if (!dealRequestId) return;
-    if (confirm('Bạn có chắc muốn huỷ lời mời này?')) {
-      deleteRequest(dealRequestId);
-      setIsMatchingOpen(false);
-      setDealRequestId(null);
-    }
-  };
+  const platformFee = Math.round(totalCost * 0.1);
 
   if (!user) {
     return (
@@ -226,7 +161,7 @@ export default function UserProfilePage() {
         <ArrowLeft className="w-5 h-5" />
       </motion.button>
 
-      {/* Media Gallery - Full Width Slider */}
+      {/* Media Gallery */}
       <div className="relative aspect-[3/4] md:aspect-[16/9] mb-6 rounded-b-3xl overflow-hidden">
         <AnimatePresence mode="wait">
           <motion.div
@@ -247,10 +182,8 @@ export default function UserProfilePage() {
           </motion.div>
         </AnimatePresence>
 
-        {/* Gradient Overlay */}
         <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-black/20" />
 
-        {/* Image Navigation */}
         {images && images.length > 1 && (
           <>
             <button
@@ -266,7 +199,6 @@ export default function UserProfilePage() {
               <ChevronRight className="w-6 h-6 text-white" />
             </button>
 
-            {/* Image Dots */}
             <div className="absolute bottom-24 left-1/2 -translate-x-1/2 flex gap-2">
               {images.map((_, idx) => (
                 <button
@@ -274,9 +206,7 @@ export default function UserProfilePage() {
                   onClick={() => setCurrentImageIndex(idx)}
                   className={cn(
                     'w-2 h-2 rounded-full transition-all',
-                    idx === currentImageIndex
-                      ? 'w-6 bg-white'
-                      : 'bg-white/50 hover:bg-white/70'
+                    idx === currentImageIndex ? 'w-6 bg-white' : 'bg-white/50 hover:bg-white/70'
                   )}
                 />
               ))}
@@ -284,7 +214,6 @@ export default function UserProfilePage() {
           </>
         )}
 
-        {/* Top Actions */}
         <div className="absolute top-4 right-4 flex gap-2">
           <motion.button
             className="w-10 h-10 bg-white/30 backdrop-blur-sm rounded-full flex items-center justify-center p-2 hover:bg-white/40 transition"
@@ -303,12 +232,13 @@ export default function UserProfilePage() {
           </motion.button>
         </div>
 
-        {/* VIP Badge */}
         {user.vipStatus.tier !== 'free' && (
-          <div className={cn(
-            'absolute top-4 left-4 flex items-center gap-1.5 px-3 py-1.5 rounded-full',
-            getVIPBadgeColor(user.vipStatus.tier)
-          )}>
+          <div
+            className={cn(
+              'absolute top-4 left-4 flex items-center gap-1.5 px-3 py-1.5 rounded-full',
+              getVIPBadgeColor(user.vipStatus.tier)
+            )}
+          >
             <Crown className="w-4 h-4 text-white" />
             <span className="text-white text-sm font-semibold capitalize">
               {user.vipStatus.tier}
@@ -316,12 +246,12 @@ export default function UserProfilePage() {
           </div>
         )}
 
-        {/* Bottom Info on Image */}
         <div className="absolute bottom-4 left-4 right-4">
           <div className="flex items-end justify-between">
             <div>
               <h1 className="text-3xl font-bold text-white mb-1">
-                {user.name}, {user.birthYear ? new Date().getFullYear() - user.birthYear : user.age}
+                {user.name},{' '}
+                {user.birthYear ? new Date().getFullYear() - user.birthYear : user.age}
               </h1>
               <div className="flex items-center gap-3 text-white/90">
                 <div className="flex items-center gap-1">
@@ -338,7 +268,6 @@ export default function UserProfilePage() {
               </div>
             </div>
 
-            {/* Online Status */}
             {user.onlineStatus?.isOnline && (
               <div className="flex items-center gap-1.5 px-3 py-1.5 bg-green-500/90 rounded-full">
                 <span className="w-2 h-2 bg-white rounded-full animate-pulse" />
@@ -349,9 +278,7 @@ export default function UserProfilePage() {
         </div>
       </div>
 
-      {/* Main Content */}
       <div className="px-4 space-y-6">
-        {/* Voice Intro */}
         {user.voiceIntroUrl && (
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -362,7 +289,7 @@ export default function UserProfilePage() {
           </motion.div>
         )}
 
-        {/* Quick "Deal" CTA (lean matching) */}
+        {/* 1-1 CTA */}
         {!isCurrentUser && (
           <motion.div
             className="bg-white rounded-2xl border border-gray-100 p-4 flex items-center justify-between gap-3"
@@ -372,17 +299,17 @@ export default function UserProfilePage() {
           >
             <div className="min-w-0">
               <p className="text-[11px] font-black text-gray-400 uppercase tracking-[0.2em]">
-                Hẹn nhanh (15 phút)
+                Hẹn 1-1
               </p>
               <p className="text-[15px] font-black text-gray-900 truncate mt-1">
-                Tạo lời mời và chọn partner ngay
+                Gửi đề nghị và chat riêng ngay
               </p>
               <p className="text-[12px] text-gray-500 truncate mt-0.5">
-                Bạn sẽ thấy danh sách người ứng tuyển theo thời gian thực
+                Nếu muốn đi nhóm, hai bạn sẽ tự rủ thêm người sau
               </p>
             </div>
             <button
-              onClick={openDealMatching}
+              onClick={openChatWithUser}
               className="px-4 py-3 rounded-2xl bg-gradient-primary text-white font-black shadow-primary tap-highlight flex items-center gap-2 flex-shrink-0"
             >
               <Sparkles className="w-5 h-5" />
@@ -454,7 +381,7 @@ export default function UserProfilePage() {
                   key={tag}
                   className="px-3 py-1.5 bg-primary-50 text-primary-700 rounded-full text-sm font-medium"
                 >
-                  {PERSONALITY_TAG_LABELS[tag]}
+                  {PERSONALITY_TAG_LABEL_LABELS[tag] ?? PERSONALITY_TAG_LABELS[tag]}
                 </span>
               ))}
             </div>
@@ -475,7 +402,10 @@ export default function UserProfilePage() {
             </div>
             <ul className="space-y-2">
               {user.restrictions.map((restriction, idx) => (
-                <li key={idx} className="flex items-center gap-2 text-orange-800 text-sm">
+                <li
+                  key={idx}
+                  className="flex items-center gap-2 text-orange-800 text-sm"
+                >
                   <AlertTriangle className="w-4 h-4 flex-shrink-0" />
                   <span>{restriction}</span>
                 </li>
@@ -555,9 +485,7 @@ export default function UserProfilePage() {
             transition={{ delay: 0.4 }}
           >
             <div className="flex items-center justify-between mb-4">
-              <h2 className="font-bold text-gray-900">
-                Đánh giá ({reviews.length})
-              </h2>
+              <h2 className="font-bold text-gray-900">Đánh giá ({reviews.length})</h2>
               <Link
                 href={`/reviews/${userId}`}
                 className="text-primary-600 font-medium hover:underline text-sm"
@@ -586,9 +514,7 @@ export default function UserProfilePage() {
                             key={i}
                             className={cn(
                               'w-3.5 h-3.5',
-                              i < review.rating
-                                ? 'text-yellow-500 fill-current'
-                                : 'text-gray-300'
+                              i < review.rating ? 'text-yellow-500 fill-current' : 'text-gray-300'
                             )}
                           />
                         ))}
@@ -606,7 +532,7 @@ export default function UserProfilePage() {
         )}
       </div>
 
-      {/* Sticky Booking Button (existing) */}
+      {/* Sticky Booking Button */}
       {!isCurrentUser && user.services && user.services.length > 0 && (
         <motion.div
           className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-100 p-4 z-40"
@@ -616,13 +542,7 @@ export default function UserProfilePage() {
         >
           <div className="max-w-4xl mx-auto flex items-center gap-4">
             <button
-              onClick={() => {
-                if (!authUser) {
-                  setAuthModal({ isOpen: true, actionType: 'chat' });
-                } else {
-                  router.push(`/chat/new-${userId}`);
-                }
-              }}
+              onClick={openChatWithUser}
               className="w-14 h-14 bg-gray-100 rounded-xl flex items-center justify-center hover:bg-gray-200 transition"
             >
               <MessageCircle className="w-6 h-6 text-gray-600" />
@@ -637,7 +557,7 @@ export default function UserProfilePage() {
         </motion.div>
       )}
 
-      {/* Booking Form Modal (existing) */}
+      {/* Booking Form Modal */}
       <AnimatePresence>
         {selectedService && !isCurrentUser && (
           <motion.div
@@ -652,7 +572,6 @@ export default function UserProfilePage() {
               animate={{ y: 0 }}
               exit={{ y: 100 }}
             >
-              {/* Modal Header */}
               <div className="sticky top-0 bg-white border-b border-gray-100 px-6 py-4 flex items-center justify-between">
                 <div>
                   <h2 className="text-xl font-bold text-gray-900">Đặt lịch hẹn</h2>
@@ -667,7 +586,6 @@ export default function UserProfilePage() {
               </div>
 
               <div className="p-6 space-y-5">
-                {/* Selected Service */}
                 <div className="flex items-center gap-3 p-3 bg-primary-50 rounded-xl">
                   <span className="text-2xl">{getActivityIcon(selectedService.activity)}</span>
                   <div className="flex-1">
@@ -677,7 +595,6 @@ export default function UserProfilePage() {
                   <p className="font-bold text-primary-600">{formatCurrency(selectedService.price)}/h</p>
                 </div>
 
-                {/* Duration Selection */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     <Clock className="w-4 h-4 inline mr-1" />
@@ -701,7 +618,6 @@ export default function UserProfilePage() {
                   </div>
                 </div>
 
-                {/* Date & Time */}
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -734,7 +650,6 @@ export default function UserProfilePage() {
                   </div>
                 </div>
 
-                {/* Location */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     <MapPin className="w-4 h-4 inline mr-1" />
@@ -751,7 +666,6 @@ export default function UserProfilePage() {
                   />
                 </div>
 
-                {/* Message */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Lời nhắn (tùy chọn)
@@ -767,10 +681,11 @@ export default function UserProfilePage() {
                   />
                 </div>
 
-                {/* Price Summary */}
                 <div className="bg-gray-50 rounded-xl p-4 space-y-2">
                   <div className="flex justify-between text-sm">
-                    <span className="text-gray-600">{formatCurrency(user.hourlyRate || selectedService.price)} × {bookingHours} giờ</span>
+                    <span className="text-gray-600">
+                      {formatCurrency(user.hourlyRate || selectedService.price)} × {bookingHours} giờ
+                    </span>
                     <span className="font-medium">{formatCurrency(totalCost)}</span>
                   </div>
                   <div className="flex justify-between text-sm">
@@ -779,11 +694,12 @@ export default function UserProfilePage() {
                   </div>
                   <div className="border-t border-gray-200 pt-2 flex justify-between">
                     <span className="font-bold text-gray-900">Tổng cộng</span>
-                    <span className="font-bold text-xl text-primary-600">{formatCurrency(totalCost + platformFee)}</span>
+                    <span className="font-bold text-xl text-primary-600">
+                      {formatCurrency(totalCost + platformFee)}
+                    </span>
                   </div>
                 </div>
 
-                {/* Safety Notice */}
                 <div className="flex items-start gap-2 p-3 bg-yellow-50 rounded-xl text-sm">
                   <AlertTriangle className="w-5 h-5 text-yellow-600 flex-shrink-0 mt-0.5" />
                   <p className="text-yellow-800">
@@ -791,7 +707,6 @@ export default function UserProfilePage() {
                   </p>
                 </div>
 
-                {/* Action Buttons */}
                 <div className="flex gap-3">
                   <button
                     onClick={() => setSelectedService(null)}
@@ -818,19 +733,6 @@ export default function UserProfilePage() {
         )}
       </AnimatePresence>
 
-      {/* Matching sheet for quick deal */}
-      {dealRequest && !isCurrentUser && (
-        <MatchingSheet
-          isOpen={isMatchingOpen}
-          onClose={() => setIsMatchingOpen(false)}
-          request={dealRequest}
-          applications={dealApplications}
-          onSelectApplicant={handleDealSelectApplicant}
-          onDeleteRequest={handleDealDelete}
-          onGoToMessages={() => router.push('/messages')}
-        />
-      )}
-
       <AuthModal
         isOpen={authModal.isOpen}
         onClose={() => setAuthModal({ ...authModal, isOpen: false })}
@@ -839,3 +741,5 @@ export default function UserProfilePage() {
     </div>
   );
 }
+
+const PERSONALITY_TAG_LABEL_LABELS: Record<string, string> = {};

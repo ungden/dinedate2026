@@ -85,6 +85,9 @@ interface DateStore {
   getMyConversations: () => Conversation[];
   getMessages: (conversationId: string) => Message[];
 
+  // New: strict 1-1 conversation helper
+  getOrCreateConversationWithUser: (otherUserId: string) => string | null;
+
   // Actions - Notifications
   markNotificationAsRead: (notificationId: string) => void;
   markAllNotificationsAsRead: () => void;
@@ -251,13 +254,13 @@ export const useDateStore = create<DateStore>()(
         }));
       },
 
-      // 1-step match: customer selects an applicant -> match immediately + create conversation
+      // Legacy multi-applicant match: kept for compatibility, but not used in strict 1-1 flow
       selectApplicant: (requestId, applicantUserId) => {
-        const { dateRequests, applications, currentUser, conversations, users } = get();
+        const { dateRequests, currentUser, conversations, users } = get();
         const request = dateRequests.find((r) => r.id === requestId);
         if (!request) return;
 
-        if (request.userId !== currentUser.id) return; // only owner can select
+        if (request.userId !== currentUser.id) return;
         if (request.status !== 'active') return;
 
         if (isExpired(request.expiresAt)) {
@@ -341,7 +344,6 @@ export const useDateStore = create<DateStore>()(
         return applications.filter((app) => app.requestId === requestId);
       },
 
-      // Legacy actions kept for compatibility with existing UI; not used in 1-step match flow.
       acceptApplication: (applicationId) => {
         const { applications, dateRequests, currentUser, conversations } = get();
         const application = applications.find((a) => a.id === applicationId);
@@ -440,7 +442,44 @@ export const useDateStore = create<DateStore>()(
         return users.find((u) => u.id === userId);
       },
 
-      // Message Actions
+      // Messages
+      getOrCreateConversationWithUser: (otherUserId) => {
+        const { currentUser, users, conversations } = get();
+        if (!otherUserId) return null;
+        if (otherUserId === currentUser.id) return null;
+
+        const otherUser = users.find((u) => u.id === otherUserId);
+        if (!otherUser) return null;
+
+        const existing = conversations.find(
+          (c) =>
+            c.participants.some((p) => p.id === currentUser.id) &&
+            c.participants.some((p) => p.id === otherUserId) &&
+            c.participants.length === 2
+        );
+
+        if (existing) {
+          set((state) => ({
+            conversations: state.conversations.map((c) =>
+              c.id === existing.id ? { ...c, updatedAt: new Date().toISOString() } : c
+            ),
+          }));
+          return existing.id;
+        }
+
+        const newConversation: Conversation = {
+          id: Date.now().toString(),
+          participants: [currentUser, otherUser],
+          updatedAt: new Date().toISOString(),
+        };
+
+        set((state) => ({
+          conversations: [newConversation, ...state.conversations],
+        }));
+
+        return newConversation.id;
+      },
+
       sendMessage: (conversationId, text) => {
         const { conversations, currentUser } = get();
         const conversation = conversations.find((c) => c.id === conversationId);

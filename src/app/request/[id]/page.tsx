@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
@@ -14,7 +14,6 @@ import {
   Send,
   Trash2,
   CheckCircle,
-  ChevronRight,
 } from 'lucide-react';
 import { useDateStore } from '@/hooks/useDateStore';
 import {
@@ -27,7 +26,6 @@ import {
   cn,
 } from '@/lib/utils';
 import RequestCountdown from '@/components/RequestCountdown';
-import { MatchingSheet } from '@/components/matching';
 
 export default function RequestDetailPage() {
   const params = useParams();
@@ -36,21 +34,17 @@ export default function RequestDetailPage() {
 
   const [applyMessage, setApplyMessage] = useState('');
   const [showApplyForm, setShowApplyForm] = useState(false);
-  const [isMatchingOpen, setIsMatchingOpen] = useState(false);
 
   const {
     dateRequests,
     currentUser,
     applyToRequest,
     getMyApplications,
-    getApplicationsForRequest,
     deleteRequest,
-    selectApplicant,
     expireRequestsIfNeeded,
   } = useDateStore();
 
   const request = dateRequests.find((r) => r.id === requestId);
-  const applications = getApplicationsForRequest(requestId);
   const myApplications = getMyApplications();
   const hasApplied = myApplications.some((a) => a.requestId === requestId);
   const isOwner = request?.userId === currentUser.id;
@@ -58,15 +52,6 @@ export default function RequestDetailPage() {
   useEffect(() => {
     expireRequestsIfNeeded();
   }, [expireRequestsIfNeeded]);
-
-  useEffect(() => {
-    // auto-open matching when owner has applicants and request still active
-    if (!request) return;
-    if (!isOwner) return;
-    if (request.status !== 'active') return;
-    if (applications.length === 0) return;
-    setIsMatchingOpen(true);
-  }, [applications.length, isOwner, request?.status, request]);
 
   const handleApply = () => {
     if (!applyMessage.trim()) return;
@@ -80,11 +65,6 @@ export default function RequestDetailPage() {
       deleteRequest(requestId);
       router.push('/');
     }
-  };
-
-  const handleSelectApplicant = (userId: string) => {
-    selectApplicant(requestId, userId);
-    // keep sheet open to show "matched" banner
   };
 
   if (!request) {
@@ -119,11 +99,6 @@ export default function RequestDetailPage() {
             <h1 className="text-xl font-black text-gray-900">Chi tiết lời mời</h1>
             <div className="flex flex-wrap items-center gap-2">
               <RequestCountdown expiresAt={request.expiresAt} status={request.status} />
-              {applications.length > 0 && (
-                <span className="text-sm text-gray-500 font-medium">
-                  • {applications.length} người muốn đi cùng bạn
-                </span>
-              )}
             </div>
           </div>
         </div>
@@ -250,25 +225,6 @@ export default function RequestDetailPage() {
               </p>
             </div>
           </div>
-
-          {/* Owner CTA to open matching */}
-          {isOwner && (
-            <div className="mt-6">
-              <button
-                onClick={() => setIsMatchingOpen(true)}
-                className={cn(
-                  'w-full py-4 rounded-2xl font-black text-lg tap-highlight transition flex items-center justify-center gap-2',
-                  request.status === 'active'
-                    ? 'bg-gradient-primary text-white shadow-primary'
-                    : 'bg-gray-200 text-gray-400 cursor-not-allowed'
-                )}
-                disabled={request.status !== 'active'}
-              >
-                Xem ứng viên ({applications.length})
-                <ChevronRight className="w-5 h-5" />
-              </button>
-            </div>
-          )}
         </div>
 
         {/* Apply Section - for non-owner */}
@@ -324,19 +280,6 @@ export default function RequestDetailPage() {
           </div>
         )}
       </div>
-
-      {/* Matching sheet (owner) */}
-      {isOwner && (
-        <MatchingSheet
-          isOpen={isMatchingOpen}
-          onClose={() => setIsMatchingOpen(false)}
-          request={request}
-          applications={applications}
-          onSelectApplicant={handleSelectApplicant}
-          onDeleteRequest={handleDelete}
-          onGoToMessages={() => router.push('/messages')}
-        />
-      )}
     </div>
   );
 }

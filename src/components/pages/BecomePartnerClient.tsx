@@ -1,0 +1,279 @@
+'use client';
+
+import { useMemo, useState } from 'react';
+import Link from 'next/link';
+import { motion } from '@/lib/motion';
+import { ArrowLeft, Briefcase, Check, Sparkles, Zap } from 'lucide-react';
+import { useDateStore } from '@/hooks/useDateStore';
+import { ActivityType } from '@/types';
+import { cn, formatCurrency, getActivityIcon, getActivityLabel } from '@/lib/utils';
+
+const ACTIVITY_OPTIONS: { value: ActivityType; label: string; emoji: string }[] = [
+  { value: 'cafe', label: 'Cafe', emoji: '☕' },
+  { value: 'dining', label: 'Ăn uống', emoji: '🍽️' },
+  { value: 'movies', label: 'Xem phim', emoji: '🎬' },
+  { value: 'drinking', label: 'Cafe/Bar', emoji: '🍸' },
+  { value: 'karaoke', label: 'Karaoke', emoji: '🎤' },
+  { value: 'tour_guide', label: 'Tour guide', emoji: '🗺️' },
+  { value: 'travel', label: 'Du lịch', emoji: '✈️' },
+];
+
+const PRICE_PRESETS = [
+  { value: 100000, label: '100k/giờ' },
+  { value: 200000, label: '200k/giờ' },
+  { value: 300000, label: '300k/giờ' },
+  { value: 500000, label: '500k/giờ' },
+  { value: 1000000, label: '1 triệu/giờ' },
+];
+
+const DEFAULT_SUGGESTION: { activities: ActivityType[]; price: number } = {
+  activities: ['cafe', 'dining'],
+  price: 200000,
+};
+
+const DEFAULT_TITLES: Partial<Record<ActivityType, string>> = {
+  cafe: 'Cafe trò chuyện',
+  dining: 'Đi ăn cùng bạn',
+  movies: 'Xem phim rạp',
+  drinking: 'Cafe / Bar chill',
+  karaoke: 'Hát Karaoke',
+  tour_guide: 'Hướng dẫn viên địa phương',
+  travel: 'Du lịch trong ngày',
+};
+
+const DEFAULT_DESCRIPTIONS: Partial<Record<ActivityType, string>> = {
+  cafe: 'Cùng bạn đi cafe, nói chuyện nhẹ nhàng và vui vẻ.',
+  dining: 'Cùng thưởng thức món ngon và trò chuyện thoải mái.',
+  movies: 'Đi xem phim và cùng bàn về những cảnh hay.',
+  drinking: 'Đi cafe/bar nhẹ nhàng, lịch sự.',
+  karaoke: 'Đi karaoke xả stress, hát bài bạn thích.',
+  tour_guide: 'Dẫn bạn đi khám phá địa điểm thú vị.',
+  travel: 'Đồng hành chuyến đi ngắn trong ngày.',
+};
+
+export default function BecomePartnerClient() {
+  const { currentUser, addServiceToProfile } = useDateStore();
+
+  const [selectedActivities, setSelectedActivities] = useState<ActivityType[]>(
+    DEFAULT_SUGGESTION.activities
+  );
+  const [selectedPrice, setSelectedPrice] = useState<number>(DEFAULT_SUGGESTION.price);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const canSubmit = selectedActivities.length > 0 && selectedPrice > 0;
+
+  const earningsPreview = useMemo(() => {
+    const feeRate = 0.1;
+    const afterFee = (hours: number) => Math.round(selectedPrice * hours * (1 - feeRate));
+    return {
+      h3: afterFee(3),
+      h5: afterFee(5),
+      h10: afterFee(10),
+    };
+  }, [selectedPrice]);
+
+  const toggleActivity = (a: ActivityType) => {
+    setSelectedActivities((prev) => {
+      if (prev.includes(a)) return prev.filter((x) => x !== a);
+      return [...prev, a];
+    });
+  };
+
+  const applyRecommended = () => {
+    setSelectedActivities(DEFAULT_SUGGESTION.activities);
+    setSelectedPrice(DEFAULT_SUGGESTION.price);
+  };
+
+  const handleCreate = async () => {
+    if (!canSubmit) return;
+    setIsSubmitting(true);
+
+    // small delay to feel responsive without needing a toast lib
+    await new Promise((r) => setTimeout(r, 350));
+
+    // Create one service per selected activity using the SAME chosen price
+    selectedActivities.forEach((activity) => {
+      addServiceToProfile({
+        activity,
+        title: DEFAULT_TITLES[activity] || `Dịch vụ ${getActivityLabel(activity)}`,
+        description: DEFAULT_DESCRIPTIONS[activity] || 'Dịch vụ đồng hành theo yêu cầu.',
+        price: selectedPrice,
+        available: true,
+      });
+    });
+
+    setIsSubmitting(false);
+
+    // Redirect user to manage-services to edit further (simple)
+    window.location.href = '/manage-services';
+  };
+
+  return (
+    <div className="max-w-2xl mx-auto space-y-6">
+      {/* Header */}
+      <div className="flex items-center gap-4">
+        <Link href="/profile" className="p-2 hover:bg-gray-100 rounded-lg transition">
+          <ArrowLeft className="w-5 h-5" />
+        </Link>
+        <div className="flex-1">
+          <h1 className="text-2xl font-bold text-gray-900">Trở thành Partner</h1>
+          <p className="text-sm text-gray-500">
+            Chọn nhanh hoạt động + giá chung, hệ thống sẽ tạo dịch vụ mặc định cho bạn.
+          </p>
+        </div>
+      </div>
+
+      {/* Already Partner */}
+      {currentUser.isServiceProvider && (currentUser.services?.length || 0) > 0 && (
+        <div className="bg-green-50 border border-green-200 rounded-2xl p-5">
+          <div className="flex items-start gap-3">
+            <div className="w-10 h-10 bg-green-100 rounded-xl flex items-center justify-center">
+              <Check className="w-5 h-5 text-green-600" />
+            </div>
+            <div className="flex-1">
+              <p className="font-bold text-green-900">Bạn đã là Partner</p>
+              <p className="text-sm text-green-700 mt-1">
+                Bạn có thể quản lý dịch vụ tại trang Quản lý dịch vụ.
+              </p>
+              <Link href="/manage-services" className="inline-block mt-3">
+                <button className="px-4 py-2 bg-green-600 text-white rounded-xl font-bold hover:bg-green-700 transition">
+                  Đi tới Quản lý dịch vụ
+                </button>
+              </Link>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Quick suggestion */}
+      <div className="bg-white rounded-2xl border border-gray-100 p-6">
+        <div className="flex items-start justify-between gap-4">
+          <div className="flex items-start gap-3">
+            <div className="w-11 h-11 bg-primary-50 rounded-2xl flex items-center justify-center">
+              <Sparkles className="w-5 h-5 text-primary-600" />
+            </div>
+            <div>
+              <h2 className="text-lg font-bold text-gray-900">Thiết lập nhanh</h2>
+              <p className="text-sm text-gray-500">
+                Không cần nghĩ nhiều — bấm dùng gợi ý là xong.
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={applyRecommended}
+            className="px-4 py-2 bg-gray-900 text-white rounded-xl font-bold hover:bg-gray-800 transition"
+          >
+            Dùng gợi ý
+          </button>
+        </div>
+
+        {/* Activities */}
+        <div className="mt-6">
+          <div className="flex items-center justify-between mb-3">
+            <p className="text-sm font-bold text-gray-700">Chọn hoạt động (chọn nhiều)</p>
+            <span className="text-xs text-gray-400 font-medium">{selectedActivities.length} đã chọn</span>
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+            {ACTIVITY_OPTIONS.map((opt) => {
+              const active = selectedActivities.includes(opt.value);
+              return (
+                <button
+                  key={opt.value}
+                  type="button"
+                  onClick={() => toggleActivity(opt.value)}
+                  className={cn(
+                    'p-4 rounded-2xl border-2 text-left transition',
+                    active ? 'border-primary-500 bg-primary-50' : 'border-gray-200 bg-white hover:bg-gray-50'
+                  )}
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="text-xl">{opt.emoji}</span>
+                    {active && (
+                      <span className="w-6 h-6 bg-primary-500 text-white rounded-full flex items-center justify-center">
+                        <Check className="w-4 h-4" />
+                      </span>
+                    )}
+                  </div>
+                  <p className={cn('mt-2 font-bold', active ? 'text-primary-700' : 'text-gray-900')}>
+                    {opt.label}
+                  </p>
+                  <p className="text-xs text-gray-500 mt-1">{getActivityIcon(opt.value)} {getActivityLabel(opt.value)}</p>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Price */}
+        <div className="mt-6">
+          <p className="text-sm font-bold text-gray-700 mb-3">Chọn mức giá chung</p>
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+            {PRICE_PRESETS.map((p) => {
+              const active = selectedPrice === p.value;
+              return (
+                <button
+                  key={p.value}
+                  type="button"
+                  onClick={() => setSelectedPrice(p.value)}
+                  className={cn(
+                    'py-3 px-3 rounded-2xl border-2 font-bold transition relative',
+                    active ? 'border-primary-500 bg-primary-50 text-primary-700' : 'border-gray-200 bg-white text-gray-700 hover:bg-gray-50'
+                  )}
+                >
+                  {p.label}
+                  {active && (
+                    <span className="absolute -top-2 -right-2 w-6 h-6 bg-primary-500 text-white rounded-full flex items-center justify-center">
+                      <Check className="w-4 h-4" />
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+
+          <div className="mt-4 bg-green-50 border border-green-100 rounded-2xl p-4">
+            <div className="flex items-center gap-2 mb-2">
+              <Zap className="w-4 h-4 text-green-600" />
+              <p className="text-sm font-bold text-green-800">Thu nhập dự kiến (sau phí 10%)</p>
+            </div>
+            <div className="grid grid-cols-3 gap-3 text-sm">
+              <div className="bg-white rounded-xl border border-green-100 p-3">
+                <p className="text-xs text-gray-500 font-semibold">Gói 3 giờ</p>
+                <p className="font-black text-green-700">{formatCurrency(earningsPreview.h3)}</p>
+              </div>
+              <div className="bg-white rounded-xl border border-green-100 p-3">
+                <p className="text-xs text-gray-500 font-semibold">Gói 5 giờ</p>
+                <p className="font-black text-green-700">{formatCurrency(earningsPreview.h5)}</p>
+              </div>
+              <div className="bg-white rounded-xl border border-green-100 p-3">
+                <p className="text-xs text-gray-500 font-semibold">Gói 1 ngày</p>
+                <p className="font-black text-green-700">{formatCurrency(earningsPreview.h10)}</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Submit */}
+        <div className="mt-6 flex gap-3">
+          <Link href="/profile" className="flex-1">
+            <button className="w-full py-3.5 bg-gray-100 text-gray-700 rounded-2xl font-bold hover:bg-gray-200 transition">
+              Để sau
+            </button>
+          </Link>
+          <motion.button
+            onClick={handleCreate}
+            disabled={!canSubmit || isSubmitting}
+            className={cn(
+              'flex-1 py-3.5 rounded-2xl font-bold text-white flex items-center justify-center gap-2 transition shadow-primary',
+              canSubmit && !isSubmitting ? 'bg-gradient-primary hover:opacity-90' : 'bg-gray-300 cursor-not-allowed'
+            )}
+            whileTap={canSubmit && !isSubmitting ? { scale: 0.98 } : {}}
+          >
+            <Briefcase className="w-5 h-5" />
+            {isSubmitting ? 'Đang tạo...' : 'Tạo dịch vụ mặc định'}
+          </motion.button>
+        </div>
+      </div>
+    </div>
+  );
+}

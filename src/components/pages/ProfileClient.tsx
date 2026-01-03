@@ -160,14 +160,14 @@ export default function ProfileClient() {
                         <ChevronRight className="w-4 h-4 text-gray-300" />
                     </Link>
                 ) : (
-                    <Link href="/manage-services" className="flex items-center justify-between p-4 hover:bg-gray-50 transition tap-highlight">
+                    <Link href="/become-partner" className="flex items-center justify-between p-4 hover:bg-gray-50 transition tap-highlight">
                         <div className="flex items-center gap-3">
                             <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-indigo-600 text-white rounded-xl flex items-center justify-center shadow-md">
                                 <Briefcase className="w-5 h-5" />
                             </div>
                             <div>
                                 <p className="font-bold text-gray-700">Đăng ký Partner</p>
-                                <p className="text-[11px] text-gray-400 font-medium">Kiếm thu nhập từ thời gian rảnh</p>
+                                <p className="text-[11px] text-gray-400 font-medium">Chọn nhanh hoạt động + giá chung</p>
                             </div>
                         </div>
                         <ChevronRight className="w-4 h-4 text-gray-300" />

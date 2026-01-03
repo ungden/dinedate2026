@@ -23,6 +23,7 @@ import { cn, formatCurrency, formatRelativeTime, getVIPBadgeColor, getActivityIc
 import { ServiceOffering } from '@/types';
 import { useAuth } from '@/contexts/AuthContext';
 import AuthModal from '@/components/AuthModal';
+import { PLATFORM_FEE_RATE } from '@/lib/platform';
 
 type PackageKey = '3h' | '5h' | '1d';
 
@@ -38,7 +39,7 @@ function getBaseHourlyPrice(userHourlyRate?: number, servicePrice?: number) {
 
 function calcTotal(baseHourly: number, hours: number) {
   const subTotal = baseHourly * hours;
-  const platformFee = Math.round(subTotal * 0.1);
+  const platformFee = Math.round(subTotal * PLATFORM_FEE_RATE);
   return { subTotal, platformFee, total: subTotal + platformFee };
 }
 
@@ -60,7 +61,7 @@ export default function UserProfilePage() {
   // Check if we have a match/conversation with this user
   const existingConversation = useMemo(() => {
     if (!currentUser || !user) return null;
-    return getMyConversations().find(c => 
+    return getMyConversations().find(c =>
       c.participants.some(p => p.id === user.id)
     );
   }, [currentUser, user, getMyConversations]);
@@ -463,7 +464,7 @@ export default function UserProfilePage() {
                             <span className="font-black text-gray-900">{formatCurrency(pricing.subTotal)}</span>
                           </div>
                           <div className="flex items-center justify-between text-sm mt-1">
-                            <span className="text-gray-600 font-medium">Phí nền tảng (10%)</span>
+                            <span className="text-gray-600 font-medium">Phí nền tảng (30%)</span>
                             <span className="font-black text-gray-900">{formatCurrency(pricing.platformFee)}</span>
                           </div>
                           <div className="flex items-center justify-between mt-2 pt-2 border-t border-gray-100">

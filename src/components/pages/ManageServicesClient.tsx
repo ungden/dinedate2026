@@ -11,6 +11,7 @@ import {
   cn,
 } from '@/lib/utils';
 import { ActivityType, ServiceOffering } from '@/types';
+import { PARTNER_EARNING_RATE } from '@/lib/platform';
 
 const activityOptions: ActivityType[] = ['dining', 'drinking', 'movies', 'travel', 'cafe', 'karaoke', 'tour_guide'];
 
@@ -124,10 +125,10 @@ export default function ManageServicesClient() {
     setEditingService(null);
     // Set default for 'dining' immediately
     const def = DEFAULT_CONTENT['dining'];
-    setFormData({ 
-      activity: 'dining', 
-      title: def.title, 
-      description: def.description, 
+    setFormData({
+      activity: 'dining',
+      title: def.title,
+      description: def.description,
       price: 200000 // Default price suggestion
     });
   };
@@ -225,14 +226,14 @@ export default function ManageServicesClient() {
                       </button>
                     ))}
                   </div>
-                  
+
                   {/* Price Projection */}
                   {formData.price > 0 && (
                     <div className="mt-3 p-3 bg-green-50 rounded-xl border border-green-100">
-                      <p className="text-xs text-green-700 font-medium mb-1">Thu nhập dự kiến (sau phí):</p>
+                      <p className="text-xs text-green-700 font-medium mb-1">Thu nhập dự kiến (sau phí 30%):</p>
                       <div className="flex justify-between items-center text-sm">
                         <span>Gói 3 giờ:</span>
-                        <span className="font-bold text-green-700">{formatCurrency(formData.price * 3 * 0.9)}</span>
+                        <span className="font-bold text-green-700">{formatCurrency(formData.price * 3 * PARTNER_EARNING_RATE)}</span>
                       </div>
                     </div>
                   )}

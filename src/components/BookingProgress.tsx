@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 import { ServiceBooking, User } from '@/types';
 import { formatCurrency, cn } from '@/lib/utils';
+import { PARTNER_EARNING_RATE } from '@/lib/platform';
 
 interface BookingProgressProps {
     booking: ServiceBooking;
@@ -213,10 +214,10 @@ export default function BookingProgress({
                 <div className="flex items-center justify-between">
                     <span className="text-gray-600">Thu nhập dự kiến</span>
                     <span className="text-xl font-bold text-primary-600">
-                        {formatCurrency(booking.escrowAmount * 0.9)}
+                        {formatCurrency(booking.escrowAmount * PARTNER_EARNING_RATE)}
                     </span>
                 </div>
-                <p className="text-xs text-gray-500 text-right mt-1">Sau khi trừ phí nền tảng (10%)</p>
+                <p className="text-xs text-gray-500 text-right mt-1">Sau khi trừ phí nền tảng (30%)</p>
             </div>
 
             {/* Action Buttons */}
@@ -279,7 +280,7 @@ export default function BookingProgress({
                             Tổng thời gian: {formatTime(elapsedTime)}
                         </p>
                         <p className="text-lg font-bold text-primary-600 mt-2">
-                            +{formatCurrency(booking.escrowAmount * 0.9)}
+                            +{formatCurrency(booking.escrowAmount * PARTNER_EARNING_RATE)}
                         </p>
                     </div>
                 )}

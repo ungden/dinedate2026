@@ -1,8 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, Plus, Edit2, Trash2, ToggleLeft, ToggleRight } from 'lucide-react';
+import { ArrowLeft, Plus, Edit2, Trash2, ToggleLeft, ToggleRight, Sparkles, Check } from 'lucide-react';
 import { useDateStore } from '@/hooks/useDateStore';
 import {
   formatCurrency,
@@ -12,7 +12,46 @@ import {
 } from '@/lib/utils';
 import { ActivityType, ServiceOffering } from '@/types';
 
-const activityOptions: ActivityType[] = ['dining', 'drinking', 'movies', 'travel'];
+const activityOptions: ActivityType[] = ['dining', 'drinking', 'movies', 'travel', 'cafe', 'karaoke', 'tour_guide'];
+
+const PRICE_PRESETS = [
+  { value: 100000, label: '100k' },
+  { value: 200000, label: '200k' },
+  { value: 300000, label: '300k' },
+  { value: 500000, label: '500k' },
+  { value: 1000000, label: '1 triệu' },
+];
+
+const DEFAULT_CONTENT: Record<ActivityType, { title: string; description: string }> = {
+  dining: {
+    title: 'Đi ăn cùng bạn',
+    description: 'Cùng thưởng thức những món ăn ngon và trò chuyện vui vẻ.',
+  },
+  drinking: {
+    title: 'Cafe / Bar chill',
+    description: 'Ngồi cafe hoặc đi pub nhẹ nhàng, tâm sự chuyện đời sống.',
+  },
+  movies: {
+    title: 'Xem phim rạp',
+    description: 'Cùng xem những bộ phim bom tấn mới nhất ngoài rạp.',
+  },
+  travel: {
+    title: 'Du lịch trong ngày',
+    description: 'Đồng hành cùng bạn trong chuyến đi ngắn, chụp ảnh và khám phá.',
+  },
+  cafe: {
+    title: 'Cafe trò chuyện',
+    description: 'Một buổi cafe nhẹ nhàng để làm quen và kết bạn.',
+  },
+  karaoke: {
+    title: 'Hát Karaoke',
+    description: 'Xả stress bằng những bài hát yêu thích.',
+  },
+  tour_guide: {
+    title: 'Hướng dẫn viên địa phương',
+    description: 'Dẫn bạn đi thăm thú những địa điểm thú vị trong thành phố.',
+  },
+};
 
 export default function ManageServicesClient() {
   const [showForm, setShowForm] = useState(false);
@@ -21,11 +60,23 @@ export default function ManageServicesClient() {
     activity: 'dining' as ActivityType,
     title: '',
     description: '',
-    price: '',
+    price: 0,
   });
 
   const { currentUser, addServiceToProfile, updateService, removeService } =
     useDateStore();
+
+  // Auto-fill content when activity changes (only if fields are empty or match previous default)
+  useEffect(() => {
+    if (!editingService && formData.activity && (!formData.title || Object.values(DEFAULT_CONTENT).some(c => c.title === formData.title))) {
+      const def = DEFAULT_CONTENT[formData.activity];
+      setFormData(prev => ({
+        ...prev,
+        title: def.title,
+        description: def.description
+      }));
+    }
+  }, [formData.activity, editingService]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -36,21 +87,21 @@ export default function ManageServicesClient() {
         activity: formData.activity,
         title: formData.title,
         description: formData.description,
-        price: parseInt(formData.price),
+        price: formData.price,
       });
     } else {
       addServiceToProfile({
         activity: formData.activity,
         title: formData.title,
         description: formData.description,
-        price: parseInt(formData.price),
+        price: formData.price,
         available: true,
       });
     }
 
     setShowForm(false);
     setEditingService(null);
-    setFormData({ activity: 'dining', title: '', description: '', price: '' });
+    setFormData({ activity: 'dining', title: '', description: '', price: 0 });
   };
 
   const handleEdit = (service: ServiceOffering) => {
@@ -59,13 +110,26 @@ export default function ManageServicesClient() {
       activity: service.activity,
       title: service.title,
       description: service.description,
-      price: service.price.toString(),
+      price: service.price,
     });
     setShowForm(true);
   };
 
   const handleToggleAvailable = (service: ServiceOffering) => {
     updateService(service.id, { available: !service.available });
+  };
+
+  const handleAddNew = () => {
+    setShowForm(true);
+    setEditingService(null);
+    // Set default for 'dining' immediately
+    const def = DEFAULT_CONTENT['dining'];
+    setFormData({ 
+      activity: 'dining', 
+      title: def.title, 
+      description: def.description, 
+      price: 200000 // Default price suggestion
+    });
   };
 
   const services = currentUser.services || [];
@@ -83,35 +147,34 @@ export default function ManageServicesClient() {
           </Link>
           <h1 className="text-2xl font-bold text-gray-900">Quản lý Dịch vụ</h1>
         </div>
-        <button
-          onClick={() => {
-            setShowForm(true);
-            setEditingService(null);
-            setFormData({ activity: 'dining', title: '', description: '', price: '' });
-          }}
-          className="flex items-center gap-2 px-4 py-2 bg-gradient-primary text-white rounded-lg font-medium hover:opacity-90 transition"
-        >
-          <Plus className="w-5 h-5" />
-          <span className="hidden sm:inline">Thêm dịch vụ</span>
-        </button>
+        {!showForm && (
+          <button
+            onClick={handleAddNew}
+            className="flex items-center gap-2 px-4 py-2 bg-gradient-primary text-white rounded-lg font-medium hover:opacity-90 transition"
+          >
+            <Plus className="w-5 h-5" />
+            <span className="hidden sm:inline">Thêm dịch vụ</span>
+          </button>
+        )}
       </div>
 
       {/* Form Modal */}
       {showForm && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl w-full max-w-md">
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-end sm:items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-t-3xl sm:rounded-3xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
             <div className="p-6">
-              <h2 className="text-xl font-bold text-gray-900 mb-6">
-                {editingService ? 'Chỉnh sửa dịch vụ' : 'Thêm dịch vụ mới'}
+              <h2 className="text-xl font-bold text-gray-900 mb-6 flex items-center gap-2">
+                {editingService ? <Edit2 className="w-5 h-5 text-primary-500" /> : <Sparkles className="w-5 h-5 text-primary-500" />}
+                {editingService ? 'Chỉnh sửa dịch vụ' : 'Thiết lập dịch vụ mới'}
               </h2>
 
-              <form onSubmit={handleSubmit} className="space-y-4">
+              <form onSubmit={handleSubmit} className="space-y-6">
                 {/* Activity */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Loại hoạt động
+                  <label className="block text-sm font-bold text-gray-700 mb-3 uppercase tracking-wider">
+                    Chọn hoạt động
                   </label>
-                  <div className="grid grid-cols-2 gap-2">
+                  <div className="flex gap-3 overflow-x-auto pb-2 hide-scrollbar">
                     {activityOptions.map((activity) => (
                       <button
                         key={activity}
@@ -120,14 +183,14 @@ export default function ManageServicesClient() {
                           setFormData({ ...formData, activity })
                         }
                         className={cn(
-                          'flex items-center gap-2 p-3 rounded-xl border-2 transition',
+                          'flex flex-col items-center gap-2 p-3 min-w-[90px] rounded-2xl border-2 transition-all',
                           formData.activity === activity
-                            ? 'border-primary-500 bg-primary-50'
-                            : 'border-gray-200 hover:border-gray-300'
+                            ? 'border-primary-500 bg-primary-50 text-primary-700'
+                            : 'border-gray-100 bg-gray-50 text-gray-500 hover:bg-gray-100'
                         )}
                       >
-                        <span>{getActivityIcon(activity)}</span>
-                        <span className="font-medium">
+                        <span className="text-2xl">{getActivityIcon(activity)}</span>
+                        <span className="text-xs font-bold whitespace-nowrap">
                           {getActivityLabel(activity)}
                         </span>
                       </button>
@@ -135,71 +198,97 @@ export default function ManageServicesClient() {
                   </div>
                 </div>
 
-                {/* Title */}
+                {/* Price Selection */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Tiêu đề dịch vụ
+                  <label className="block text-sm font-bold text-gray-700 mb-3 uppercase tracking-wider">
+                    Mức giá (theo giờ)
                   </label>
-                  <input
-                    type="text"
-                    value={formData.title}
-                    onChange={(e) =>
-                      setFormData({ ...formData, title: e.target.value })
-                    }
-                    placeholder="VD: Đi ăn tối cùng bạn"
-                    className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary-500 outline-none"
-                  />
+                  <div className="grid grid-cols-3 gap-3">
+                    {PRICE_PRESETS.map((preset) => (
+                      <button
+                        key={preset.value}
+                        type="button"
+                        onClick={() => setFormData({ ...formData, price: preset.value })}
+                        className={cn(
+                          'py-3 px-2 rounded-xl border-2 font-bold text-sm transition-all relative',
+                          formData.price === preset.value
+                            ? 'border-primary-500 bg-primary-50 text-primary-600'
+                            : 'border-gray-200 text-gray-600 hover:border-gray-300'
+                        )}
+                      >
+                        {preset.label}/h
+                        {formData.price === preset.value && (
+                          <div className="absolute -top-2 -right-2 w-5 h-5 bg-primary-500 text-white rounded-full flex items-center justify-center">
+                            <Check className="w-3 h-3 stroke-[3px]" />
+                          </div>
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                  
+                  {/* Price Projection */}
+                  {formData.price > 0 && (
+                    <div className="mt-3 p-3 bg-green-50 rounded-xl border border-green-100">
+                      <p className="text-xs text-green-700 font-medium mb-1">Thu nhập dự kiến (sau phí):</p>
+                      <div className="flex justify-between items-center text-sm">
+                        <span>Gói 3 giờ:</span>
+                        <span className="font-bold text-green-700">{formatCurrency(formData.price * 3 * 0.9)}</span>
+                      </div>
+                    </div>
+                  )}
                 </div>
 
-                {/* Description */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Mô tả
-                  </label>
-                  <textarea
-                    value={formData.description}
-                    onChange={(e) =>
-                      setFormData({ ...formData, description: e.target.value })
-                    }
-                    placeholder="Mô tả chi tiết về dịch vụ..."
-                    rows={3}
-                    className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary-500 outline-none resize-none"
-                  />
-                </div>
-
-                {/* Price */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Giá (VND)
-                  </label>
-                  <input
-                    type="number"
-                    value={formData.price}
-                    onChange={(e) =>
-                      setFormData({ ...formData, price: e.target.value })
-                    }
-                    placeholder="VD: 500000"
-                    className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary-500 outline-none"
-                  />
+                {/* Content Preview */}
+                <div className="bg-gray-50 rounded-2xl p-4 border border-gray-200">
+                  <div className="mb-3">
+                    <label className="block text-xs font-bold text-gray-500 mb-1 uppercase">Tiêu đề hiển thị</label>
+                    <input
+                      type="text"
+                      value={formData.title}
+                      onChange={(e) =>
+                        setFormData({ ...formData, title: e.target.value })
+                      }
+                      className="w-full bg-transparent font-bold text-gray-900 placeholder:text-gray-400 outline-none border-b border-gray-300 focus:border-primary-500 py-1 transition-colors"
+                      placeholder="Nhập tiêu đề..."
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-gray-500 mb-1 uppercase">Mô tả ngắn</label>
+                    <textarea
+                      value={formData.description}
+                      onChange={(e) =>
+                        setFormData({ ...formData, description: e.target.value })
+                      }
+                      rows={2}
+                      className="w-full bg-transparent text-sm text-gray-600 placeholder:text-gray-400 outline-none border-b border-gray-300 focus:border-primary-500 py-1 transition-colors resize-none"
+                      placeholder="Mô tả về dịch vụ của bạn..."
+                    />
+                  </div>
                 </div>
 
                 {/* Actions */}
-                <div className="flex gap-3 pt-4">
+                <div className="flex gap-3 pt-2">
                   <button
                     type="button"
                     onClick={() => {
                       setShowForm(false);
                       setEditingService(null);
                     }}
-                    className="flex-1 py-3 bg-gray-100 text-gray-700 rounded-xl font-medium hover:bg-gray-200 transition"
+                    className="flex-1 py-3.5 bg-gray-100 text-gray-600 rounded-xl font-bold hover:bg-gray-200 transition"
                   >
                     Hủy
                   </button>
                   <button
                     type="submit"
-                    className="flex-1 py-3 bg-gradient-primary text-white rounded-xl font-medium hover:opacity-90 transition"
+                    disabled={!formData.title || !formData.price}
+                    className={cn(
+                      "flex-1 py-3.5 rounded-xl font-bold text-white transition shadow-lg",
+                      (!formData.title || !formData.price)
+                        ? "bg-gray-300 cursor-not-allowed"
+                        : "bg-gradient-primary hover:opacity-90 shadow-primary"
+                    )}
                   >
-                    {editingService ? 'Cập nhật' : 'Thêm'}
+                    {editingService ? 'Lưu thay đổi' : 'Tạo dịch vụ'}
                   </button>
                 </div>
               </form>
@@ -214,32 +303,32 @@ export default function ManageServicesClient() {
           {services.map((service) => (
             <div
               key={service.id}
-              className="bg-white rounded-2xl border border-gray-100 p-4"
+              className="bg-white rounded-2xl border border-gray-100 p-4 shadow-sm"
             >
               <div className="flex items-start justify-between">
-                <div className="flex items-start gap-3">
-                  <div className="w-12 h-12 bg-gray-100 rounded-xl flex items-center justify-center text-2xl">
+                <div className="flex items-start gap-4">
+                  <div className="w-14 h-14 bg-gray-50 rounded-2xl flex items-center justify-center text-3xl shadow-inner">
                     {getActivityIcon(service.activity)}
                   </div>
                   <div>
-                    <h3 className="font-semibold text-gray-900">
+                    <h3 className="font-bold text-gray-900 text-lg">
                       {service.title}
                     </h3>
-                    <p className="text-sm text-gray-500">{service.description}</p>
-                    <p className="font-semibold text-green-600 mt-1">
-                      {formatCurrency(service.price)}
+                    <p className="text-sm text-gray-500 mb-1 line-clamp-1">{service.description}</p>
+                    <p className="inline-flex items-center gap-1 px-2 py-0.5 bg-green-50 text-green-700 rounded-lg text-xs font-bold">
+                      {formatCurrency(service.price)}/giờ
                     </p>
                   </div>
                 </div>
 
-                <div className="flex items-center gap-2">
+                <div className="flex flex-col gap-2">
                   <button
                     onClick={() => handleToggleAvailable(service)}
                     className={cn(
-                      'p-2 rounded-lg transition',
+                      'p-2 rounded-xl transition',
                       service.available
-                        ? 'text-green-600 hover:bg-green-50'
-                        : 'text-gray-400 hover:bg-gray-100'
+                        ? 'text-green-600 bg-green-50'
+                        : 'text-gray-400 bg-gray-100'
                     )}
                   >
                     {service.available ? (
@@ -248,38 +337,42 @@ export default function ManageServicesClient() {
                       <ToggleLeft className="w-6 h-6" />
                     )}
                   </button>
-                  <button
-                    onClick={() => handleEdit(service)}
-                    className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition"
-                  >
-                    <Edit2 className="w-5 h-5" />
-                  </button>
-                  <button
-                    onClick={() => removeService(service.id)}
-                    className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition"
-                  >
-                    <Trash2 className="w-5 h-5" />
-                  </button>
+                  <div className="flex gap-1">
+                    <button
+                      onClick={() => handleEdit(service)}
+                      className="p-2 text-blue-600 hover:bg-blue-50 rounded-xl transition"
+                    >
+                      <Edit2 className="w-4 h-4" />
+                    </button>
+                    <button
+                      onClick={() => removeService(service.id)}
+                      className="p-2 text-red-600 hover:bg-red-50 rounded-xl transition"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
           ))}
         </div>
       ) : (
-        <div className="text-center py-12 bg-white rounded-2xl border border-gray-100">
-          <div className="text-6xl mb-4">💼</div>
-          <h3 className="text-lg font-semibold text-gray-900 mb-2">
-            Chưa có dịch vụ nào
+        <div className="text-center py-16 bg-white rounded-3xl border border-gray-100 border-dashed">
+          <div className="w-20 h-20 bg-primary-50 rounded-full flex items-center justify-center mx-auto mb-4">
+            <Sparkles className="w-8 h-8 text-primary-500" />
+          </div>
+          <h3 className="text-xl font-bold text-gray-900 mb-2">
+            Bắt đầu kiếm tiền ngay
           </h3>
-          <p className="text-gray-500 mb-4">
-            Thêm dịch vụ để bắt đầu nhận booking
+          <p className="text-gray-500 mb-6 max-w-xs mx-auto">
+            Tạo dịch vụ đầu tiên của bạn chỉ trong 30 giây. Chọn hoạt động và mức giá mong muốn.
           </p>
           <button
-            onClick={() => setShowForm(true)}
-            className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-primary text-white rounded-lg font-medium hover:opacity-90 transition"
+            onClick={handleAddNew}
+            className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-primary text-white rounded-2xl font-bold hover:opacity-90 transition shadow-primary"
           >
             <Plus className="w-5 h-5" />
-            Thêm dịch vụ đầu tiên
+            Tạo dịch vụ ngay
           </button>
         </div>
       )}

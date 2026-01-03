@@ -48,27 +48,30 @@ export default function LoginPage() {
       </div>
 
       {/* Right side - Form */}
-      <div className="flex-1 flex items-center justify-center p-6 md:p-12 bg-mesh">
+      <div className="flex-1 flex items-center justify-center p-6 md:p-12 bg-white lg:bg-transparent">
         <motion.div 
           className="w-full max-w-md"
           initial={{ opacity: 0, x: 20 }}
           animate={{ opacity: 1, x: 0 }}
         >
           {/* Logo Mobile */}
-          <div className="lg:hidden text-center mb-10">
-            <div className="w-16 h-16 bg-gradient-primary rounded-[20px] flex items-center justify-center mx-auto mb-4 shadow-primary">
+          <div className="lg:hidden text-center mb-8 mt-4">
+            <div className="w-16 h-16 bg-gradient-primary rounded-[20px] flex items-center justify-center mx-auto mb-4 shadow-primary shadow-rose-500/30">
               <Heart className="w-8 h-8 text-white fill-white" />
             </div>
             <h1 className="text-3xl font-black gradient-text">DineDate</h1>
           </div>
 
-          <div className="bg-white/80 backdrop-blur-sm p-8 md:p-10 rounded-[32px] shadow-soft border border-white">
-            <h2 className="text-2xl font-black text-gray-900 mb-2">Chào mừng trở lại</h2>
-            <p className="text-gray-500 mb-8 font-medium">Đăng nhập để tiếp tục hành trình của bạn</p>
+          <div className="bg-white p-2 md:p-8 rounded-[32px]">
+            <div className="mb-8">
+                <h2 className="text-2xl font-black text-gray-900 mb-2">Chào mừng trở lại! 👋</h2>
+                <p className="text-gray-500 font-medium">Đăng nhập để tiếp tục hành trình của bạn</p>
+            </div>
 
             <form onSubmit={handleSubmit} className="space-y-5">
               {error && (
-                <div className="p-4 bg-red-50 border border-red-100 rounded-2xl text-red-600 text-sm font-medium animate-shake">
+                <div className="p-4 bg-red-50 border border-red-100 rounded-2xl text-red-600 text-sm font-medium animate-shake flex items-center gap-2">
+                  <span className="w-1.5 h-1.5 rounded-full bg-red-500 inline-block" />
                   {error}
                 </div>
               )}
@@ -83,7 +86,7 @@ export default function LoginPage() {
                     onChange={(e) => setEmail(e.target.value)}
                     placeholder="email@example.com"
                     required
-                    className="ios-input pl-14"
+                    className="input-field pl-14"
                   />
                 </div>
               </div>
@@ -98,12 +101,12 @@ export default function LoginPage() {
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder="••••••••"
                     required
-                    className="ios-input pl-14 pr-14"
+                    className="input-field pl-14 pr-14"
                   />
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-primary-500 transition-colors"
+                    className="absolute right-5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-primary-500 transition-colors p-1"
                   >
                     {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                   </button>
@@ -112,7 +115,7 @@ export default function LoginPage() {
 
               <div className="flex items-center justify-between px-1">
                 <label className="flex items-center gap-2 cursor-pointer group">
-                  <input type="checkbox" className="w-4 h-4 rounded-lg border-gray-300 text-primary-500 focus:ring-primary-500" />
+                  <input type="checkbox" className="w-4 h-4 rounded border-gray-300 text-primary-500 focus:ring-primary-500" />
                   <span className="text-[13px] text-gray-500 font-medium group-hover:text-gray-700 transition-colors">Ghi nhớ tôi</span>
                 </label>
                 <Link href="#" className="text-[13px] text-primary-600 font-bold hover:underline">Quên mật khẩu?</Link>
@@ -122,8 +125,8 @@ export default function LoginPage() {
                 type="submit"
                 disabled={isSubmitting}
                 className={cn(
-                  'w-full py-4 rounded-2xl font-black text-lg transition-all flex items-center justify-center gap-2 shadow-primary tap-highlight',
-                  isSubmitting ? 'bg-gray-200 text-gray-400' : 'bg-gradient-primary text-white hover:opacity-90'
+                  'w-full py-4 rounded-2xl font-black text-lg transition-all flex items-center justify-center gap-2 shadow-primary tap-highlight mt-4',
+                  isSubmitting ? 'bg-gray-200 text-gray-400' : 'bg-gradient-primary text-white hover:opacity-90 hover:shadow-lg active:scale-[0.98]'
                 )}
               >
                 {isSubmitting ? 'Đang xử lý...' : 'Đăng nhập'}

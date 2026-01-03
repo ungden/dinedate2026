@@ -30,7 +30,22 @@ body {
   background-attachment: fixed;
 }
 
+/* Fix Autofill Background Color */
+input:-webkit-autofill,
+input:-webkit-autofill:hover, 
+input:-webkit-autofill:focus, 
+input:-webkit-autofill:active{
+    -webkit-box-shadow: 0 0 0 30px white inset !important;
+    -webkit-text-fill-color: #111827 !important;
+    transition: background-color 5000s ease-in-out 0s;
+}
+
 @layer components {
+  /* Input chuẩn cho toàn app */
+  .input-field {
+    @apply w-full px-5 py-3.5 bg-gray-50 border border-gray-200 rounded-[16px] text-[15px] font-medium text-gray-900 placeholder:text-gray-400 focus:bg-white focus:border-rose-400 focus:ring-4 focus:ring-rose-500/10 transition-all duration-200 outline-none;
+  }
+
   .input-modern {
     @apply w-full px-5 py-3.5 bg-white/80 backdrop-blur-sm border border-rose-200 rounded-[20px] text-[15px] font-medium text-gray-900 placeholder:text-gray-400 focus:border-rose-400 focus:ring-4 focus:ring-rose-500/20 transition-all duration-200 outline-none;
   }
@@ -66,6 +81,14 @@ body {
   
   .gradient-text {
     @apply text-transparent bg-clip-text bg-gradient-to-br from-rose-600 via-pink-500 to-rose-700;
+  }
+  
+  /* Safe area padding for mobile notches/home bars */
+  .safe-bottom {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  .safe-top {
+    padding-top: env(safe-area-inset-top);
   }
 }
 

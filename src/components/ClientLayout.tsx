@@ -10,6 +10,9 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
   const pathname = usePathname();
   const { isLoading } = useAuth();
   
+  // Các trang không hiển thị Header/Footer
+  const isAuthPage = pathname === '/login' || pathname === '/register';
+
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-white">
@@ -25,6 +28,26 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
     );
   }
 
+  // Layout cho trang Login/Register (Full screen, không header/footer)
+  if (isAuthPage) {
+    return (
+      <div className="min-h-screen bg-white">
+        <AnimatePresence mode="wait">
+          <motion.main
+            key={pathname}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.3 }}
+          >
+            {children}
+          </motion.main>
+        </AnimatePresence>
+      </div>
+    );
+  }
+
+  // Layout chính cho các trang trong ứng dụng
   return (
     <div className="min-h-screen bg-gray-50/50">
       <Header />

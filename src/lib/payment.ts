@@ -19,6 +19,25 @@ export interface TopupRequest {
   expires_at: string;
 }
 
+function toError(err: unknown, fallback = 'Đã xảy ra lỗi') {
+  if (err instanceof Error) return err;
+
+  if (typeof err === 'string') return new Error(err);
+
+  const anyErr = err as any;
+
+  // Supabase function invoke errors often look like:
+  // { message, name, context: { body: { message } } }
+  const msg =
+    anyErr?.context?.body?.message ||
+    anyErr?.message ||
+    anyErr?.error_description ||
+    anyErr?.error ||
+    fallback;
+
+  return new Error(String(msg));
+}
+
 // Generate QR Code URL
 export function generateVietQRUrl(config: PaymentConfig, amount: number, transferContent: string): string {
   const bankCode = config.bank_name || "MB";
@@ -30,17 +49,11 @@ export function getBankDisplayName(config: PaymentConfig): string {
 }
 
 export async function getPaymentConfig(): Promise<PaymentConfig | null> {
-  try {
-    const { data, error } = await supabase.functions.invoke("get-payment-config");
-    if (error) {
-      console.error("Error fetching payment config:", error);
-      return null;
-    }
-    return data as PaymentConfig;
-  } catch (err) {
-    console.error("Error calling get-payment-config:", err);
-    return null;
+  const { data, error } = await supabase.functions.invoke("get-payment-config");
+  if (error) {
+    throw toError(error, 'Không lấy được cấu hình thanh toán');
   }
+  return (data as PaymentConfig) ?? null;
 }
 
 export async function cancelTopupRequest(requestId: string): Promise<boolean> {
@@ -59,7 +72,7 @@ export async function checkTopupStatus(requestId: string): Promise<'pending' | '
     .select("status")
     .eq("id", requestId)
     .maybeSingle();
-    
+
   if (error || !data) return null;
   return data.status as any;
 }

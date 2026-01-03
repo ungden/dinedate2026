@@ -2,6 +2,13 @@
 
 import { supabase } from '@/integrations/supabase/client';
 
+function toError(err: unknown, fallback = 'Đã xảy ra lỗi') {
+  if (err instanceof Error) return err;
+  const anyErr = err as any;
+  const msg = anyErr?.context?.body?.message || anyErr?.message || fallback;
+  return new Error(String(msg));
+}
+
 export async function createBookingViaEdge(params: {
   providerId: string;
   serviceId: string;
@@ -16,8 +23,7 @@ export async function createBookingViaEdge(params: {
   });
 
   if (error) {
-    // Pass through; app will show UI error
-    throw error;
+    throw toError(error, 'Không thể tạo booking');
   }
 
   if (!data?.bookingId) {

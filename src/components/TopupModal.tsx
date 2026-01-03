@@ -35,6 +35,12 @@ interface TopupModalProps {
 
 const POLL_INTERVAL = 3000;
 
+function toNiceMessage(err: unknown, fallback = 'Đã xảy ra lỗi') {
+  if (err instanceof Error) return err.message;
+  const anyErr = err as any;
+  return String(anyErr?.message || anyErr?.context?.body?.message || fallback);
+}
+
 export default function TopupModal({
   isOpen,
   onClose,
@@ -97,7 +103,6 @@ export default function TopupModal({
       .single();
 
     if (error) {
-      // Common cause: RLS missing insert policy
       const msg = (error.message || '').toLowerCase();
       if (msg.includes('row-level security')) {
         setFatalError('Không thể tạo yêu cầu nạp tiền do thiếu quyền (RLS). Vui lòng kiểm tra policy cho bảng topup_requests.');
@@ -122,21 +127,27 @@ export default function TopupModal({
       setIsBooting(true);
       setFatalError(null);
 
-      const cfg = await getPaymentConfig();
-      if (cancelled) return;
+      try {
+        const cfg = await getPaymentConfig();
+        if (cancelled) return;
 
-      setConfig(cfg);
+        setConfig(cfg);
 
-      // If config inactive, stop here but keep modal open with message
-      if (!cfg?.is_active) {
+        if (!cfg?.is_active) {
+          setIsBooting(false);
+          return;
+        }
+
+        await createRequestIfNeeded();
+        if (cancelled) return;
+
         setIsBooting(false);
-        return;
+      } catch (err) {
+        if (cancelled) return;
+        setConfig(null);
+        setFatalError(toNiceMessage(err, 'Không tải được cấu hình thanh toán'));
+        setIsBooting(false);
       }
-
-      await createRequestIfNeeded();
-      if (cancelled) return;
-
-      setIsBooting(false);
     };
 
     boot();
@@ -178,7 +189,6 @@ export default function TopupModal({
   useEffect(() => {
     if (!isOpen) return;
 
-    // When modal closes, cleanup polling but keep state reset minimal.
     return () => {
       if (pollingRef.current) clearInterval(pollingRef.current);
       pollingRef.current = null;
@@ -188,7 +198,6 @@ export default function TopupModal({
       setIsCreating(false);
       setCopied(null);
 
-      // Reset local ids unless this modal was opened as "resume"
       if (!requestId && !transferCode) {
         setLocalRequestId(null);
         setLocalCode(null);
@@ -260,7 +269,7 @@ export default function TopupModal({
         {/* Body */}
         <div className="p-6 overflow-y-auto">
           {/* Config inactive */}
-          {!config?.is_active && !showSpinner && (
+          {!config?.is_active && !showSpinner && !fatalError && (
             <div className="rounded-2xl border border-red-200 bg-red-50 p-4">
               <div className="flex items-start gap-3">
                 <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center border border-red-200">

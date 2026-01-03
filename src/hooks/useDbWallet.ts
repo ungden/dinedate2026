@@ -1,10 +1,17 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 
 type DbTxRow = Record<string, any>;
+
+function toError(err: unknown, fallback = 'Đã xảy ra lỗi') {
+  if (err instanceof Error) return err;
+  const anyErr = err as any;
+  const msg = anyErr?.message || anyErr?.error_description || anyErr?.hint || fallback;
+  return new Error(String(msg));
+}
 
 export function useDbWallet() {
   const { user } = useAuth();
@@ -26,7 +33,7 @@ export function useDbWallet() {
       .eq('id', userId)
       .single();
 
-    if (userErr) throw userErr;
+    if (userErr) throw toError(userErr, 'Không lấy được số dư ví');
 
     const { data: txRows, error: txErr } = await supabase
       .from('transactions')
@@ -34,7 +41,7 @@ export function useDbWallet() {
       .eq('user_id', userId)
       .order('created_at', { ascending: false });
 
-    if (txErr) throw txErr;
+    if (txErr) throw toError(txErr, 'Không lấy được lịch sử giao dịch');
 
     setBalance(Number(userRow?.wallet_balance || 0));
     setEscrow(Number(userRow?.wallet_escrow || 0));

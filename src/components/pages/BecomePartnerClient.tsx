@@ -75,7 +75,6 @@ const MIN_PHOTOS = 3;
 export default function BecomePartnerClient() {
   const { currentUser, addServiceToProfile } = useDateStore();
 
-  // Default-first: prefilled
   const [selectedActivities, setSelectedActivities] = useState<ActivityType[]>(
     DEFAULT_SUGGESTION.activities
   );
@@ -166,7 +165,7 @@ export default function BecomePartnerClient() {
         <div className="flex-1">
           <h1 className="text-2xl font-bold text-gray-900">Trở thành Partner</h1>
           <p className="text-sm text-gray-500">
-            Đã chọn sẵn gói cơ bản — bấm tạo ngay, muốn chỉnh thì mở tuỳ chọn.
+            Mặc định đã chọn Cafe + Ăn uống + Xem phim — bấm tạo ngay hoặc chỉnh nếu muốn.
           </p>
         </div>
       </div>
@@ -193,7 +192,7 @@ export default function BecomePartnerClient() {
         </div>
       )}
 
-      {/* Profile requirements (blocking) */}
+      {/* Blocking requirements */}
       {!isAlreadyPartner && !isProfileReady && (
         <div className="bg-rose-50 border border-rose-200 rounded-3xl p-6">
           <div className="flex items-start gap-3">
@@ -203,7 +202,7 @@ export default function BecomePartnerClient() {
             <div className="flex-1">
               <h2 className="text-lg font-bold text-gray-900">Cần hoàn thiện hồ sơ trước</h2>
               <p className="text-sm text-gray-600 mt-1">
-                Để đảm bảo chất lượng Partner, bạn cần cập nhật đủ thông tin sau:
+                Bắt buộc có bio + tối thiểu 3 ảnh rõ mặt để trở thành Partner.
               </p>
 
               <div className="mt-4 space-y-3">
@@ -248,7 +247,7 @@ export default function BecomePartnerClient() {
         </div>
       )}
 
-      {/* Default card */}
+      {/* Default-first card */}
       {!isAlreadyPartner && (
         <div className="bg-white rounded-3xl border border-gray-100 p-6">
           <div className="flex items-start justify-between gap-4">
@@ -258,7 +257,7 @@ export default function BecomePartnerClient() {
               </div>
               <div>
                 <h2 className="text-lg font-bold text-gray-900">Thiết lập mặc định</h2>
-                <p className="text-sm text-gray-500">Gói cơ bản: Cafe + Ăn uống + Xem phim</p>
+                <p className="text-sm text-gray-500">3 hoạt động cơ bản + giá chung</p>
               </div>
             </div>
             <button
@@ -372,12 +371,9 @@ export default function BecomePartnerClient() {
                                 >
                                   <Icon className={cn('w-5 h-5', active ? 'text-primary-600' : 'text-gray-500')} />
                                 </div>
-                                <div>
-                                  <p className={cn('font-black', active ? 'text-primary-700' : 'text-gray-900')}>
-                                    {opt.label}
-                                  </p>
-                                  <p className="text-xs text-gray-500 mt-0.5">Chọn để tạo dịch vụ</p>
-                                </div>
+                                <p className={cn('font-black', active ? 'text-primary-700' : 'text-gray-900')}>
+                                  {opt.label}
+                                </p>
                               </div>
 
                               {active && (
@@ -443,7 +439,7 @@ export default function BecomePartnerClient() {
                     </div>
                   </div>
 
-                  {/* Quick tip */}
+                  {/* Tip */}
                   <div className="bg-gray-50 border border-gray-200 rounded-2xl p-4">
                     <div className="flex items-start gap-3">
                       <div className="w-10 h-10 bg-primary-50 rounded-xl flex items-center justify-center flex-shrink-0">
@@ -458,7 +454,7 @@ export default function BecomePartnerClient() {
                     </div>
                   </div>
 
-                  {/* Non-blocking hint about requirements */}
+                  {/* Requirement hint */}
                   {!isProfileReady && (
                     <div className="bg-rose-50 border border-rose-200 rounded-2xl p-4">
                       <div className="flex items-start gap-3">
@@ -486,7 +482,6 @@ export default function BecomePartnerClient() {
         </div>
       )}
 
-      {/* Small note */}
       {!isAlreadyPartner && (
         <p className="text-center text-[11px] font-medium text-gray-400">
           Hệ thống sẽ tạo {selectedActivities.length} dịch vụ theo hoạt động đã chọn, cùng mức giá chung.

@@ -17,7 +17,8 @@ import {
   Bell,
   Star,
   MessageCircle,
-  Users
+  Users,
+  Briefcase
 } from 'lucide-react';
 import { useDateStore } from '@/hooks/useDateStore';
 import { useAuth } from '@/contexts/AuthContext';
@@ -29,6 +30,7 @@ export default function ProfileClient() {
   
   const myRequests = getMyRequests();
   const myApplications = getMyApplications();
+  const isPartner = currentUser.isServiceProvider;
   
   // Notification counts
   const notifications = getMyNotifications();
@@ -117,7 +119,7 @@ export default function ProfileClient() {
       </div>
 
       {/* 2. Main Menu Sections */}
-      <div className="px-4 mt-6 space-y-6">
+      <div className="px-4 mt-6 space-y-6 pb-32">
         
         {/* Wallet Banner */}
         <Link href="/wallet">
@@ -139,6 +141,40 @@ export default function ProfileClient() {
                 </div>
             </motion.div>
         </Link>
+
+        {/* Partner Section */}
+        <div className="space-y-3">
+            <h3 className="px-2 text-[14px] font-black text-gray-400 uppercase tracking-[0.2em]">Dành cho Partner</h3>
+            <div className="ios-card bg-white divide-y divide-gray-50">
+                {isPartner ? (
+                    <Link href="/partner-dashboard" className="flex items-center justify-between p-4 hover:bg-gray-50 transition tap-highlight">
+                        <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center">
+                                <Briefcase className="w-5 h-5" />
+                            </div>
+                            <div>
+                                <p className="font-bold text-gray-700">Partner Dashboard</p>
+                                <p className="text-[11px] text-gray-400 font-medium">Quản lý thu nhập & đơn hàng</p>
+                            </div>
+                        </div>
+                        <ChevronRight className="w-4 h-4 text-gray-300" />
+                    </Link>
+                ) : (
+                    <Link href="/manage-services" className="flex items-center justify-between p-4 hover:bg-gray-50 transition tap-highlight">
+                        <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-indigo-600 text-white rounded-xl flex items-center justify-center shadow-md">
+                                <Briefcase className="w-5 h-5" />
+                            </div>
+                            <div>
+                                <p className="font-bold text-gray-700">Đăng ký Partner</p>
+                                <p className="text-[11px] text-gray-400 font-medium">Kiếm thu nhập từ thời gian rảnh</p>
+                            </div>
+                        </div>
+                        <ChevronRight className="w-4 h-4 text-gray-300" />
+                    </Link>
+                )}
+            </div>
+        </div>
 
         {/* Matches & Activity Section */}
         <div className="space-y-3">
@@ -242,7 +278,7 @@ export default function ProfileClient() {
             Đăng xuất
         </button>
 
-        <p className="text-center text-[11px] font-black text-gray-300 uppercase tracking-[0.3em] pb-10">DineDate Web v1.0.6</p>
+        <p className="text-center text-[11px] font-black text-gray-300 uppercase tracking-[0.3em]">DineDate Web v1.0.7</p>
       </div>
     </div>
   );

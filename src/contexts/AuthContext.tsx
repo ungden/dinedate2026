@@ -11,6 +11,7 @@ import { useRouter, usePathname } from 'next/navigation';
 import { supabase } from '@/integrations/supabase/client';
 import { User } from '@/types';
 import { mapDbUserToUser } from '@/lib/user-mapper';
+import { mapUserUpdatesToDb } from '@/lib/db-users';
 
 interface AuthContextType {
   user: User | null;
@@ -236,23 +237,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const updateUser = async (updates: Partial<User>) => {
     if (!user?.id) return;
 
-    // IMPORTANT: Never send app-only fields (like `images`) to DB.
-    // Only send actual DB columns.
-    const dbUpdates: any = {};
-
-    if (updates.name !== undefined) dbUpdates.name = updates.name;
-    if (updates.avatar !== undefined) dbUpdates.avatar = updates.avatar;
-    if (updates.bio !== undefined) dbUpdates.bio = updates.bio;
-    if (updates.location !== undefined) dbUpdates.location = updates.location;
-    if (updates.occupation !== undefined) dbUpdates.occupation = updates.occupation;
-
-    if (updates.hourlyRate !== undefined) dbUpdates.hourly_rate = updates.hourlyRate;
-
-    // App field `images` maps to DB column `gallery_images`
-    if (updates.images !== undefined) dbUpdates.gallery_images = updates.images;
-
-    if (updates.partner_agreed_at !== undefined) dbUpdates.partner_agreed_at = updates.partner_agreed_at;
-    if (updates.partner_agreed_version !== undefined) dbUpdates.partner_agreed_version = updates.partner_agreed_version;
+    const dbUpdates = mapUserUpdatesToDb(updates);
 
     const { error } = await supabase.from('users').update(dbUpdates).eq('id', user.id);
     if (error) throw error;

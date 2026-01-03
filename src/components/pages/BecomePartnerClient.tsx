@@ -2,8 +2,16 @@
 
 import { useMemo, useState } from 'react';
 import Link from 'next/link';
-import { motion } from '@/lib/motion';
-import { ArrowLeft, Briefcase, Check, Sparkles, Zap } from 'lucide-react';
+import { motion, AnimatePresence } from '@/lib/motion';
+import {
+  ArrowLeft,
+  Briefcase,
+  Check,
+  Sparkles,
+  Zap,
+  ChevronDown,
+  Wand2
+} from 'lucide-react';
 import { useDateStore } from '@/hooks/useDateStore';
 import { ActivityType } from '@/types';
 import { cn, formatCurrency, getActivityIcon, getActivityLabel } from '@/lib/utils';
@@ -54,11 +62,13 @@ const DEFAULT_DESCRIPTIONS: Partial<Record<ActivityType, string>> = {
 export default function BecomePartnerClient() {
   const { currentUser, addServiceToProfile } = useDateStore();
 
+  // Default-first: prefilled on first render
   const [selectedActivities, setSelectedActivities] = useState<ActivityType[]>(
     DEFAULT_SUGGESTION.activities
   );
   const [selectedPrice, setSelectedPrice] = useState<number>(DEFAULT_SUGGESTION.price);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showAdvanced, setShowAdvanced] = useState(false);
 
   const canSubmit = selectedActivities.length > 0 && selectedPrice > 0;
 
@@ -88,10 +98,8 @@ export default function BecomePartnerClient() {
     if (!canSubmit) return;
     setIsSubmitting(true);
 
-    // small delay to feel responsive without needing a toast lib
-    await new Promise((r) => setTimeout(r, 350));
+    await new Promise((r) => setTimeout(r, 300));
 
-    // Create one service per selected activity using the SAME chosen price
     selectedActivities.forEach((activity) => {
       addServiceToProfile({
         activity,
@@ -103,10 +111,10 @@ export default function BecomePartnerClient() {
     });
 
     setIsSubmitting(false);
-
-    // Redirect user to manage-services to edit further (simple)
     window.location.href = '/manage-services';
   };
+
+  const isAlreadyPartner = currentUser.isServiceProvider && (currentUser.services?.length || 0) > 0;
 
   return (
     <div className="max-w-2xl mx-auto space-y-6">
@@ -118,13 +126,13 @@ export default function BecomePartnerClient() {
         <div className="flex-1">
           <h1 className="text-2xl font-bold text-gray-900">Trở thành Partner</h1>
           <p className="text-sm text-gray-500">
-            Chọn nhanh hoạt động + giá chung, hệ thống sẽ tạo dịch vụ mặc định cho bạn.
+            Bạn đã có sẵn cấu hình mặc định — bấm tạo ngay, hoặc chỉnh nếu muốn.
           </p>
         </div>
       </div>
 
       {/* Already Partner */}
-      {currentUser.isServiceProvider && (currentUser.services?.length || 0) > 0 && (
+      {isAlreadyPartner && (
         <div className="bg-green-50 border border-green-200 rounded-2xl p-5">
           <div className="flex items-start gap-3">
             <div className="w-10 h-10 bg-green-100 rounded-xl flex items-center justify-center">
@@ -145,135 +153,208 @@ export default function BecomePartnerClient() {
         </div>
       )}
 
-      {/* Quick suggestion */}
-      <div className="bg-white rounded-2xl border border-gray-100 p-6">
-        <div className="flex items-start justify-between gap-4">
-          <div className="flex items-start gap-3">
-            <div className="w-11 h-11 bg-primary-50 rounded-2xl flex items-center justify-center">
-              <Sparkles className="w-5 h-5 text-primary-600" />
+      {/* Default card */}
+      {!isAlreadyPartner && (
+        <div className="bg-white rounded-3xl border border-gray-100 p-6">
+          <div className="flex items-start justify-between gap-4">
+            <div className="flex items-start gap-3">
+              <div className="w-12 h-12 bg-primary-50 rounded-2xl flex items-center justify-center">
+                <Wand2 className="w-6 h-6 text-primary-600" />
+              </div>
+              <div>
+                <h2 className="text-lg font-bold text-gray-900">Thiết lập mặc định</h2>
+                <p className="text-sm text-gray-500">
+                  Đã chọn sẵn để bạn khỏi phải nghĩ.
+                </p>
+              </div>
             </div>
-            <div>
-              <h2 className="text-lg font-bold text-gray-900">Thiết lập nhanh</h2>
-              <p className="text-sm text-gray-500">
-                Không cần nghĩ nhiều — bấm dùng gợi ý là xong.
+            <button
+              onClick={applyRecommended}
+              className="px-4 py-2 bg-gray-900 text-white rounded-xl font-bold hover:bg-gray-800 transition"
+            >
+              Reset mặc định
+            </button>
+          </div>
+
+          <div className="mt-5 grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="bg-gray-50 border border-gray-200 rounded-2xl p-4">
+              <p className="text-xs font-black text-gray-500 uppercase tracking-wider mb-2">Hoạt động đã chọn</p>
+              <div className="flex flex-wrap gap-2">
+                {selectedActivities.map((a) => (
+                  <span
+                    key={a}
+                    className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white border border-gray-200 text-sm font-bold text-gray-700"
+                  >
+                    <span className="text-base">{getActivityIcon(a)}</span>
+                    <span>{getActivityLabel(a)}</span>
+                  </span>
+                ))}
+              </div>
+            </div>
+
+            <div className="bg-gray-50 border border-gray-200 rounded-2xl p-4">
+              <p className="text-xs font-black text-gray-500 uppercase tracking-wider mb-2">Giá chung</p>
+              <p className="text-2xl font-black text-gray-900">{formatCurrency(selectedPrice)}/giờ</p>
+              <p className="text-xs text-gray-500 mt-1">
+                (Sau phí 10%) 3h: <span className="font-bold text-green-700">{formatCurrency(earningsPreview.h3)}</span>
               </p>
             </div>
           </div>
+
+          {/* Primary CTA */}
+          <div className="mt-6 flex gap-3">
+            <Link href="/profile" className="flex-1">
+              <button className="w-full py-3.5 bg-gray-100 text-gray-700 rounded-2xl font-bold hover:bg-gray-200 transition">
+                Để sau
+              </button>
+            </Link>
+
+            <motion.button
+              onClick={handleCreate}
+              disabled={!canSubmit || isSubmitting}
+              className={cn(
+                'flex-1 py-3.5 rounded-2xl font-bold text-white flex items-center justify-center gap-2 transition shadow-primary',
+                canSubmit && !isSubmitting ? 'bg-gradient-primary hover:opacity-90' : 'bg-gray-300 cursor-not-allowed'
+              )}
+              whileTap={canSubmit && !isSubmitting ? { scale: 0.98 } : {}}
+            >
+              <Briefcase className="w-5 h-5" />
+              {isSubmitting ? 'Đang tạo...' : 'Tạo dịch vụ mặc định'}
+            </motion.button>
+          </div>
+
+          {/* Advanced toggle */}
           <button
-            onClick={applyRecommended}
-            className="px-4 py-2 bg-gray-900 text-white rounded-xl font-bold hover:bg-gray-800 transition"
+            onClick={() => setShowAdvanced((v) => !v)}
+            className="mt-5 w-full flex items-center justify-center gap-2 text-sm font-bold text-gray-600 hover:text-gray-900 transition"
           >
-            Dùng gợi ý
+            {showAdvanced ? 'Ẩn tuỳ chỉnh' : 'Muốn chỉnh? Mở tuỳ chọn'}
+            <ChevronDown className={cn('w-4 h-4 transition-transform', showAdvanced && 'rotate-180')} />
           </button>
-        </div>
 
-        {/* Activities */}
-        <div className="mt-6">
-          <div className="flex items-center justify-between mb-3">
-            <p className="text-sm font-bold text-gray-700">Chọn hoạt động (chọn nhiều)</p>
-            <span className="text-xs text-gray-400 font-medium">{selectedActivities.length} đã chọn</span>
-          </div>
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-            {ACTIVITY_OPTIONS.map((opt) => {
-              const active = selectedActivities.includes(opt.value);
-              return (
-                <button
-                  key={opt.value}
-                  type="button"
-                  onClick={() => toggleActivity(opt.value)}
-                  className={cn(
-                    'p-4 rounded-2xl border-2 text-left transition',
-                    active ? 'border-primary-500 bg-primary-50' : 'border-gray-200 bg-white hover:bg-gray-50'
-                  )}
-                >
-                  <div className="flex items-center justify-between">
-                    <span className="text-xl">{opt.emoji}</span>
-                    {active && (
-                      <span className="w-6 h-6 bg-primary-500 text-white rounded-full flex items-center justify-center">
-                        <Check className="w-4 h-4" />
-                      </span>
-                    )}
+          <AnimatePresence>
+            {showAdvanced && (
+              <motion.div
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: 'auto', opacity: 1 }}
+                exit={{ height: 0, opacity: 0 }}
+                className="overflow-hidden"
+              >
+                <div className="pt-5 space-y-6">
+                  {/* Activities */}
+                  <div>
+                    <div className="flex items-center justify-between mb-3">
+                      <p className="text-sm font-bold text-gray-700">Chọn hoạt động (chọn nhiều)</p>
+                      <span className="text-xs text-gray-400 font-medium">{selectedActivities.length} đã chọn</span>
+                    </div>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                      {ACTIVITY_OPTIONS.map((opt) => {
+                        const active = selectedActivities.includes(opt.value);
+                        return (
+                          <button
+                            key={opt.value}
+                            type="button"
+                            onClick={() => toggleActivity(opt.value)}
+                            className={cn(
+                              'p-4 rounded-2xl border-2 text-left transition',
+                              active ? 'border-primary-500 bg-primary-50' : 'border-gray-200 bg-white hover:bg-gray-50'
+                            )}
+                          >
+                            <div className="flex items-center justify-between">
+                              <span className="text-xl">{opt.emoji}</span>
+                              {active && (
+                                <span className="w-6 h-6 bg-primary-500 text-white rounded-full flex items-center justify-center">
+                                  <Check className="w-4 h-4" />
+                                </span>
+                              )}
+                            </div>
+                            <p className={cn('mt-2 font-bold', active ? 'text-primary-700' : 'text-gray-900')}>
+                              {opt.label}
+                            </p>
+                            <p className="text-xs text-gray-500 mt-1">
+                              {getActivityIcon(opt.value)} {getActivityLabel(opt.value)}
+                            </p>
+                          </button>
+                        );
+                      })}
+                    </div>
                   </div>
-                  <p className={cn('mt-2 font-bold', active ? 'text-primary-700' : 'text-gray-900')}>
-                    {opt.label}
-                  </p>
-                  <p className="text-xs text-gray-500 mt-1">{getActivityIcon(opt.value)} {getActivityLabel(opt.value)}</p>
-                </button>
-              );
-            })}
-          </div>
-        </div>
 
-        {/* Price */}
-        <div className="mt-6">
-          <p className="text-sm font-bold text-gray-700 mb-3">Chọn mức giá chung</p>
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-            {PRICE_PRESETS.map((p) => {
-              const active = selectedPrice === p.value;
-              return (
-                <button
-                  key={p.value}
-                  type="button"
-                  onClick={() => setSelectedPrice(p.value)}
-                  className={cn(
-                    'py-3 px-3 rounded-2xl border-2 font-bold transition relative',
-                    active ? 'border-primary-500 bg-primary-50 text-primary-700' : 'border-gray-200 bg-white text-gray-700 hover:bg-gray-50'
-                  )}
-                >
-                  {p.label}
-                  {active && (
-                    <span className="absolute -top-2 -right-2 w-6 h-6 bg-primary-500 text-white rounded-full flex items-center justify-center">
-                      <Check className="w-4 h-4" />
-                    </span>
-                  )}
-                </button>
-              );
-            })}
-          </div>
+                  {/* Price */}
+                  <div>
+                    <p className="text-sm font-bold text-gray-700 mb-3">Chọn mức giá chung</p>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                      {PRICE_PRESETS.map((p) => {
+                        const active = selectedPrice === p.value;
+                        return (
+                          <button
+                            key={p.value}
+                            type="button"
+                            onClick={() => setSelectedPrice(p.value)}
+                            className={cn(
+                              'py-3 px-3 rounded-2xl border-2 font-bold transition relative',
+                              active ? 'border-primary-500 bg-primary-50 text-primary-700' : 'border-gray-200 bg-white text-gray-700 hover:bg-gray-50'
+                            )}
+                          >
+                            {p.label}
+                            {active && (
+                              <span className="absolute -top-2 -right-2 w-6 h-6 bg-primary-500 text-white rounded-full flex items-center justify-center">
+                                <Check className="w-4 h-4" />
+                              </span>
+                            )}
+                          </button>
+                        );
+                      })}
+                    </div>
 
-          <div className="mt-4 bg-green-50 border border-green-100 rounded-2xl p-4">
-            <div className="flex items-center gap-2 mb-2">
-              <Zap className="w-4 h-4 text-green-600" />
-              <p className="text-sm font-bold text-green-800">Thu nhập dự kiến (sau phí 10%)</p>
-            </div>
-            <div className="grid grid-cols-3 gap-3 text-sm">
-              <div className="bg-white rounded-xl border border-green-100 p-3">
-                <p className="text-xs text-gray-500 font-semibold">Gói 3 giờ</p>
-                <p className="font-black text-green-700">{formatCurrency(earningsPreview.h3)}</p>
-              </div>
-              <div className="bg-white rounded-xl border border-green-100 p-3">
-                <p className="text-xs text-gray-500 font-semibold">Gói 5 giờ</p>
-                <p className="font-black text-green-700">{formatCurrency(earningsPreview.h5)}</p>
-              </div>
-              <div className="bg-white rounded-xl border border-green-100 p-3">
-                <p className="text-xs text-gray-500 font-semibold">Gói 1 ngày</p>
-                <p className="font-black text-green-700">{formatCurrency(earningsPreview.h10)}</p>
-              </div>
-            </div>
-          </div>
-        </div>
+                    <div className="mt-4 bg-green-50 border border-green-100 rounded-2xl p-4">
+                      <div className="flex items-center gap-2 mb-2">
+                        <Zap className="w-4 h-4 text-green-600" />
+                        <p className="text-sm font-bold text-green-800">Thu nhập dự kiến (sau phí 10%)</p>
+                      </div>
+                      <div className="grid grid-cols-3 gap-3 text-sm">
+                        <div className="bg-white rounded-xl border border-green-100 p-3">
+                          <p className="text-xs text-gray-500 font-semibold">Gói 3 giờ</p>
+                          <p className="font-black text-green-700">{formatCurrency(earningsPreview.h3)}</p>
+                        </div>
+                        <div className="bg-white rounded-xl border border-green-100 p-3">
+                          <p className="text-xs text-gray-500 font-semibold">Gói 5 giờ</p>
+                          <p className="font-black text-green-700">{formatCurrency(earningsPreview.h5)}</p>
+                        </div>
+                        <div className="bg-white rounded-xl border border-green-100 p-3">
+                          <p className="text-xs text-gray-500 font-semibold">Gói 1 ngày</p>
+                          <p className="font-black text-green-700">{formatCurrency(earningsPreview.h10)}</p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
 
-        {/* Submit */}
-        <div className="mt-6 flex gap-3">
-          <Link href="/profile" className="flex-1">
-            <button className="w-full py-3.5 bg-gray-100 text-gray-700 rounded-2xl font-bold hover:bg-gray-200 transition">
-              Để sau
-            </button>
-          </Link>
-          <motion.button
-            onClick={handleCreate}
-            disabled={!canSubmit || isSubmitting}
-            className={cn(
-              'flex-1 py-3.5 rounded-2xl font-bold text-white flex items-center justify-center gap-2 transition shadow-primary',
-              canSubmit && !isSubmitting ? 'bg-gradient-primary hover:opacity-90' : 'bg-gray-300 cursor-not-allowed'
+                  <div className="bg-gray-50 border border-gray-200 rounded-2xl p-4">
+                    <div className="flex items-start gap-3">
+                      <div className="w-10 h-10 bg-primary-50 rounded-xl flex items-center justify-center flex-shrink-0">
+                        <Sparkles className="w-5 h-5 text-primary-600" />
+                      </div>
+                      <div>
+                        <p className="font-bold text-gray-900">Mẹo</p>
+                        <p className="text-sm text-gray-600 mt-1">
+                          Sau khi tạo xong, bạn có thể vào “Quản lý dịch vụ” để chỉnh tiêu đề/mô tả hoặc bật/tắt dịch vụ.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </motion.div>
             )}
-            whileTap={canSubmit && !isSubmitting ? { scale: 0.98 } : {}}
-          >
-            <Briefcase className="w-5 h-5" />
-            {isSubmitting ? 'Đang tạo...' : 'Tạo dịch vụ mặc định'}
-          </motion.button>
+          </AnimatePresence>
         </div>
-      </div>
+      )}
+
+      {/* Small note */}
+      {!isAlreadyPartner && (
+        <p className="text-center text-[11px] font-medium text-gray-400">
+          Hệ thống sẽ tạo {selectedActivities.length} dịch vụ theo hoạt động đã chọn, cùng mức giá chung.
+        </p>
+      )}
     </div>
   );
 }

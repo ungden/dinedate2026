@@ -236,13 +236,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const updateUser = async (updates: Partial<User>) => {
     if (!user?.id) return;
 
-    // Map app User updates to DB columns where needed
-    const dbUpdates: any = { ...updates };
+    // IMPORTANT: Never send app-only fields (like `images`) to DB.
+    // Only send actual DB columns.
+    const dbUpdates: any = {};
 
+    if (updates.name !== undefined) dbUpdates.name = updates.name;
     if (updates.avatar !== undefined) dbUpdates.avatar = updates.avatar;
     if (updates.bio !== undefined) dbUpdates.bio = updates.bio;
     if (updates.location !== undefined) dbUpdates.location = updates.location;
+    if (updates.occupation !== undefined) dbUpdates.occupation = updates.occupation;
+
     if (updates.hourlyRate !== undefined) dbUpdates.hourly_rate = updates.hourlyRate;
+
+    // App field `images` maps to DB column `gallery_images`
     if (updates.images !== undefined) dbUpdates.gallery_images = updates.images;
 
     if (updates.partner_agreed_at !== undefined) dbUpdates.partner_agreed_at = updates.partner_agreed_at;

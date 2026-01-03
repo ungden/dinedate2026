@@ -10,20 +10,30 @@ import {
   Sparkles,
   Zap,
   ChevronDown,
-  Wand2
+  Wand2,
+  Coffee,
+  Utensils,
+  Clapperboard,
+  Wine,
+  Mic2,
+  Map,
+  Plane,
+  AlertTriangle,
+  Image as ImageIcon,
+  FileText,
 } from 'lucide-react';
 import { useDateStore } from '@/hooks/useDateStore';
 import { ActivityType } from '@/types';
-import { cn, formatCurrency, getActivityIcon, getActivityLabel } from '@/lib/utils';
+import { cn, formatCurrency } from '@/lib/utils';
 
-const ACTIVITY_OPTIONS: { value: ActivityType; label: string; emoji: string }[] = [
-  { value: 'cafe', label: 'Cafe', emoji: '☕' },
-  { value: 'dining', label: 'Ăn uống', emoji: '🍽️' },
-  { value: 'movies', label: 'Xem phim', emoji: '🎬' },
-  { value: 'drinking', label: 'Cafe/Bar', emoji: '🍸' },
-  { value: 'karaoke', label: 'Karaoke', emoji: '🎤' },
-  { value: 'tour_guide', label: 'Tour guide', emoji: '🗺️' },
-  { value: 'travel', label: 'Du lịch', emoji: '✈️' },
+const ACTIVITY_OPTIONS: { value: ActivityType; label: string; Icon: React.ElementType }[] = [
+  { value: 'cafe', label: 'Cafe', Icon: Coffee },
+  { value: 'dining', label: 'Ăn uống', Icon: Utensils },
+  { value: 'movies', label: 'Xem phim', Icon: Clapperboard },
+  { value: 'drinking', label: 'Cafe/Bar', Icon: Wine },
+  { value: 'karaoke', label: 'Karaoke', Icon: Mic2 },
+  { value: 'tour_guide', label: 'Tour guide', Icon: Map },
+  { value: 'travel', label: 'Du lịch', Icon: Plane },
 ];
 
 const PRICE_PRESETS = [
@@ -35,7 +45,7 @@ const PRICE_PRESETS = [
 ];
 
 const DEFAULT_SUGGESTION: { activities: ActivityType[]; price: number } = {
-  activities: ['cafe', 'dining'],
+  activities: ['cafe', 'dining', 'movies'],
   price: 200000,
 };
 
@@ -59,10 +69,13 @@ const DEFAULT_DESCRIPTIONS: Partial<Record<ActivityType, string>> = {
   travel: 'Đồng hành chuyến đi ngắn trong ngày.',
 };
 
+const MIN_BIO_LEN = 30;
+const MIN_PHOTOS = 3;
+
 export default function BecomePartnerClient() {
   const { currentUser, addServiceToProfile } = useDateStore();
 
-  // Default-first: prefilled on first render
+  // Default-first: prefilled
   const [selectedActivities, setSelectedActivities] = useState<ActivityType[]>(
     DEFAULT_SUGGESTION.activities
   );
@@ -70,7 +83,36 @@ export default function BecomePartnerClient() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showAdvanced, setShowAdvanced] = useState(false);
 
-  const canSubmit = selectedActivities.length > 0 && selectedPrice > 0;
+  const isAlreadyPartner =
+    !!currentUser.isServiceProvider && (currentUser.services?.length || 0) > 0;
+
+  const photoCount = (currentUser.images || []).filter(Boolean).length;
+  const isBioOk = (currentUser.bio || '').trim().length >= MIN_BIO_LEN;
+  const isPhotosOk = photoCount >= MIN_PHOTOS;
+
+  const profileBlockReasons = useMemo(() => {
+    const reasons: { key: 'bio' | 'photos'; title: string; detail: string }[] = [];
+    if (!isBioOk) {
+      reasons.push({
+        key: 'bio',
+        title: 'Cần cập nhật mô tả (bio)',
+        detail: `Hãy viết ít nhất ${MIN_BIO_LEN} ký tự để hồ sơ đáng tin hơn.`,
+      });
+    }
+    if (!isPhotosOk) {
+      reasons.push({
+        key: 'photos',
+        title: 'Cần thêm ảnh rõ mặt',
+        detail: `Hãy upload tối thiểu ${MIN_PHOTOS} ảnh trong mục Ảnh (gallery).`,
+      });
+    }
+    return reasons;
+  }, [isBioOk, isPhotosOk]);
+
+  const isProfileReady = profileBlockReasons.length === 0;
+
+  const canSubmit =
+    !isAlreadyPartner && isProfileReady && selectedActivities.length > 0 && selectedPrice > 0;
 
   const earningsPreview = useMemo(() => {
     const feeRate = 0.1;
@@ -98,12 +140,12 @@ export default function BecomePartnerClient() {
     if (!canSubmit) return;
     setIsSubmitting(true);
 
-    await new Promise((r) => setTimeout(r, 300));
+    await new Promise((r) => setTimeout(r, 250));
 
     selectedActivities.forEach((activity) => {
       addServiceToProfile({
         activity,
-        title: DEFAULT_TITLES[activity] || `Dịch vụ ${getActivityLabel(activity)}`,
+        title: DEFAULT_TITLES[activity] || 'Dịch vụ đồng hành',
         description: DEFAULT_DESCRIPTIONS[activity] || 'Dịch vụ đồng hành theo yêu cầu.',
         price: selectedPrice,
         available: true,
@@ -113,8 +155,6 @@ export default function BecomePartnerClient() {
     setIsSubmitting(false);
     window.location.href = '/manage-services';
   };
-
-  const isAlreadyPartner = currentUser.isServiceProvider && (currentUser.services?.length || 0) > 0;
 
   return (
     <div className="max-w-2xl mx-auto space-y-6">
@@ -126,7 +166,7 @@ export default function BecomePartnerClient() {
         <div className="flex-1">
           <h1 className="text-2xl font-bold text-gray-900">Trở thành Partner</h1>
           <p className="text-sm text-gray-500">
-            Bạn đã có sẵn cấu hình mặc định — bấm tạo ngay, hoặc chỉnh nếu muốn.
+            Đã chọn sẵn gói cơ bản — bấm tạo ngay, muốn chỉnh thì mở tuỳ chọn.
           </p>
         </div>
       </div>
@@ -153,6 +193,61 @@ export default function BecomePartnerClient() {
         </div>
       )}
 
+      {/* Profile requirements (blocking) */}
+      {!isAlreadyPartner && !isProfileReady && (
+        <div className="bg-rose-50 border border-rose-200 rounded-3xl p-6">
+          <div className="flex items-start gap-3">
+            <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center border border-rose-100">
+              <AlertTriangle className="w-6 h-6 text-rose-600" />
+            </div>
+            <div className="flex-1">
+              <h2 className="text-lg font-bold text-gray-900">Cần hoàn thiện hồ sơ trước</h2>
+              <p className="text-sm text-gray-600 mt-1">
+                Để đảm bảo chất lượng Partner, bạn cần cập nhật đủ thông tin sau:
+              </p>
+
+              <div className="mt-4 space-y-3">
+                {profileBlockReasons.map((r) => (
+                  <div key={r.key} className="bg-white rounded-2xl border border-rose-100 p-4">
+                    <div className="flex items-start gap-3">
+                      <div className="w-10 h-10 bg-rose-50 rounded-xl flex items-center justify-center">
+                        {r.key === 'bio' ? (
+                          <FileText className="w-5 h-5 text-rose-600" />
+                        ) : (
+                          <ImageIcon className="w-5 h-5 text-rose-600" />
+                        )}
+                      </div>
+                      <div className="flex-1">
+                        <p className="font-bold text-gray-900">{r.title}</p>
+                        <p className="text-sm text-gray-600 mt-1">{r.detail}</p>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <div className="mt-5 flex flex-col sm:flex-row gap-3">
+                <Link href="/profile/edit" className="flex-1">
+                  <button className="w-full py-3.5 bg-gradient-primary text-white rounded-2xl font-bold shadow-primary hover:opacity-90 transition">
+                    Cập nhật hồ sơ ngay
+                  </button>
+                </Link>
+                <Link href="/profile" className="flex-1">
+                  <button className="w-full py-3.5 bg-white border border-rose-200 text-rose-600 rounded-2xl font-bold hover:bg-rose-50 transition">
+                    Để sau
+                  </button>
+                </Link>
+              </div>
+
+              <p className="text-[11px] text-gray-500 mt-4">
+                Hiện bạn có: <span className="font-bold">{photoCount}</span> ảnh • Bio:{' '}
+                <span className="font-bold">{(currentUser.bio || '').trim().length}</span> ký tự
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Default card */}
       {!isAlreadyPartner && (
         <div className="bg-white rounded-3xl border border-gray-100 p-6">
@@ -163,9 +258,7 @@ export default function BecomePartnerClient() {
               </div>
               <div>
                 <h2 className="text-lg font-bold text-gray-900">Thiết lập mặc định</h2>
-                <p className="text-sm text-gray-500">
-                  Đã chọn sẵn để bạn khỏi phải nghĩ.
-                </p>
+                <p className="text-sm text-gray-500">Gói cơ bản: Cafe + Ăn uống + Xem phim</p>
               </div>
             </div>
             <button
@@ -178,17 +271,21 @@ export default function BecomePartnerClient() {
 
           <div className="mt-5 grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="bg-gray-50 border border-gray-200 rounded-2xl p-4">
-              <p className="text-xs font-black text-gray-500 uppercase tracking-wider mb-2">Hoạt động đã chọn</p>
+              <p className="text-xs font-black text-gray-500 uppercase tracking-wider mb-3">Hoạt động</p>
               <div className="flex flex-wrap gap-2">
-                {selectedActivities.map((a) => (
-                  <span
-                    key={a}
-                    className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white border border-gray-200 text-sm font-bold text-gray-700"
-                  >
-                    <span className="text-base">{getActivityIcon(a)}</span>
-                    <span>{getActivityLabel(a)}</span>
-                  </span>
-                ))}
+                {selectedActivities.map((a) => {
+                  const option = ACTIVITY_OPTIONS.find((o) => o.value === a);
+                  const Icon = option?.Icon;
+                  return (
+                    <span
+                      key={a}
+                      className="inline-flex items-center gap-2 px-3 py-2 rounded-2xl bg-white border border-gray-200 text-sm font-bold text-gray-700"
+                    >
+                      {Icon ? <Icon className="w-4 h-4 text-primary-600" /> : null}
+                      <span>{option?.label || a}</span>
+                    </span>
+                  );
+                })}
               </div>
             </div>
 
@@ -247,33 +344,48 @@ export default function BecomePartnerClient() {
                       <p className="text-sm font-bold text-gray-700">Chọn hoạt động (chọn nhiều)</p>
                       <span className="text-xs text-gray-400 font-medium">{selectedActivities.length} đã chọn</span>
                     </div>
+
                     <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                       {ACTIVITY_OPTIONS.map((opt) => {
                         const active = selectedActivities.includes(opt.value);
+                        const Icon = opt.Icon;
+
                         return (
                           <button
                             key={opt.value}
                             type="button"
                             onClick={() => toggleActivity(opt.value)}
                             className={cn(
-                              'p-4 rounded-2xl border-2 text-left transition',
-                              active ? 'border-primary-500 bg-primary-50' : 'border-gray-200 bg-white hover:bg-gray-50'
+                              'relative p-4 rounded-2xl border-2 text-left transition',
+                              active
+                                ? 'border-primary-500 bg-primary-50'
+                                : 'border-gray-200 bg-white hover:bg-gray-50'
                             )}
                           >
-                            <div className="flex items-center justify-between">
-                              <span className="text-xl">{opt.emoji}</span>
+                            <div className="flex items-start justify-between gap-3">
+                              <div className="flex items-center gap-3">
+                                <div
+                                  className={cn(
+                                    'w-10 h-10 rounded-2xl flex items-center justify-center',
+                                    active ? 'bg-white border border-primary-100' : 'bg-gray-50 border border-gray-200'
+                                  )}
+                                >
+                                  <Icon className={cn('w-5 h-5', active ? 'text-primary-600' : 'text-gray-500')} />
+                                </div>
+                                <div>
+                                  <p className={cn('font-black', active ? 'text-primary-700' : 'text-gray-900')}>
+                                    {opt.label}
+                                  </p>
+                                  <p className="text-xs text-gray-500 mt-0.5">Chọn để tạo dịch vụ</p>
+                                </div>
+                              </div>
+
                               {active && (
-                                <span className="w-6 h-6 bg-primary-500 text-white rounded-full flex items-center justify-center">
+                                <span className="w-7 h-7 bg-primary-500 text-white rounded-full flex items-center justify-center shadow-sm">
                                   <Check className="w-4 h-4" />
                                 </span>
                               )}
                             </div>
-                            <p className={cn('mt-2 font-bold', active ? 'text-primary-700' : 'text-gray-900')}>
-                              {opt.label}
-                            </p>
-                            <p className="text-xs text-gray-500 mt-1">
-                              {getActivityIcon(opt.value)} {getActivityLabel(opt.value)}
-                            </p>
                           </button>
                         );
                       })}
@@ -292,8 +404,10 @@ export default function BecomePartnerClient() {
                             type="button"
                             onClick={() => setSelectedPrice(p.value)}
                             className={cn(
-                              'py-3 px-3 rounded-2xl border-2 font-bold transition relative',
-                              active ? 'border-primary-500 bg-primary-50 text-primary-700' : 'border-gray-200 bg-white text-gray-700 hover:bg-gray-50'
+                              'py-3 px-3 rounded-2xl border-2 font-black transition relative',
+                              active
+                                ? 'border-primary-500 bg-primary-50 text-primary-700'
+                                : 'border-gray-200 bg-white text-gray-900 hover:bg-gray-50'
                             )}
                           >
                             {p.label}
@@ -310,7 +424,7 @@ export default function BecomePartnerClient() {
                     <div className="mt-4 bg-green-50 border border-green-100 rounded-2xl p-4">
                       <div className="flex items-center gap-2 mb-2">
                         <Zap className="w-4 h-4 text-green-600" />
-                        <p className="text-sm font-bold text-green-800">Thu nhập dự kiến (sau phí 10%)</p>
+                        <p className="text-sm font-black text-green-800">Thu nhập dự kiến (sau phí 10%)</p>
                       </div>
                       <div className="grid grid-cols-3 gap-3 text-sm">
                         <div className="bg-white rounded-xl border border-green-100 p-3">
@@ -329,6 +443,7 @@ export default function BecomePartnerClient() {
                     </div>
                   </div>
 
+                  {/* Quick tip */}
                   <div className="bg-gray-50 border border-gray-200 rounded-2xl p-4">
                     <div className="flex items-start gap-3">
                       <div className="w-10 h-10 bg-primary-50 rounded-xl flex items-center justify-center flex-shrink-0">
@@ -337,11 +452,33 @@ export default function BecomePartnerClient() {
                       <div>
                         <p className="font-bold text-gray-900">Mẹo</p>
                         <p className="text-sm text-gray-600 mt-1">
-                          Sau khi tạo xong, bạn có thể vào “Quản lý dịch vụ” để chỉnh tiêu đề/mô tả hoặc bật/tắt dịch vụ.
+                          Tạo xong bạn vẫn có thể vào “Quản lý dịch vụ” để chỉnh tiêu đề/mô tả hoặc bật/tắt dịch vụ.
                         </p>
                       </div>
                     </div>
                   </div>
+
+                  {/* Non-blocking hint about requirements */}
+                  {!isProfileReady && (
+                    <div className="bg-rose-50 border border-rose-200 rounded-2xl p-4">
+                      <div className="flex items-start gap-3">
+                        <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center border border-rose-100">
+                          <AlertTriangle className="w-5 h-5 text-rose-600" />
+                        </div>
+                        <div className="flex-1">
+                          <p className="font-bold text-gray-900">Chưa đủ điều kiện tạo Partner</p>
+                          <p className="text-sm text-gray-600 mt-1">
+                            Hoàn thiện Bio + đủ ảnh để mở nút tạo.
+                          </p>
+                          <Link href="/profile/edit" className="inline-block mt-3">
+                            <button className="px-4 py-2 bg-white border border-rose-200 text-rose-600 rounded-xl font-bold hover:bg-rose-50 transition">
+                              Cập nhật hồ sơ
+                            </button>
+                          </Link>
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </motion.div>
             )}

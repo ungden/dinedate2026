@@ -112,18 +112,18 @@ export default function MembersClient() {
   const activeFiltersCount = selectedActivities.length + (availableNow ? 1 : 0) + (availableTonight ? 1 : 0);
 
   return (
-    <div className="space-y-6 pb-24 bg-mesh min-h-screen">
-      {/* Sticky header controls */}
-      <div className="sticky top-[60px] z-30 -mx-4 px-4 bg-white/80 backdrop-blur-xl border-b border-gray-100/50 py-4 space-y-4">
+    <div className="space-y-6 pb-24 min-h-screen">
+      {/* Sticky header controls - Pink Glass Effect */}
+      <div className="sticky top-[60px] z-30 -mx-4 px-4 bg-rose-50/80 backdrop-blur-xl border-b border-rose-200/50 py-4 space-y-4 shadow-sm">
         <div className="flex items-center justify-between">
           <div className="relative">
             <button
               onClick={() => setShowLocationPicker(!showLocationPicker)}
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-100 rounded-full text-gray-900 text-[13px] font-black tap-highlight"
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-white/60 hover:bg-white border border-rose-100 rounded-full text-gray-900 text-[13px] font-black tap-highlight transition-colors"
             >
-              <MapPin className="w-4 h-4 text-primary-500" />
+              <MapPin className="w-4 h-4 text-rose-500" />
               <span>{selectedLocation}</span>
-              <ChevronDown className={cn('w-3.5 h-3.5 transition-transform', showLocationPicker && 'rotate-180')} />
+              <ChevronDown className={cn('w-3.5 h-3.5 transition-transform text-rose-400', showLocationPicker && 'rotate-180')} />
             </button>
 
             <AnimatePresence>
@@ -132,7 +132,7 @@ export default function MembersClient() {
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: 10 }}
-                  className="absolute top-full left-0 mt-2 w-56 bg-white rounded-3xl shadow-2xl border border-gray-100 py-3 z-50"
+                  className="absolute top-full left-0 mt-2 w-56 bg-white rounded-3xl shadow-xl shadow-rose-500/10 border border-rose-100 py-3 z-50"
                 >
                   {LOCATIONS.map((loc) => (
                     <button
@@ -142,8 +142,8 @@ export default function MembersClient() {
                         setShowLocationPicker(false);
                       }}
                       className={cn(
-                        'w-full px-5 py-2.5 text-left text-sm hover:bg-gray-50 transition-colors',
-                        selectedLocation === loc ? 'text-primary-600 font-black bg-primary-50/50' : 'text-gray-600 font-medium'
+                        'w-full px-5 py-2.5 text-left text-sm hover:bg-rose-50 transition-colors',
+                        selectedLocation === loc ? 'text-rose-600 font-black bg-rose-50' : 'text-gray-600 font-medium'
                       )}
                     >
                       {loc}
@@ -154,22 +154,22 @@ export default function MembersClient() {
             </AnimatePresence>
           </div>
 
-          <div className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-primary-500 to-purple-500 rounded-full text-white text-[13px] font-black shadow-lg shadow-primary-500/20">
+          <div className="flex items-center gap-1.5 px-3 py-1.5 bg-white/60 border border-rose-100 rounded-full text-rose-600 text-[13px] font-black shadow-sm">
             <Wallet className="w-3.5 h-3.5" />
             <span>{formatCurrency(currentUser.wallet.balance)}</span>
           </div>
         </div>
 
-        {/* Search + Filter */}
+        {/* Search + Filter - Pink Theme */}
         <div className="flex gap-2">
           <div className="relative flex-1 group">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 group-focus-within:text-primary-500 transition-colors" />
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-rose-400 group-focus-within:text-rose-600 transition-colors" />
             <input
               type="text"
               placeholder="Tìm kiếm Partner..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="ios-input pl-11 py-3 text-sm"
+              className="w-full pl-11 pr-4 py-3 bg-white/70 border border-rose-100 rounded-2xl text-sm focus:bg-white focus:border-rose-300 focus:ring-4 focus:ring-rose-500/10 outline-none transition-all"
             />
           </div>
 
@@ -177,12 +177,14 @@ export default function MembersClient() {
             onClick={() => setShowFilters(!showFilters)}
             className={cn(
               'w-11 h-11 rounded-2xl flex items-center justify-center transition-all tap-highlight relative',
-              showFilters || activeFiltersCount > 0 ? 'bg-primary-500 text-white shadow-lg' : 'bg-gray-100 text-gray-500'
+              showFilters || activeFiltersCount > 0 
+                ? 'bg-rose-500 text-white shadow-lg shadow-rose-500/30' 
+                : 'bg-white border border-rose-100 text-rose-400 hover:bg-rose-50'
             )}
           >
             <Filter className="w-5 h-5 stroke-[2.5px]" />
             {activeFiltersCount > 0 && (
-              <span className="absolute -top-1 -right-1 w-5 h-5 bg-white text-primary-500 text-[10px] font-black rounded-full border-2 border-primary-500 flex items-center justify-center">
+              <span className="absolute -top-1 -right-1 w-5 h-5 bg-white text-rose-600 text-[10px] font-black rounded-full border-2 border-rose-500 flex items-center justify-center">
                 {activeFiltersCount}
               </span>
             )}
@@ -191,13 +193,13 @@ export default function MembersClient() {
 
         {/* Sort row */}
         <div className="flex items-center justify-between gap-3">
-          <div className="flex items-center gap-2 text-[12px] font-black text-gray-500 uppercase tracking-wider">
-            <Sparkles className="w-4 h-4 text-primary-500" />
+          <div className="flex items-center gap-2 text-[12px] font-black text-rose-900/50 uppercase tracking-wider">
+            <Sparkles className="w-4 h-4 text-rose-500" />
             Partner
           </div>
 
           <div className="flex items-center gap-2">
-            <div className="hidden sm:flex items-center gap-2 text-xs font-black text-gray-400">
+            <div className="hidden sm:flex items-center gap-2 text-xs font-black text-rose-400">
               <ArrowUpDown className="w-4 h-4" />
               Sắp xếp:
             </div>
@@ -205,7 +207,7 @@ export default function MembersClient() {
             <select
               value={sortMode}
               onChange={(e) => setSortMode(e.target.value as SortMode)}
-              className="h-10 px-3 rounded-2xl bg-gray-100 text-gray-800 text-sm font-black outline-none"
+              className="h-9 px-3 rounded-xl bg-white/50 border border-rose-100 text-rose-900 text-xs font-bold outline-none focus:border-rose-300"
             >
               <option value="recommended">Gợi ý</option>
               <option value="available">Rảnh ngay</option>
@@ -261,8 +263,8 @@ export default function MembersClient() {
           ) : (
             <div className="py-20 text-center">
               <div className="text-6xl mb-4">🔍</div>
-              <h3 className="text-lg font-black text-gray-900">Không có kết quả</h3>
-              <p className="text-gray-400 text-sm mt-1">Thử bỏ bớt bộ lọc xem sao nhé!</p>
+              <h3 className="text-lg font-black text-rose-900">Không có kết quả</h3>
+              <p className="text-rose-400 text-sm mt-1">Thử bỏ bớt bộ lọc xem sao nhé!</p>
             </div>
           )}
         </div>

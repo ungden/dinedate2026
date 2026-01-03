@@ -4,24 +4,17 @@
 
 /* ===== PREMIUM MODERN DESIGN TOKENS ===== */
 :root {
-  /* Màu chủ đạo: Hồng rực rỡ, ấm áp và quyến rũ */
-  --primary-500: 244, 63, 94;  /* #F43F5E - Rose 500 */
-  --primary-600: 225, 29, 72;  /* #E11D48 - Rose 600 */
+  /* Màu chủ đạo: Hồng rực rỡ */
+  --primary-500: 244, 63, 94;  /* Rose 500 */
+  --primary-600: 225, 29, 72;  /* Rose 600 */
   
-  /* Nền: Thay vì xám lạnh, chuyển sang trắng pha hồng phấn cực nhẹ */
-  --bg-main: 255, 252, 253; 
+  /* Nền chủ đạo: Chuyển sang Hồng phấn nhẹ thay vì trắng */
+  --bg-main: 255, 241, 242; /* Rose 50 #FFF1F2 */
   --surface: 255, 255, 255;
   
-  /* Bo góc chuẩn iOS */
-  --radius-sm: 12px;
-  --radius-md: 20px;
-  --radius-lg: 32px;
-  
-  /* Shadow: Dùng màu hồng để tạo glow (phát sáng) nhẹ thay vì shadow đen */
-  --shadow-xs: 0 1px 2px rgba(244, 63, 94, 0.05);
-  --shadow-sm: 0 4px 16px -4px rgba(244, 63, 94, 0.1);
-  --shadow-md: 0 12px 32px -8px rgba(244, 63, 94, 0.15);
-  --shadow-lg: 0 20px 48px -12px rgba(244, 63, 94, 0.2);
+  /* Shadow hồng */
+  --shadow-sm: 0 4px 16px -4px rgba(244, 63, 94, 0.15);
+  --shadow-md: 0 12px 32px -8px rgba(244, 63, 94, 0.2);
   --shadow-primary: 0 8px 24px -4px rgba(244, 63, 94, 0.4);
 }
 
@@ -30,31 +23,32 @@ body {
   color: #111827;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  background-image: 
+    radial-gradient(at 0% 0%, rgba(253, 164, 175, 0.3) 0px, transparent 50%),
+    radial-gradient(at 100% 0%, rgba(251, 113, 133, 0.2) 0px, transparent 50%),
+    radial-gradient(at 100% 100%, rgba(255, 228, 230, 0.5) 0px, transparent 50%);
+  background-attachment: fixed;
 }
 
 @layer components {
-  /* Input hiện đại, tối giản */
   .input-modern {
-    @apply w-full px-5 py-3.5 bg-white border border-rose-100 rounded-[20px] text-[15px] font-medium text-gray-900 placeholder:text-gray-400 focus:border-rose-300 focus:ring-4 focus:ring-rose-500/10 transition-all duration-200 outline-none;
+    @apply w-full px-5 py-3.5 bg-white/80 backdrop-blur-sm border border-rose-200 rounded-[20px] text-[15px] font-medium text-gray-900 placeholder:text-gray-400 focus:border-rose-400 focus:ring-4 focus:ring-rose-500/20 transition-all duration-200 outline-none;
   }
 
-  /* Card sang trọng với nền trắng nổi bật trên nền hồng nhạt */
   .card-premium {
-    @apply bg-white rounded-[24px] shadow-[var(--shadow-sm)] border border-rose-50 overflow-hidden transition-all duration-300 hover:shadow-[var(--shadow-md)] hover:border-rose-100 hover:-translate-y-0.5;
+    @apply bg-white/90 backdrop-blur-sm rounded-[24px] shadow-[var(--shadow-sm)] border border-rose-100 overflow-hidden transition-all duration-300 hover:shadow-[var(--shadow-md)] hover:border-rose-200 hover:-translate-y-0.5;
   }
 
-  /* Button Gradient - Đậm chất Brand */
   .btn-primary {
     @apply px-6 py-3 bg-gradient-to-r from-rose-500 to-pink-600 text-white font-bold rounded-2xl shadow-[var(--shadow-primary)] hover:opacity-95 hover:shadow-lg active:scale-[0.98] transition-all;
   }
   
   .btn-secondary {
-    @apply px-6 py-3 bg-white text-rose-600 font-bold border-2 border-rose-100 rounded-2xl hover:bg-rose-50 hover:border-rose-200 active:scale-[0.98] transition-all;
+    @apply px-6 py-3 bg-white/80 backdrop-blur text-rose-600 font-bold border-2 border-rose-200 rounded-2xl hover:bg-rose-50 hover:border-rose-300 active:scale-[0.98] transition-all;
   }
 
-  /* Text Gradient */
   .text-gradient {
-    @apply bg-clip-text text-transparent bg-gradient-to-r from-rose-500 to-pink-600;
+    @apply bg-clip-text text-transparent bg-gradient-to-r from-rose-600 to-pink-600;
   }
 }
 
@@ -62,26 +56,19 @@ body {
   .hide-scrollbar::-webkit-scrollbar { display: none; }
   .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
   
-  /* Nền lưới hồng tinh tế */
-  .bg-mesh-light {
-    background-color: rgb(var(--bg-main));
-    background-image: 
-      radial-gradient(at 0% 0%, rgba(244, 63, 94, 0.05) 0px, transparent 50%),
-      radial-gradient(at 100% 100%, rgba(236, 72, 153, 0.05) 0px, transparent 50%);
-  }
-
-  /* Glassmorphism pha chút hồng */
   .glass {
-    @apply bg-white/80 backdrop-blur-xl border border-white/60 shadow-sm;
+    @apply bg-white/60 backdrop-blur-xl border border-white/40 shadow-sm;
   }
   
-  /* Text styles */
+  .glass-pink {
+    @apply bg-rose-50/80 backdrop-blur-xl border border-rose-100/50 shadow-sm;
+  }
+  
   .gradient-text {
-    @apply text-transparent bg-clip-text bg-gradient-to-br from-rose-500 via-pink-500 to-rose-600;
+    @apply text-transparent bg-clip-text bg-gradient-to-br from-rose-600 via-pink-500 to-rose-700;
   }
 }
 
-/* Animations */
 .tap-effect {
   @apply active:scale-[0.95] transition-transform duration-150;
 }

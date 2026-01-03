@@ -4,9 +4,32 @@ import Providers from '@/components/Providers';
 import ClientLayout from '@/components/ClientLayout';
 
 export const metadata: Metadata = {
+  metadataBase: new URL('https://dinedate.vn'),
   title: 'DineDate - Hẹn hò và Gặp gỡ',
   description: 'Ứng dụng hẹn hò và booking dịch vụ đồng hành',
   keywords: ['hẹn hò', 'dating', 'booking', 'gặp gỡ', 'dinedate'],
+  openGraph: {
+    type: 'website',
+    locale: 'vi_VN',
+    title: 'DineDate - Hẹn hò và Gặp gỡ',
+    description: 'Ứng dụng hẹn hò và booking dịch vụ đồng hành',
+    siteName: 'DineDate',
+    url: 'https://dinedate.vn',
+    images: [
+      {
+        url: '/opengraph-image',
+        width: 1200,
+        height: 630,
+        alt: 'DineDate',
+      },
+    ],
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'DineDate - Hẹn hò và Gặp gỡ',
+    description: 'Ứng dụng hẹn hò và booking dịch vụ đồng hành',
+    images: ['/twitter-image'],
+  },
 };
 
 export default function RootLayout({

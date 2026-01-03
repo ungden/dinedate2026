@@ -39,9 +39,9 @@ async function fetchUserProfile(userId: string): Promise<User | null> {
   return mapDbUserToUser(data as any);
 }
 
-function defaultAvatarUrl(userId: string) {
-  // Use PNG for better compatibility with next/image + remote images
-  return `https://api.dicebear.com/7.x/avataaars/png?seed=${encodeURIComponent(userId)}`;
+function defaultAvatarUrl() {
+  // Stable, non-broken default avatar hosted on Unsplash (already allowed in next.config.js)
+  return 'https://images.unsplash.com/photo-1518199266791-5375a83190b7?w=400&h=400&fit=crop&crop=faces';
 }
 
 async function ensureUsersRow(params: {
@@ -58,9 +58,7 @@ async function ensureUsersRow(params: {
     .eq('id', id)
     .maybeSingle();
 
-  // If table not accessible due to RLS misconfig, let it throw upward to be visible
   if (existErr) throw existErr;
-
   if (existing?.id) return;
 
   // 2) Insert minimal defaults only for first-time creation
@@ -68,7 +66,7 @@ async function ensureUsersRow(params: {
     id,
     name: name || 'Người dùng mới',
     phone: null,
-    avatar: defaultAvatarUrl(id),
+    avatar: defaultAvatarUrl(),
     bio: '',
     birth_year: null,
     height: null,

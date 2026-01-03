@@ -48,6 +48,9 @@ interface DateStore {
   transactions: Transaction[];
   isLoaded: boolean;
 
+  // New: Sync from Auth
+  setCurrentUserFromAuth: (user: User) => void;
+
   // Actions - Date Requests
   createDateRequest: (
     request: Omit<
@@ -140,6 +143,15 @@ export const useDateStore = create<DateStore>()(
       reviews: MOCK_REVIEWS,
       transactions: [],
       isLoaded: true,
+
+      setCurrentUserFromAuth: (user) => {
+        set((state) => {
+          // keep existing local-only fields from Zustand user if needed, but prioritize Auth user
+          return {
+            currentUser: { ...state.currentUser, ...user },
+          };
+        });
+      },
 
       expireRequestsIfNeeded: () => {
         const { dateRequests } = get();

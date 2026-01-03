@@ -9,9 +9,43 @@ import { LoadingSpinner } from '@/components/Skeleton';
 import ProfileGalleryUploader from '@/components/profile/ProfileGalleryUploader';
 import { uploadUserImage, deleteByPublicUrl } from '@/lib/storage';
 import { cn } from '@/lib/utils';
+import toast from 'react-hot-toast';
 
 const MIN_BIO_LEN = 30;
 const MIN_PHOTOS = 3;
+
+function getNiceUploadError(err: unknown): string {
+  const anyErr = err as any;
+  const msg = String(anyErr?.message || anyErr?.error_description || anyErr?.context?.body?.message || '');
+
+  const lower = msg.toLowerCase();
+
+  if (lower.includes('jwt') || lower.includes('unauthorized') || lower.includes('not authenticated')) {
+    return 'Phiên đăng nhập không hợp lệ. Vui lòng đăng nhập lại.';
+  }
+
+  if (lower.includes('row-level security') || lower.includes('permission') || lower.includes('not allowed')) {
+    return 'Bạn chưa có quyền thực hiện thao tác này (thiếu quyền truy cập). Vui lòng liên hệ hỗ trợ hoặc thử đăng nhập lại.';
+  }
+
+  if (lower.includes('bucket') && (lower.includes('not found') || lower.includes('does not exist'))) {
+    return 'Hệ thống chưa cấu hình nơi lưu ảnh (bucket). Vui lòng thử lại sau hoặc liên hệ hỗ trợ.';
+  }
+
+  if (lower.includes('payload too large') || lower.includes('entity too large') || lower.includes('413')) {
+    return 'Ảnh quá lớn. Vui lòng chọn ảnh nhỏ hơn (khuyến nghị dưới ~5MB).';
+  }
+
+  if (lower.includes('mime') || lower.includes('content-type')) {
+    return 'Định dạng ảnh không hợp lệ. Vui lòng dùng JPG/PNG/WEBP.';
+  }
+
+  if (!msg || msg === '[object Object]') {
+    return 'Không thể tải ảnh lên. Vui lòng thử lại.';
+  }
+
+  return msg;
+}
 
 export default function EditProfilePage() {
   const router = useRouter();
@@ -45,77 +79,118 @@ export default function EditProfilePage() {
   const handlePickAvatar = () => avatarInputRef.current?.click();
 
   const handleAvatarFile = async (file: File) => {
-    if (!user?.id) return;
-    setIsUploading(true);
-
-    const uploadedUrl = await uploadUserImage({
-      userId: user.id,
-      folder: 'avatars',
-      file,
-    });
-
-    // optional cleanup old avatar if it lives in our bucket
-    const prev = avatarUrl;
-    setAvatarUrl(uploadedUrl);
-
-    await updateUser({ avatar: uploadedUrl });
-
-    // Try to cleanup old avatar if it was a user-media public url
-    if (prev && prev !== uploadedUrl) {
-      await deleteByPublicUrl(prev);
+    if (!user?.id) {
+      toast.error('Bạn cần đăng nhập để cập nhật ảnh.');
+      return;
     }
 
-    setIsUploading(false);
+    setIsUploading(true);
+
+    try {
+      const uploadedUrl = await uploadUserImage({
+        userId: user.id,
+        folder: 'avatars',
+        file,
+      });
+
+      // optional cleanup old avatar if it lives in our bucket
+      const prev = avatarUrl;
+      setAvatarUrl(uploadedUrl);
+
+      await updateUser({ avatar: uploadedUrl });
+
+      // Try to cleanup old avatar if it was a user-media public url
+      if (prev && prev !== uploadedUrl) {
+        await deleteByPublicUrl(prev);
+      }
+
+      toast.success('Đã cập nhật ảnh đại diện.');
+    } catch (err) {
+      console.error('Avatar upload failed:', err);
+      toast.error(getNiceUploadError(err));
+    } finally {
+      setIsUploading(false);
+    }
   };
 
   const handleAddGalleryFiles = async (files: File[]) => {
-    if (!user?.id) return;
-    setIsUploading(true);
-
-    const uploadedUrls: string[] = [];
-    for (const f of files) {
-      const url = await uploadUserImage({ userId: user.id, folder: 'gallery', file: f });
-      uploadedUrls.push(url);
+    if (!user?.id) {
+      toast.error('Bạn cần đăng nhập để upload ảnh.');
+      return;
     }
 
-    const next = [...galleryImages, ...uploadedUrls];
-    setGalleryImages(next);
+    setIsUploading(true);
 
-    // Persist immediately so it doesn't get lost
-    await updateUser({ images: next });
+    try {
+      const uploadedUrls: string[] = [];
+      for (const f of files) {
+        const url = await uploadUserImage({ userId: user.id, folder: 'gallery', file: f });
+        uploadedUrls.push(url);
+      }
 
-    setIsUploading(false);
+      const next = [...galleryImages, ...uploadedUrls];
+      setGalleryImages(next);
+
+      // Persist immediately so it doesn't get lost
+      await updateUser({ images: next });
+
+      toast.success(`Đã upload ${uploadedUrls.length} ảnh.`);
+    } catch (err) {
+      console.error('Gallery upload failed:', err);
+      toast.error(getNiceUploadError(err));
+    } finally {
+      setIsUploading(false);
+    }
   };
 
   const handleRemoveGalleryImage = async (url: string) => {
     if (!user?.id) return;
     setIsUploading(true);
 
-    const next = galleryImages.filter((x) => x !== url);
-    setGalleryImages(next);
+    try {
+      const next = galleryImages.filter((x) => x !== url);
+      setGalleryImages(next);
 
-    await updateUser({ images: next });
-    await deleteByPublicUrl(url);
+      await updateUser({ images: next });
+      await deleteByPublicUrl(url);
 
-    setIsUploading(false);
+      toast.success('Đã xóa ảnh.');
+    } catch (err) {
+      console.error('Remove gallery image failed:', err);
+      toast.error(getNiceUploadError(err));
+    } finally {
+      setIsUploading(false);
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!user?.id) {
+      toast.error('Bạn cần đăng nhập để lưu thay đổi.');
+      return;
+    }
+
     setLoading(true);
 
-    await updateUser({
-      name: formData.name,
-      bio: formData.bio,
-      location: formData.location,
-      occupation: formData.occupation,
-      interests: formData.interests.split(',').map((i) => i.trim()).filter(Boolean),
-      avatar: avatarUrl,
-      images: galleryImages,
-    });
+    try {
+      await updateUser({
+        name: formData.name,
+        bio: formData.bio,
+        location: formData.location,
+        occupation: formData.occupation,
+        interests: formData.interests.split(',').map((i) => i.trim()).filter(Boolean),
+        avatar: avatarUrl,
+        images: galleryImages,
+      });
 
-    setLoading(false);
-    router.push('/profile');
+      toast.success('Đã lưu hồ sơ.');
+      router.push('/profile');
+    } catch (err) {
+      console.error('Save profile failed:', err);
+      toast.error(getNiceUploadError(err));
+    } finally {
+      setLoading(false);
+    }
   };
 
   if (!user) {

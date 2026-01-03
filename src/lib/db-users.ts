@@ -7,7 +7,13 @@ export function mapUserUpdatesToDb(updates: Partial<User>) {
   if (updates.name !== undefined) db.name = updates.name;
   if (updates.avatar !== undefined) db.avatar = updates.avatar;
   if (updates.bio !== undefined) db.bio = updates.bio;
+
+  // IMPORTANT: location is normalized (city/province)
   if (updates.location !== undefined) db.location = updates.location;
+
+  // optional detail
+  if ((updates as any).locationDetail !== undefined) db.location_detail = (updates as any).locationDetail;
+
   if (updates.phone !== undefined) db.phone = updates.phone;
   if (updates.occupation !== undefined) db.occupation = updates.occupation;
 

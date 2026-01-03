@@ -17,6 +17,7 @@ export function mapDbUserToUser(row: DbUserRow): User {
     avatar: row.avatar ?? row.avatar_url ?? `https://api.dicebear.com/7.x/avataaars/svg?seed=${row.id}`,
     bio: row.bio ?? '',
     location: row.location ?? 'Hà Nội',
+    locationDetail: row.location_detail ?? undefined,
     coordinates:
       typeof row.latitude === 'number' && typeof row.longitude === 'number'
         ? { latitude: row.latitude, longitude: row.longitude }

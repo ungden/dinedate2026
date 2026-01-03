@@ -63,7 +63,8 @@ export default function EditProfilePage() {
   const [formData, setFormData] = useState({
     name: user?.name || '',
     bio: user?.bio || '',
-    location: user?.location || '',
+    location: user?.location || 'Hà Nội',
+    locationDetail: user?.locationDetail || '',
     occupation: user?.occupation || '',
     interests: user?.interests?.join(', ') || '',
   });
@@ -94,13 +95,11 @@ export default function EditProfilePage() {
         file,
       });
 
-      // optional cleanup old avatar if it lives in our bucket
       const prev = avatarUrl;
       setAvatarUrl(uploadedUrl);
 
       await updateUser({ avatar: uploadedUrl });
 
-      // Try to cleanup old avatar if it was a user-media public url
       if (prev && prev !== uploadedUrl) {
         await deleteByPublicUrl(prev);
       }
@@ -132,7 +131,6 @@ export default function EditProfilePage() {
       const next = [...galleryImages, ...uploadedUrls];
       setGalleryImages(next);
 
-      // Persist immediately so it doesn't get lost
       await updateUser({ images: next });
 
       toast.success(`Đã upload ${uploadedUrls.length} ảnh.`);
@@ -177,12 +175,13 @@ export default function EditProfilePage() {
       await updateUser({
         name: formData.name,
         bio: formData.bio,
-        location: formData.location,
+        location: formData.location, // normalized
+        locationDetail: formData.locationDetail, // optional detail
         occupation: formData.occupation,
         interests: formData.interests.split(',').map((i) => i.trim()).filter(Boolean),
         avatar: avatarUrl,
         images: galleryImages,
-      });
+      } as any);
 
       toast.success('Đã lưu hồ sơ.');
       router.push('/profile');
@@ -340,23 +339,25 @@ export default function EditProfilePage() {
             />
           </div>
 
-          <div className="space-y-3">
-            <label className="block text-sm font-medium text-gray-700">
-              Địa điểm
+          <LocationPicker
+            value={formData.location}
+            onChange={(next) => setFormData({ ...formData, location: next })}
+          />
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Khu vực chi tiết (tuỳ chọn)
             </label>
-
-            <LocationPicker
-              value={formData.location}
-              onChange={(next) => setFormData({ ...formData, location: next })}
-            />
-
             <input
               type="text"
-              value={formData.location}
-              onChange={(e) => setFormData({ ...formData, location: e.target.value })}
+              value={formData.locationDetail}
+              onChange={(e) => setFormData({ ...formData, locationDetail: e.target.value })}
               className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-colors"
-              placeholder="Ví dụ: Quận 1, TP.HCM"
+              placeholder="VD: Quận 1 / Bình Thạnh / Q1..."
             />
+            <p className="mt-1 text-xs text-gray-500">
+              Trường này chỉ để hiển thị, không dùng để lọc.
+            </p>
           </div>
 
           <div>

@@ -146,7 +146,19 @@ export interface User {
   age: number;
   avatar: string;
   bio: string;
+
+  /**
+   * Normalized city/province (used for filtering).
+   * Example: "TP. Hồ Chí Minh", "Hà Nội"
+   */
   location: string;
+
+  /**
+   * Optional free-text detail (district/ward...), NOT used for filtering.
+   * Example: "Quận 1", "Bình Thạnh"
+   */
+  locationDetail?: string;
+
   coordinates?: LocationCoords;
   onlineStatus?: UserOnlineStatus;
   services?: ServiceOffering[];

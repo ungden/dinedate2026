@@ -2,60 +2,36 @@
 
 import { useMemo, useState } from 'react';
 import Link from 'next/link';
-import { motion, AnimatePresence } from '@/lib/motion';
+import { motion } from '@/lib/motion';
 import {
   ArrowLeft,
-  Wallet,
+  Wallet as WalletIcon,
   Plus,
   CreditCard,
   TrendingUp,
   Clock,
-  ExternalLink
+  ExternalLink,
 } from 'lucide-react';
 import { formatCurrency, formatRelativeTime, cn } from '@/lib/utils';
 import { useDbWallet } from '@/hooks/useDbWallet';
-import { useAuth } from '@/contexts/AuthContext';
 import TopupModal from '@/components/TopupModal';
 
 const topUpAmounts = [50000, 100000, 200000, 500000, 1000000, 2000000];
 
 const containerVariants = {
   hidden: { opacity: 0 },
-  visible: {
-    opacity: 1,
-    transition: { staggerChildren: 0.05 },
-  },
+  visible: { opacity: 1, transition: { staggerChildren: 0.05 } },
 };
 
 const itemVariants = {
-  hidden: { opacity: 0, y: 20 },
+  hidden: { opacity: 0, y: 14 },
   visible: { opacity: 1, y: 0 },
 };
 
 export default function WalletClient() {
-  const { user } = useAuth();
   const { balance, escrow, transactions, loading, reload } = useDbWallet();
 
-  const [showTopUp, setShowTopUp] = useState(false);
   const [selectedAmount, setSelectedAmount] = useState<number | null>(null);
-
-  const getTransactionIcon = (type: string) => {
-    switch (type) {
-      case 'top_up':
-        return { label: 'Nạp tiền', color: 'bg-green-100 text-green-600' };
-      case 'escrow_hold':
-        return { label: 'Giữ tiền (escrow)', color: 'bg-yellow-100 text-yellow-700' };
-      case 'escrow_release':
-        return { label: 'Giải phóng escrow', color: 'bg-green-100 text-green-600' };
-      case 'booking_payment':
-      case 'vip_payment':
-        return { label: 'Thanh toán', color: 'bg-red-100 text-red-600' };
-      case 'booking_earning':
-        return { label: 'Thu nhập booking', color: 'bg-green-100 text-green-600' };
-      default:
-        return { label: type, color: 'bg-gray-100 text-gray-600' };
-    }
-  };
 
   const totalTopUp = useMemo(() => {
     return transactions
@@ -69,222 +45,172 @@ export default function WalletClient() {
       .reduce((sum: number, t: any) => sum + Number(t.amount || 0), 0);
   }, [transactions]);
 
+  const getTransactionMeta = (type: string) => {
+    switch (type) {
+      case 'top_up':
+        return { label: 'Nạp tiền', color: 'bg-green-100 text-green-700' };
+      case 'escrow_hold':
+        return { label: 'Escrow', color: 'bg-amber-100 text-amber-800' };
+      case 'escrow_release':
+        return { label: 'Giải phóng', color: 'bg-emerald-100 text-emerald-700' };
+      case 'booking_payment':
+      case 'vip_payment':
+        return { label: 'Thanh toán', color: 'bg-rose-100 text-rose-700' };
+      case 'booking_earning':
+        return { label: 'Thu nhập', color: 'bg-green-100 text-green-700' };
+      default:
+        return { label: type, color: 'bg-gray-100 text-gray-700' };
+    }
+  };
+
   const handleTopupSuccess = async () => {
     await reload();
   };
 
   return (
-    <motion.div
-      className="space-y-6"
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-    >
+    <motion.div className="space-y-6" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
       {/* Header */}
-      <motion.div
-        className="flex items-center justify-between"
-        initial={{ opacity: 0, x: -20 }}
-        animate={{ opacity: 1, x: 0 }}
-      >
+      <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
-            <Link href="/profile">
-            <motion.button
-                className="p-2.5 hover:bg-gray-100 rounded-xl transition-colors"
-                whileTap={{ scale: 0.9 }}
-            >
-                <ArrowLeft className="w-5 h-5" />
-            </motion.button>
-            </Link>
-            <h1 className="text-2xl font-bold text-gray-900">Ví của tôi</h1>
+          <Link href="/profile">
+            <button className="p-2.5 hover:bg-gray-100 rounded-xl transition-colors">
+              <ArrowLeft className="w-5 h-5" />
+            </button>
+          </Link>
+          <div>
+            <h1 className="text-2xl font-black text-gray-900">Ví của tôi</h1>
+            <p className="text-sm text-gray-500 font-medium">Quản lý số dư và lịch sử giao dịch</p>
+          </div>
         </div>
-        
-        {/* Admin Link for convenience if needed, otherwise hidden */}
-        <Link href="/admin/payment" className="text-xs text-gray-400 hover:text-primary-500 flex items-center gap-1">
-           <ExternalLink className="w-3 h-3" />
-           Cấu hình
+
+        <Link
+          href="/admin/payment"
+          className="text-xs text-gray-500 hover:text-primary-600 font-bold flex items-center gap-1"
+        >
+          <ExternalLink className="w-3 h-3" />
+          Cấu hình
         </Link>
-      </motion.div>
+      </div>
 
-      {/* Balance Card */}
-      <motion.div
-        className="relative bg-gradient-premium rounded-3xl p-6 text-white overflow-hidden"
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.1 }}
-      >
-        {/* Background decoration */}
-        <div className="absolute inset-0 overflow-hidden">
-          <div className="absolute -top-10 -right-10 w-40 h-40 bg-white/10 rounded-full blur-2xl" />
-          <div className="absolute -bottom-10 -left-10 w-32 h-32 bg-white/10 rounded-full blur-2xl" />
-        </div>
-
-        <div className="relative z-10">
-          <div className="flex items-center gap-4 mb-6">
-            <motion.div
-              className="w-14 h-14 bg-white/20 backdrop-blur-sm rounded-2xl flex items-center justify-center"
-              whileHover={{ scale: 1.05, rotate: 5 }}
-            >
-              <Wallet className="w-7 h-7" />
-            </motion.div>
+      {/* Balance card (clean, readable) */}
+      <div className="bg-white rounded-3xl border border-gray-100 p-6 shadow-sm">
+        <div className="flex items-start justify-between gap-4">
+          <div className="flex items-start gap-4">
+            <div className="w-12 h-12 rounded-2xl bg-primary-50 border border-primary-100 flex items-center justify-center">
+              <WalletIcon className="w-6 h-6 text-primary-600" />
+            </div>
             <div>
-              <p className="text-white/70 text-sm font-medium">Số dư khả dụng</p>
-              <motion.p
-                className="text-4xl font-bold"
-                initial={{ opacity: 0, scale: 0.5 }}
-                animate={{ opacity: 1, scale: 1 }}
-                transition={{ delay: 0.2, type: 'spring' }}
-              >
-                {formatCurrency(balance)}
-              </motion.p>
-            </div>
-          </div>
+              <p className="text-sm text-gray-500 font-bold">Số dư khả dụng</p>
+              <p className="text-3xl font-black text-gray-900 mt-1">{formatCurrency(balance)}</p>
 
-          {escrow > 0 && (
-            <motion.div
-              className="flex items-center gap-3 bg-white/10 backdrop-blur-sm rounded-xl p-3 mb-6"
-              initial={{ opacity: 0, x: -20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: 0.3 }}
-            >
-              <Clock className="w-5 h-5 text-white/70" />
-              <div className="flex-1">
-                <p className="text-white/70 text-sm">Đang giữ (Escrow)</p>
-                <p className="font-semibold">{formatCurrency(escrow)}</p>
-              </div>
-            </motion.div>
-          )}
-
-          {/* Top Up Selection Grid - Inline for better UX */}
-          {!showTopUp ? (
-             <motion.button
-                onClick={() => setShowTopUp(true)}
-                className="w-full py-3.5 bg-white text-gray-900 rounded-2xl font-semibold flex items-center justify-center gap-2 hover:bg-white/90 transition-colors shadow-lg"
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
-             >
-                <Plus className="w-5 h-5" />
-                Nạp tiền ngay
-             </motion.button>
-          ) : (
-            <div className="bg-white/10 backdrop-blur-md rounded-2xl p-4">
-                <p className="text-sm font-medium mb-3 text-white/90">Chọn mệnh giá nạp:</p>
-                <div className="grid grid-cols-3 gap-2 mb-4">
-                    {topUpAmounts.map(amt => (
-                        <button
-                            key={amt}
-                            onClick={() => setSelectedAmount(amt)}
-                            className="py-2 px-1 bg-white/20 hover:bg-white/30 rounded-xl text-sm font-semibold transition"
-                        >
-                            {formatCurrency(amt).replace('₫','')}
-                        </button>
-                    ))}
+              {escrow > 0 && (
+                <div className="mt-3 inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-amber-50 text-amber-800 text-xs font-bold border border-amber-100">
+                  <Clock className="w-4 h-4" />
+                  Đang giữ escrow: {formatCurrency(escrow)}
                 </div>
-                 <button
-                    onClick={() => setShowTopUp(false)}
-                    className="w-full py-2 text-sm text-white/70 hover:text-white"
-                >
-                    Hủy bỏ
-                </button>
+              )}
             </div>
-          )}
-        </div>
-      </motion.div>
+          </div>
 
-      {/* Quick Stats */}
-      <motion.div
-        className="grid grid-cols-2 gap-4"
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.2 }}
-      >
+          <button
+            onClick={() => setSelectedAmount(200000)}
+            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-gradient-primary text-white font-black shadow-primary hover:opacity-90 transition"
+          >
+            <Plus className="w-5 h-5" />
+            Nạp tiền
+          </button>
+        </div>
+
+        {/* Amount quick picks */}
+        <div className="mt-5 grid grid-cols-3 sm:grid-cols-6 gap-2">
+          {topUpAmounts.map((amt) => (
+            <button
+              key={amt}
+              onClick={() => setSelectedAmount(amt)}
+              className="py-2 rounded-xl bg-gray-50 hover:bg-gray-100 border border-gray-200 text-gray-900 text-xs font-black transition"
+            >
+              {formatCurrency(amt).replace('₫', '')}
+            </button>
+          ))}
+        </div>
+
+        <p className="text-xs text-gray-500 mt-3">
+          Nạp tiền qua chuyển khoản QR (SePay) — hệ thống tự động cộng tiền khi nhận đúng nội dung.
+        </p>
+      </div>
+
+      {/* Stats */}
+      <div className="grid grid-cols-2 gap-4">
         <div className="bg-white rounded-2xl border border-gray-100 p-4">
           <div className="flex items-center gap-2 mb-2">
-            <TrendingUp className="w-5 h-5 text-green-500" />
-            <span className="text-sm text-gray-500">Tổng nạp</span>
+            <TrendingUp className="w-5 h-5 text-green-600" />
+            <span className="text-sm text-gray-500 font-bold">Tổng nạp</span>
           </div>
-          <p className="text-xl font-bold text-gray-900">
-            {formatCurrency(totalTopUp)}
-          </p>
+          <p className="text-xl font-black text-gray-900">{formatCurrency(totalTopUp)}</p>
         </div>
+
         <div className="bg-white rounded-2xl border border-gray-100 p-4">
           <div className="flex items-center gap-2 mb-2">
-            <CreditCard className="w-5 h-5 text-red-500" />
-            <span className="text-sm text-gray-500">Tổng chi</span>
+            <CreditCard className="w-5 h-5 text-rose-600" />
+            <span className="text-sm text-gray-500 font-bold">Tổng chi</span>
           </div>
-          <p className="text-xl font-bold text-gray-900">
-            {formatCurrency(totalSpend)}
-          </p>
+          <p className="text-xl font-black text-gray-900">{formatCurrency(totalSpend)}</p>
         </div>
-      </motion.div>
+      </div>
 
       {/* Transactions */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.3 }}
-      >
-        <h2 className="text-lg font-bold text-gray-900 mb-4">Lịch sử giao dịch</h2>
+      <div>
+        <h2 className="text-lg font-black text-gray-900 mb-4">Lịch sử giao dịch</h2>
 
         {loading ? (
-          <div className="py-10 text-center text-gray-500">Đang tải giao dịch...</div>
+          <div className="py-10 text-center text-gray-500 font-medium">Đang tải giao dịch...</div>
         ) : transactions.length > 0 ? (
-          <motion.div
-            className="space-y-3"
-            variants={containerVariants}
-            initial="hidden"
-            animate="visible"
-          >
+          <motion.div className="space-y-3" variants={containerVariants} initial="hidden" animate="visible">
             {transactions.map((tx: any) => {
-              const meta = getTransactionIcon(tx.type);
+              const meta = getTransactionMeta(tx.type);
               const isIncome = ['booking_earning', 'top_up', 'escrow_release'].includes(tx.type);
+              const amount = Number(tx.amount || 0);
 
               return (
                 <motion.div
                   key={tx.id}
                   variants={itemVariants}
                   className="bg-white rounded-2xl p-4 border border-gray-100 flex items-center gap-4"
-                  whileHover={{ scale: 1.01 }}
                 >
-                  <div className={cn('w-12 h-12 rounded-2xl flex items-center justify-center font-black text-xs text-center p-1', meta.color)}>
-                     <span className="leading-tight">{meta.label}</span>
+                  <div className={cn('w-12 h-12 rounded-2xl flex items-center justify-center font-black text-[11px] text-center p-1', meta.color)}>
+                    <span className="leading-tight">{meta.label}</span>
                   </div>
+
                   <div className="flex-1 min-w-0">
-                    <p className="font-semibold text-gray-900 truncate">{tx.description}</p>
+                    <p className="font-bold text-gray-900 truncate">{tx.description}</p>
                     <p className="text-sm text-gray-500">{formatRelativeTime(tx.created_at)}</p>
                   </div>
-                  <p className={cn('text-lg font-bold', isIncome ? 'text-green-600' : 'text-red-600')}>
-                    {isIncome ? '+' : '-'}{formatCurrency(Number(tx.amount || 0))}
+
+                  <p className={cn('text-lg font-black', isIncome ? 'text-green-600' : 'text-rose-600')}>
+                    {isIncome ? '+' : '-'}
+                    {formatCurrency(amount)}
                   </p>
                 </motion.div>
               );
             })}
           </motion.div>
         ) : (
-          <motion.div
-            className="text-center py-12 bg-white rounded-2xl border border-gray-100"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-          >
-            <motion.div
-              className="text-5xl mb-4"
-              animate={{ y: [0, -10, 0] }}
-              transition={{ duration: 2, repeat: Infinity }}
-            >
-              💰
-            </motion.div>
-            <p className="text-gray-500">Chưa có giao dịch nào</p>
+          <div className="text-center py-12 bg-white rounded-2xl border border-gray-100">
+            <div className="text-5xl mb-4">💰</div>
+            <p className="text-gray-600 font-bold">Chưa có giao dịch nào</p>
             <p className="text-gray-400 text-sm mt-1">Nạp tiền để bắt đầu sử dụng các dịch vụ</p>
-          </motion.div>
+          </div>
         )}
-      </motion.div>
+      </div>
 
-      {/* Payment Modal */}
+      {/* Topup modal */}
       {selectedAmount && (
-          <TopupModal 
-            isOpen={!!selectedAmount}
-            onClose={() => { setSelectedAmount(null); setShowTopUp(false); }}
-            amount={selectedAmount}
-            onSuccess={handleTopupSuccess}
-          />
+        <TopupModal
+          isOpen={!!selectedAmount}
+          onClose={() => setSelectedAmount(null)}
+          amount={selectedAmount}
+          onSuccess={handleTopupSuccess}
+        />
       )}
     </motion.div>
   );

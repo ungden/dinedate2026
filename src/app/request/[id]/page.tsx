@@ -13,6 +13,7 @@ import {
   Send,
   Trash2,
   CheckCircle,
+  Briefcase,
 } from 'lucide-react';
 import { useDateStore } from '@/hooks/useDateStore';
 import {
@@ -47,6 +48,7 @@ export default function RequestDetailPage() {
   const myApplications = getMyApplications();
   const hasApplied = myApplications.some((a) => a.requestId === requestId);
   const isOwner = request?.userId === currentUser.id;
+  const isPartner = !!currentUser.isServiceProvider;
 
   useEffect(() => {
     expireRequestsIfNeeded();
@@ -203,7 +205,6 @@ export default function RequestDetailPage() {
                 <p className="font-semibold text-gray-900">{request.location}</p>
               </div>
             </div>
-            {/* Removed 'Số người' Grid Item */}
           </div>
 
           {/* Hiring Amount */}
@@ -218,10 +219,25 @@ export default function RequestDetailPage() {
           </div>
         </div>
 
-        {/* Apply Section - for non-owner */}
+        {/* Apply Section - Logic: Check if partner first */}
         {!isOwner && !hasApplied && request.status === 'active' && (
           <div className="p-6 border-t border-gray-100">
-            {showApplyForm ? (
+            {!isPartner ? (
+              <div className="bg-rose-50 rounded-2xl p-6 text-center border border-rose-100">
+                <div className="w-14 h-14 bg-white rounded-full flex items-center justify-center mx-auto mb-3 shadow-sm">
+                  <Briefcase className="w-6 h-6 text-rose-500" />
+                </div>
+                <h3 className="font-bold text-gray-900 mb-2">Trở thành Partner để ứng tuyển</h3>
+                <p className="text-sm text-gray-600 mb-4 max-w-sm mx-auto">
+                  Bạn cần đăng ký làm người cung cấp dịch vụ (Partner) để có thể gửi yêu cầu tham gia các lời mời hấp dẫn này.
+                </p>
+                <Link href="/manage-services">
+                  <button className="px-6 py-3 bg-gradient-primary text-white rounded-xl font-bold shadow-primary hover:opacity-95 transition w-full sm:w-auto">
+                    Đăng ký Partner ngay
+                  </button>
+                </Link>
+              </div>
+            ) : showApplyForm ? (
               <div className="space-y-4">
                 <textarea
                   value={applyMessage}
@@ -265,7 +281,8 @@ export default function RequestDetailPage() {
 
         {!isOwner && hasApplied && (
           <div className="p-6 border-t border-gray-100 bg-green-50">
-            <p className="text-center text-green-600 font-medium">
+            <p className="text-center text-green-600 font-medium flex items-center justify-center gap-2">
+              <CheckCircle className="w-5 h-5" />
               Bạn đã ứng tuyển lời mời này
             </p>
           </div>

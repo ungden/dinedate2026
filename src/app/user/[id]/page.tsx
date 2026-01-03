@@ -23,6 +23,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import AuthModal from '@/components/AuthModal';
 import { PLATFORM_FEE_RATE } from '@/lib/platform';
 import { useDbUserProfile } from '@/hooks/useDbUserProfile';
+import { createBookingViaEdge } from '@/lib/booking';
 
 type PackageKey = '3h' | '5h' | '1d';
 
@@ -57,10 +58,6 @@ export default function UserProfilePage() {
 
   const isCurrentUser = !!authUser && !!user && authUser.id === user.id;
 
-  // (DB chat will be implemented later; keep chat button hidden for now)
-  const canChat = false;
-  const existingConversationId: string | null = null;
-
   const [selectedServiceId, setSelectedServiceId] = useState<string | null>(null);
   const [selectedPackage, setSelectedPackage] = useState<PackageKey>('3h');
 
@@ -77,6 +74,8 @@ export default function UserProfilePage() {
     location: '',
     message: '',
   });
+
+  const [isBooking, setIsBooking] = useState(false);
 
   const [authModal, setAuthModal] = useState<{
     isOpen: boolean;
@@ -111,13 +110,42 @@ export default function UserProfilePage() {
     setBookingForm({ date: '', time: '19:00', location: '', message: '' });
   };
 
-  const handleBook = () => {
+  const handleBook = async () => {
     if (!authUser) {
       setAuthModal({ isOpen: true, actionType: 'book' });
       return;
     }
+    if (!selectedServiceId) return;
+    if (!bookingForm.date || !bookingForm.location) return;
 
-    alert('Hệ thống booking DB + escrow đang được kích hoạt. Mình sẽ triển khai bước này tiếp theo.');
+    setIsBooking(true);
+    const durationHours = packageHours;
+
+    const providerId = user.id;
+
+    const res = await createBookingViaEdge({
+      providerId,
+      serviceId: selectedServiceId,
+      date: bookingForm.date,
+      time: bookingForm.time,
+      location: bookingForm.location,
+      message: bookingForm.message,
+      durationHours,
+    }).catch((err: any) => {
+      const msg = (err?.context?.body?.message || err?.message || '').toString();
+      if (msg.includes('INSUFFICIENT_FUNDS')) {
+        alert('Số dư không đủ. Vui lòng nạp thêm tiền.');
+        return null;
+      }
+      throw err;
+    });
+
+    setIsBooking(false);
+
+    if (!res) return;
+
+    alert('Đã tạo booking thành công! 🎉');
+    setSelectedServiceId(null);
   };
 
   return (
@@ -193,16 +221,6 @@ export default function UserProfilePage() {
                     </span>
                   )}
                 </div>
-
-                {/* Conditional Chat Button (disabled until DB chat is implemented) */}
-                {canChat && !isCurrentUser && existingConversationId && (
-                  <Link href={`/chat/${existingConversationId}`} className="mt-3 block">
-                    <button className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-blue-50 text-blue-600 rounded-xl font-bold hover:bg-blue-100 transition-colors">
-                      <MessageCircle className="w-5 h-5" />
-                      Nhắn tin ngay
-                    </button>
-                  </Link>
-                )}
 
                 {user.bio ? (
                   <p className="text-[14px] text-gray-600 mt-3 line-clamp-2">{user.bio}</p>
@@ -452,15 +470,25 @@ export default function UserProfilePage() {
                         <div className="mt-4 flex gap-3">
                           <button
                             onClick={() => setSelectedServiceId(null)}
-                            className="flex-1 py-3 rounded-xl bg-gray-100 text-gray-700 font-black hover:bg-gray-200 transition"
+                            disabled={isBooking}
+                            className={cn(
+                              'flex-1 py-3 rounded-xl font-black transition',
+                              isBooking ? 'bg-gray-200 text-gray-400 cursor-not-allowed' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                            )}
                           >
                             Đóng
                           </button>
                           <button
                             onClick={handleBook}
-                            className="flex-1 py-3 rounded-xl font-black transition shadow-primary bg-gray-900 text-white hover:opacity-90"
+                            disabled={isBooking || !bookingForm.date || !bookingForm.location}
+                            className={cn(
+                              'flex-1 py-3 rounded-xl font-black transition shadow-primary',
+                              isBooking || !bookingForm.date || !bookingForm.location
+                                ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                                : 'bg-gradient-primary text-white hover:opacity-90'
+                            )}
                           >
-                            Tiếp tục đặt (DB)
+                            {isBooking ? 'Đang tạo...' : 'Xác nhận đặt'}
                           </button>
                         </div>
                       </div>

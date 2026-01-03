@@ -11,11 +11,12 @@ import {
   Sparkles,
   ArrowUpDown,
 } from 'lucide-react';
-import { useDateStore } from '@/hooks/useDateStore';
 import { ActivityType, User } from '@/types';
 import { cn, formatCurrency } from '@/lib/utils';
 import PartnerCard from '@/components/PartnerCard';
 import SmartFilter from '@/components/SmartFilter';
+import { useDbPartners } from '@/hooks/useDbPartners';
+import { useAuth } from '@/contexts/AuthContext';
 
 const LOCATIONS = [
   'Tất cả',
@@ -39,6 +40,8 @@ function getBaseHourly(u: User) {
 }
 
 export default function MembersClient() {
+  const { user: authUser } = useAuth();
+
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedLocation, setSelectedLocation] = useState('Tất cả');
   const [showLocationPicker, setShowLocationPicker] = useState(false);
@@ -48,22 +51,13 @@ export default function MembersClient() {
   const [availableTonight, setAvailableTonight] = useState(false);
   const [sortMode, setSortMode] = useState<SortMode>('recommended');
 
-  const { getAllUsers, currentUser } = useDateStore();
-  const allUsers = getAllUsers();
+  const { users: dbPartners, loading } = useDbPartners({
+    search: searchQuery,
+    location: selectedLocation,
+  });
 
   const partners = useMemo(() => {
-    const filtered = allUsers.filter((user) => {
-      if (!user.isServiceProvider) return false;
-
-      if (searchQuery) {
-        const query = searchQuery.toLowerCase();
-        if (!user.name.toLowerCase().includes(query) && !user.location.toLowerCase().includes(query)) {
-          return false;
-        }
-      }
-
-      if (selectedLocation !== 'Tất cả' && !user.location.includes(selectedLocation.split(',')[0])) return false;
-
+    const filtered = dbPartners.filter((user) => {
       if (selectedActivities.length > 0) {
         const hasMatchingService = user.services?.some((s) => selectedActivities.includes(s.activity));
         if (!hasMatchingService) return false;
@@ -100,9 +94,7 @@ export default function MembersClient() {
 
     return sorted;
   }, [
-    allUsers,
-    searchQuery,
-    selectedLocation,
+    dbPartners,
     selectedActivities,
     availableNow,
     availableTonight,
@@ -156,7 +148,7 @@ export default function MembersClient() {
 
           <div className="flex items-center gap-1.5 px-3 py-1.5 bg-white/60 border border-rose-100 rounded-full text-rose-600 text-[13px] font-black shadow-sm">
             <Wallet className="w-3.5 h-3.5" />
-            <span>{formatCurrency(currentUser.wallet.balance)}</span>
+            <span>{formatCurrency(authUser?.wallet.balance || 0)}</span>
           </div>
         </div>
 
@@ -249,7 +241,9 @@ export default function MembersClient() {
       {/* Results */}
       <div className="px-1 space-y-4">
         <div className="flex flex-col gap-4">
-          {partners.length > 0 ? (
+          {loading ? (
+            <div className="py-20 text-center text-gray-500 font-medium">Đang tải Partner...</div>
+          ) : partners.length > 0 ? (
             partners.map((partner, idx) => (
               <motion.div
                 key={partner.id}

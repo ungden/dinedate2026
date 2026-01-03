@@ -3,7 +3,6 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { ArrowLeft, Plus, Edit2, Trash2, ToggleLeft, ToggleRight, Sparkles, Check } from 'lucide-react';
-import { useDateStore } from '@/hooks/useDateStore';
 import {
   formatCurrency,
   getActivityIcon,
@@ -12,6 +11,7 @@ import {
 } from '@/lib/utils';
 import { ActivityType, ServiceOffering } from '@/types';
 import { PARTNER_EARNING_RATE } from '@/lib/platform';
+import { useDbMyServices } from '@/hooks/useDbMyServices';
 
 const activityOptions: ActivityType[] = ['dining', 'drinking', 'movies', 'travel', 'cafe', 'karaoke', 'tour_guide'];
 
@@ -64,8 +64,7 @@ export default function ManageServicesClient() {
     price: 0,
   });
 
-  const { currentUser, addServiceToProfile, updateService, removeService } =
-    useDateStore();
+  const { services, loading, addService, updateService, removeService } = useDbMyServices();
 
   // Auto-fill content when activity changes (only if fields are empty or match previous default)
   useEffect(() => {
@@ -79,19 +78,19 @@ export default function ManageServicesClient() {
     }
   }, [formData.activity, editingService]);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.title || !formData.price) return;
 
     if (editingService) {
-      updateService(editingService.id, {
+      await updateService(editingService.id, {
         activity: formData.activity,
         title: formData.title,
         description: formData.description,
         price: formData.price,
       });
     } else {
-      addServiceToProfile({
+      await addService({
         activity: formData.activity,
         title: formData.title,
         description: formData.description,
@@ -116,8 +115,8 @@ export default function ManageServicesClient() {
     setShowForm(true);
   };
 
-  const handleToggleAvailable = (service: ServiceOffering) => {
-    updateService(service.id, { available: !service.available });
+  const handleToggleAvailable = async (service: ServiceOffering) => {
+    await updateService(service.id, { available: !service.available });
   };
 
   const handleAddNew = () => {
@@ -129,11 +128,9 @@ export default function ManageServicesClient() {
       activity: 'dining',
       title: def.title,
       description: def.description,
-      price: 200000 // Default price suggestion
+      price: 200000
     });
   };
-
-  const services = currentUser.services || [];
 
   return (
     <div className="space-y-6">
@@ -299,7 +296,9 @@ export default function ManageServicesClient() {
       )}
 
       {/* Services List */}
-      {services.length > 0 ? (
+      {loading ? (
+        <div className="py-12 text-center text-gray-500 font-medium">Đang tải dịch vụ...</div>
+      ) : services.length > 0 ? (
         <div className="space-y-4">
           {services.map((service) => (
             <div

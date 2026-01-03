@@ -4,7 +4,6 @@ import { useMemo, useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
-import { motion, AnimatePresence } from '@/lib/motion';
 import {
   ArrowLeft,
   Heart,
@@ -18,12 +17,12 @@ import {
   Clock,
   MessageCircle
 } from 'lucide-react';
-import { useDateStore } from '@/hooks/useDateStore';
 import { cn, formatCurrency, formatRelativeTime, getVIPBadgeColor, getActivityIcon, getActivityLabel } from '@/lib/utils';
 import { ServiceOffering } from '@/types';
 import { useAuth } from '@/contexts/AuthContext';
 import AuthModal from '@/components/AuthModal';
 import { PLATFORM_FEE_RATE } from '@/lib/platform';
+import { useDbUserProfile } from '@/hooks/useDbUserProfile';
 
 type PackageKey = '3h' | '5h' | '1d';
 
@@ -49,29 +48,18 @@ export default function UserProfilePage() {
   const userId = params.id as string;
 
   const { user: authUser } = useAuth();
-  const { getUserById, getUserReviews, getUserAverageRating, createBooking, currentUser, getMyConversations } =
-    useDateStore();
-
-  const user = getUserById(userId);
-  const reviews = getUserReviews(userId);
-  const rating = user?.rating || getUserAverageRating(userId);
-
-  const isCurrentUser = !!user && !!currentUser && user.id === currentUser.id;
-
-  // Check if we have a match/conversation with this user
-  const existingConversation = useMemo(() => {
-    if (!currentUser || !user) return null;
-    return getMyConversations().find(c =>
-      c.participants.some(p => p.id === user.id)
-    );
-  }, [currentUser, user, getMyConversations]);
-
-  const canChat = !!existingConversation;
+  const { user, services: dbServices, reviews, rating, loading } = useDbUserProfile(userId);
 
   const services = useMemo(() => {
-    const list = user?.services || [];
+    const list = dbServices || [];
     return list.filter((s) => s.available);
-  }, [user?.services]);
+  }, [dbServices]);
+
+  const isCurrentUser = !!authUser && !!user && authUser.id === user.id;
+
+  // (DB chat will be implemented later; keep chat button hidden for now)
+  const canChat = false;
+  const existingConversationId: string | null = null;
 
   const [selectedServiceId, setSelectedServiceId] = useState<string | null>(null);
   const [selectedPackage, setSelectedPackage] = useState<PackageKey>('3h');
@@ -97,6 +85,10 @@ export default function UserProfilePage() {
     isOpen: false,
     actionType: 'generic',
   });
+
+  if (loading) {
+    return <div className="py-20 text-center text-gray-500 font-medium">Đang tải hồ sơ...</div>;
+  }
 
   if (!user) {
     return (
@@ -124,20 +116,8 @@ export default function UserProfilePage() {
       setAuthModal({ isOpen: true, actionType: 'book' });
       return;
     }
-    if (!selectedServiceId || !selectedService) return;
-    if (!bookingForm.date || !bookingForm.location) return;
 
-    createBooking(
-      userId,
-      selectedServiceId,
-      bookingForm.date,
-      bookingForm.time,
-      bookingForm.location,
-      bookingForm.message
-    );
-
-    setSelectedServiceId(null);
-    alert('Đã gửi yêu cầu booking thành công! 🎉');
+    alert('Hệ thống booking DB + escrow đang được kích hoạt. Mình sẽ triển khai bước này tiếp theo.');
   };
 
   return (
@@ -214,9 +194,9 @@ export default function UserProfilePage() {
                   )}
                 </div>
 
-                {/* Conditional Chat Button */}
-                {canChat && !isCurrentUser && (
-                  <Link href={`/chat/${existingConversation.id}`} className="mt-3 block">
+                {/* Conditional Chat Button (disabled until DB chat is implemented) */}
+                {canChat && !isCurrentUser && existingConversationId && (
+                  <Link href={`/chat/${existingConversationId}`} className="mt-3 block">
                     <button className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-blue-50 text-blue-600 rounded-xl font-bold hover:bg-blue-100 transition-colors">
                       <MessageCircle className="w-5 h-5" />
                       Nhắn tin ngay
@@ -288,7 +268,7 @@ export default function UserProfilePage() {
       {/* Services */}
       <div className="px-4 mt-6 space-y-4">
         <div className="flex items-center justify-between">
-          <h2 className="text-[18px] font-black text-gray-900">Dịch vụ của tôi</h2>
+          <h2 className="text-[18px] font-black text-gray-900">Dịch vụ</h2>
           <span className="text-[12px] font-bold text-gray-400">
             {services.length} dịch vụ
           </span>
@@ -375,11 +355,7 @@ export default function UserProfilePage() {
                           <div className="min-w-0">
                             <p className="text-[12px] text-gray-400 font-bold">Tổng (đã gồm phí)</p>
                             <p className="text-[20px] font-black text-primary-600 leading-none">
-                              {formatCurrency(
-                                selectedForThis
-                                  ? pricing.total
-                                  : price3h
-                              )}
+                              {formatCurrency(selectedForThis ? pricing.total : price3h)}
                             </p>
                           </div>
 
@@ -482,15 +458,9 @@ export default function UserProfilePage() {
                           </button>
                           <button
                             onClick={handleBook}
-                            disabled={!bookingForm.date || !bookingForm.location}
-                            className={cn(
-                              'flex-1 py-3 rounded-xl font-black transition shadow-primary',
-                              bookingForm.date && bookingForm.location
-                                ? 'bg-gradient-primary text-white hover:opacity-90'
-                                : 'bg-gray-200 text-gray-400 cursor-not-allowed'
-                            )}
+                            className="flex-1 py-3 rounded-xl font-black transition shadow-primary bg-gray-900 text-white hover:opacity-90"
                           >
-                            Xác nhận đặt
+                            Tiếp tục đặt (DB)
                           </button>
                         </div>
                       </div>
@@ -502,7 +472,7 @@ export default function UserProfilePage() {
           </div>
         )}
 
-        {/* Reviews - compact */}
+        {/* Reviews */}
         <div className="pt-2">
           <div className="flex items-center justify-between mb-3">
             <h3 className="text-[16px] font-black text-gray-900">Đánh giá</h3>
@@ -563,20 +533,6 @@ export default function UserProfilePage() {
         onClose={() => setAuthModal({ ...authModal, isOpen: false })}
         actionType={authModal.actionType}
       />
-
-      {/* Sticky bottom quick action */}
-      {!isCurrentUser && services.length > 0 && (
-        <div className="fixed bottom-0 left-0 right-0 z-40 md:static md:z-auto">
-          <div className="md:hidden bg-white/80 backdrop-blur-xl border-t border-gray-200/60 p-4 pb-[calc(env(safe-area-inset-bottom)+16px)]">
-            <button
-              onClick={() => openBookingForService(services[0].id)}
-              className="w-full py-4 rounded-2xl bg-gradient-primary text-white font-black shadow-primary hover:opacity-90 transition"
-            >
-              Chọn gói & đặt nhanh
-            </button>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

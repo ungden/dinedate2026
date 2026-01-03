@@ -1,7 +1,7 @@
-import HomeClient from '@/components/pages/HomeClient';
+import DiscoverDealsClient from '@/components/pages/DiscoverDealsClient';
 
 export const dynamic = 'force-dynamic';
 
 export default function DiscoverPage() {
-  return <HomeClient />;
+  return <DiscoverDealsClient />;
 }

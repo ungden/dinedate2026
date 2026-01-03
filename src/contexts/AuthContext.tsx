@@ -39,25 +39,43 @@ async function fetchUserProfile(userId: string): Promise<User | null> {
   return mapDbUserToUser(data as any);
 }
 
+function defaultAvatarUrl(userId: string) {
+  // Use PNG for better compatibility with next/image + remote images
+  return `https://api.dicebear.com/7.x/avataaars/png?seed=${encodeURIComponent(userId)}`;
+}
+
 async function ensureUsersRow(params: {
   id: string;
   email?: string | null;
   name?: string | null;
 }) {
-  const { id, email, name } = params;
+  const { id, name } = params;
 
-  // Minimal safe defaults to satisfy NOT NULL constraints on public.users
+  // 1) Check if row exists (IMPORTANT: do not overwrite existing profile data)
+  const { data: existing, error: existErr } = await supabase
+    .from('users')
+    .select('id')
+    .eq('id', id)
+    .maybeSingle();
+
+  // If table not accessible due to RLS misconfig, let it throw upward to be visible
+  if (existErr) throw existErr;
+
+  if (existing?.id) return;
+
+  // 2) Insert minimal defaults only for first-time creation
   const payload: any = {
     id,
     name: name || 'Người dùng mới',
     phone: null,
-    avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${id}`,
+    avatar: defaultAvatarUrl(id),
     bio: '',
     birth_year: null,
     height: null,
     zodiac: null,
     personality_tags: [],
     location: 'Hà Nội',
+    location_detail: null,
     latitude: null,
     longitude: null,
     role: 'user',
@@ -78,11 +96,8 @@ async function ensureUsersRow(params: {
     partner_agreed_version: null,
   };
 
-  // Try to preserve existing row if any; upsert by PK (id)
-  const { error } = await supabase.from('users').upsert(payload, { onConflict: 'id' });
-  if (error) throw error;
-
-  // Store email inside auth only; public.users doesn't have email column by default in your schema dump.
+  const { error: insertErr } = await supabase.from('users').insert(payload);
+  if (insertErr) throw insertErr;
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -101,7 +116,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (!mounted) return;
 
       if (session?.user?.id) {
-        // Ensure profile row exists (for older accounts or race conditions)
         await ensureUsersRow({
           id: session.user.id,
           email: session.user.email,

@@ -8,9 +8,9 @@ import {
   ReactNode,
 } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
-import { supabase as legacySupabase, isDemoMode } from '@/lib/supabase';
 import { supabase } from '@/integrations/supabase/client';
 import { User } from '@/types';
+import { mapDbUserToUser } from '@/lib/user-mapper';
 
 interface AuthContextType {
   user: User | null;
@@ -31,6 +31,59 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 const publicRoutes = ['/login', '/register', '/', '/discover'];
 const authRoutes = ['/login', '/register'];
 
+async function fetchUserProfile(userId: string): Promise<User | null> {
+  const { data, error } = await supabase.from('users').select('*').eq('id', userId).single();
+  if (error) return null;
+  if (!data) return null;
+  return mapDbUserToUser(data as any);
+}
+
+async function ensureUsersRow(params: {
+  id: string;
+  email?: string | null;
+  name?: string | null;
+}) {
+  const { id, email, name } = params;
+
+  // Minimal safe defaults to satisfy NOT NULL constraints on public.users
+  const payload: any = {
+    id,
+    name: name || 'Người dùng mới',
+    phone: null,
+    avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${id}`,
+    bio: '',
+    birth_year: null,
+    height: null,
+    zodiac: null,
+    personality_tags: [],
+    location: 'Hà Nội',
+    latitude: null,
+    longitude: null,
+    role: 'user',
+    is_partner_verified: false,
+    is_online: true,
+    last_seen: new Date().toISOString(),
+    hourly_rate: 0,
+    available_activities: [],
+    partner_rules: '',
+    voice_intro_url: null,
+    gallery_images: [],
+    wallet_balance: 0,
+    wallet_escrow: 0,
+    total_bookings: 0,
+    total_earnings: 0,
+    average_rating: 0,
+    partner_agreed_at: null,
+    partner_agreed_version: null,
+  };
+
+  // Try to preserve existing row if any; upsert by PK (id)
+  const { error } = await supabase.from('users').upsert(payload, { onConflict: 'id' });
+  if (error) throw error;
+
+  // Store email inside auth only; public.users doesn't have email column by default in your schema dump.
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -38,72 +91,61 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const pathname = usePathname();
 
   useEffect(() => {
-    const checkSession = async () => {
-      if (isDemoMode) {
-        const savedUser = localStorage.getItem('dinedate-user');
-        if (savedUser) {
-          try {
-            setUser(JSON.parse(savedUser));
-          } catch (e) {
-            console.error('Error parsing saved user', e);
-            localStorage.removeItem('dinedate-user');
-          }
-        }
-        setIsLoading(false);
-        return;
+    let mounted = true;
+
+    const init = async () => {
+      const { data } = await supabase.auth.getSession();
+      const session = data.session;
+
+      if (!mounted) return;
+
+      if (session?.user?.id) {
+        // Ensure profile row exists (for older accounts or race conditions)
+        await ensureUsersRow({
+          id: session.user.id,
+          email: session.user.email,
+          name: (session.user.user_metadata as any)?.name ?? null,
+        });
+
+        const profile = await fetchUserProfile(session.user.id);
+        setUser(profile);
+      } else {
+        setUser(null);
       }
 
-      if (!legacySupabase) {
-        setIsLoading(false);
-        return;
-      }
-
-      try {
-        const {
-          data: { session },
-        } = await legacySupabase.auth.getSession();
-
-        if (session?.user) {
-          const { data: profile } = await legacySupabase
-            .from('users')
-            .select('*')
-            .eq('id', session.user.id)
-            .single();
-
-          if (profile) {
-            setUser(profile as User);
-          }
-        }
-      } catch (error) {
-        console.error('Session check error:', error);
-      } finally {
-        setIsLoading(false);
-      }
+      setIsLoading(false);
     };
 
-    checkSession();
+    init();
 
-    if (!isDemoMode && legacySupabase) {
-      const {
-        data: { subscription },
-      } = legacySupabase.auth.onAuthStateChange(async (event, session) => {
-        if (event === 'SIGNED_IN' && session?.user && legacySupabase) {
-          const { data: profile } = await legacySupabase
-            .from('users')
-            .select('*')
-            .eq('id', session.user.id)
-            .single();
+    const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (!mounted) return;
 
-          if (profile) {
-            setUser(profile as User);
-          }
-        } else if (event === 'SIGNED_OUT') {
-          setUser(null);
-        }
-      });
+      if (event === 'SIGNED_IN' && session?.user?.id) {
+        await ensureUsersRow({
+          id: session.user.id,
+          email: session.user.email,
+          name: (session.user.user_metadata as any)?.name ?? null,
+        });
 
-      return () => subscription.unsubscribe();
-    }
+        const profile = await fetchUserProfile(session.user.id);
+        setUser(profile);
+      }
+
+      if (event === 'SIGNED_OUT') {
+        setUser(null);
+      }
+
+      if (event === 'USER_UPDATED' && session?.user?.id) {
+        const profile = await fetchUserProfile(session.user.id);
+        setUser(profile);
+      }
+    });
+
+    return () => {
+      mounted = false;
+      authListener.subscription.unsubscribe();
+    };
   }, []);
 
   useEffect(() => {
@@ -131,60 +173,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     email: string,
     password: string
   ): Promise<{ error?: string }> => {
-    if (isDemoMode) {
-      await new Promise((resolve) => setTimeout(resolve, 800));
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
 
-      const demoUser: User = {
-        id: `demo-${Date.now()}`,
-        name: email.split('@')[0] || 'User',
-        email: email,
-        age: 25,
-        avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${email}`,
-        bio: 'Đây là tài khoản demo.',
-        location: 'Việt Nam',
-        wallet: { balance: 1000000, escrowBalance: 0, currency: 'VND' },
-        vipStatus: { tier: 'free', benefits: [] },
-        onlineStatus: { isOnline: true, lastSeen: new Date().toISOString() },
-        isServiceProvider: false,
-      };
-
-      setUser(demoUser);
-      localStorage.setItem('dinedate-user', JSON.stringify(demoUser));
-      router.push('/');
-      return {};
+    if (error) {
+      return { error: 'Email hoặc mật khẩu không chính xác' };
     }
 
-    if (!legacySupabase) {
-      return { error: 'Kết nối máy chủ thất bại.' };
-    }
-
-    try {
-      const { data, error } = await legacySupabase.auth.signInWithPassword({
-        email,
-        password,
+    if (data.user?.id) {
+      await ensureUsersRow({
+        id: data.user.id,
+        email: data.user.email,
+        name: (data.user.user_metadata as any)?.name ?? null,
       });
 
-      if (error) {
-        return { error: 'Email hoặc mật khẩu không chính xác' };
-      }
-
-      if (data.user) {
-        const { data: profile } = await legacySupabase
-          .from('users')
-          .select('*')
-          .eq('id', data.user.id)
-          .single();
-
-        if (profile) {
-          setUser(profile as User);
-        }
-        router.push('/');
-      }
-
-      return {};
-    } catch {
-      return { error: 'Đã có lỗi xảy ra khi đăng nhập' };
+      const profile = await fetchUserProfile(data.user.id);
+      setUser(profile);
+      router.push('/');
     }
+
+    return {};
   };
 
   const register = async (
@@ -192,101 +202,57 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     password: string,
     name: string
   ): Promise<{ error?: string }> => {
-    if (isDemoMode) {
-      await new Promise((resolve) => setTimeout(resolve, 800));
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        data: { name },
+      },
+    });
 
-      const demoUser: User = {
-        id: `demo-${Date.now()}`,
+    if (error) return { error: error.message };
+
+    if (data.user?.id) {
+      await ensureUsersRow({
+        id: data.user.id,
+        email: data.user.email,
         name,
-        email,
-        age: 25,
-        avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${email}`,
-        bio: '',
-        location: 'Việt Nam',
-        wallet: { balance: 0, escrowBalance: 0, currency: 'VND' },
-        vipStatus: { tier: 'free', benefits: [] },
-        onlineStatus: { isOnline: true, lastSeen: new Date().toISOString() },
-      };
-
-      setUser(demoUser);
-      localStorage.setItem('dinedate-user', JSON.stringify(demoUser));
-      router.push('/');
-      return {};
-    }
-
-    if (!legacySupabase) {
-      return { error: 'Kết nối máy chủ thất bại.' };
-    }
-
-    try {
-      const { data, error } = await legacySupabase.auth.signUp({
-        email,
-        password,
-        options: {
-          data: { name },
-        },
       });
 
-      if (error) {
-        return { error: error.message };
-      }
-
-      if (data.user) {
-        const newUser: Partial<User> = {
-          id: data.user.id,
-          name,
-          email,
-          age: 25,
-          avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${data.user.id}`,
-          bio: '',
-          location: 'Việt Nam',
-          wallet: { balance: 0, escrowBalance: 0, currency: 'VND' },
-          vipStatus: { tier: 'free', benefits: [] },
-        };
-
-        await legacySupabase.from('users').insert(newUser);
-        setUser(newUser as User);
-        router.push('/');
-      }
-
-      return {};
-    } catch {
-      return { error: 'Đã có lỗi xảy ra khi đăng ký' };
+      const profile = await fetchUserProfile(data.user.id);
+      setUser(profile);
+      router.push('/');
     }
+
+    return {};
   };
 
   const logout = async () => {
-    if (isDemoMode) {
-      localStorage.removeItem('dinedate-user');
-      setUser(null);
-      router.push('/login');
-      return;
-    }
-
-    if (legacySupabase) {
-      await legacySupabase.auth.signOut();
-    }
+    await supabase.auth.signOut();
     setUser(null);
     router.push('/login');
   };
 
   const updateUser = async (updates: Partial<User>) => {
-    if (!user) return;
+    if (!user?.id) return;
 
-    const updatedUser = { ...user, ...updates };
-    setUser(updatedUser);
+    // Map app User updates to DB columns where needed
+    const dbUpdates: any = { ...updates };
 
-    if (isDemoMode) {
-      localStorage.setItem('dinedate-user', JSON.stringify(updatedUser));
-      return;
-    }
+    if (updates.avatar !== undefined) dbUpdates.avatar = updates.avatar;
+    if (updates.bio !== undefined) dbUpdates.bio = updates.bio;
+    if (updates.location !== undefined) dbUpdates.location = updates.location;
+    if (updates.hourlyRate !== undefined) dbUpdates.hourly_rate = updates.hourlyRate;
+    if (updates.images !== undefined) dbUpdates.gallery_images = updates.images;
 
-    const { error } = await supabase
-      .from('users')
-      .update(updates as any)
-      .eq('id', user.id);
+    if (updates.partner_agreed_at !== undefined) dbUpdates.partner_agreed_at = updates.partner_agreed_at;
+    if (updates.partner_agreed_version !== undefined) dbUpdates.partner_agreed_version = updates.partner_agreed_version;
 
+    const { error } = await supabase.from('users').update(dbUpdates).eq('id', user.id);
     if (error) throw error;
+
+    const refreshed = await fetchUserProfile(user.id);
+    setUser(refreshed);
   };
 
   return (

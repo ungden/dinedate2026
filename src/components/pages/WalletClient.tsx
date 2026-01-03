@@ -8,24 +8,16 @@ import {
   Wallet,
   Plus,
   CreditCard,
-  X,
   TrendingUp,
   Clock,
-  CheckCircle,
+  ExternalLink
 } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client';
 import { formatCurrency, formatRelativeTime, cn } from '@/lib/utils';
-import { PaymentMethod } from '@/types';
 import { useDbWallet } from '@/hooks/useDbWallet';
 import { useAuth } from '@/contexts/AuthContext';
+import TopupModal from '@/components/TopupModal';
 
 const topUpAmounts = [50000, 100000, 200000, 500000, 1000000, 2000000];
-
-const paymentMethods: { id: PaymentMethod; name: string; icon: string; color: string }[] = [
-  { id: 'banking', name: 'Chuyển khoản', icon: '🏦', color: 'bg-blue-50' },
-  { id: 'momo', name: 'MoMo', icon: '💜', color: 'bg-pink-50' },
-  { id: 'zalopay', name: 'ZaloPay', icon: '💙', color: 'bg-blue-50' },
-];
 
 const containerVariants = {
   hidden: { opacity: 0 },
@@ -46,39 +38,6 @@ export default function WalletClient() {
 
   const [showTopUp, setShowTopUp] = useState(false);
   const [selectedAmount, setSelectedAmount] = useState<number | null>(null);
-  const [selectedMethod, setSelectedMethod] = useState<PaymentMethod | null>(null);
-  const [isProcessing, setIsProcessing] = useState(false);
-
-  const handleTopUp = async () => {
-    if (!user?.id) return;
-    if (!selectedAmount || !selectedMethod) return;
-
-    setIsProcessing(true);
-
-    // Create a pending topup request (no auto balance credit without verification)
-    const transferCode = `DD${Date.now().toString().slice(-8)}`;
-
-    const { error } = await supabase.from('topup_requests').insert({
-      user_id: user.id,
-      amount: selectedAmount,
-      transfer_code: transferCode,
-      status: 'pending',
-    } as any);
-
-    setIsProcessing(false);
-
-    if (error) throw error;
-
-    alert(
-      `Đã tạo yêu cầu nạp tiền.\nMã chuyển khoản: ${transferCode}\nVui lòng chuyển khoản đúng nội dung để được xác nhận.`
-    );
-
-    setShowTopUp(false);
-    setSelectedAmount(null);
-    setSelectedMethod(null);
-
-    await reload();
-  };
 
   const getTransactionIcon = (type: string) => {
     switch (type) {
@@ -110,6 +69,10 @@ export default function WalletClient() {
       .reduce((sum: number, t: any) => sum + Number(t.amount || 0), 0);
   }, [transactions]);
 
+  const handleTopupSuccess = async () => {
+    await reload();
+  };
+
   return (
     <motion.div
       className="space-y-6"
@@ -118,19 +81,27 @@ export default function WalletClient() {
     >
       {/* Header */}
       <motion.div
-        className="flex items-center gap-4"
+        className="flex items-center justify-between"
         initial={{ opacity: 0, x: -20 }}
         animate={{ opacity: 1, x: 0 }}
       >
-        <Link href="/profile">
-          <motion.button
-            className="p-2.5 hover:bg-gray-100 rounded-xl transition-colors"
-            whileTap={{ scale: 0.9 }}
-          >
-            <ArrowLeft className="w-5 h-5" />
-          </motion.button>
+        <div className="flex items-center gap-4">
+            <Link href="/profile">
+            <motion.button
+                className="p-2.5 hover:bg-gray-100 rounded-xl transition-colors"
+                whileTap={{ scale: 0.9 }}
+            >
+                <ArrowLeft className="w-5 h-5" />
+            </motion.button>
+            </Link>
+            <h1 className="text-2xl font-bold text-gray-900">Ví của tôi</h1>
+        </div>
+        
+        {/* Admin Link for convenience if needed, otherwise hidden */}
+        <Link href="/admin/payment" className="text-xs text-gray-400 hover:text-primary-500 flex items-center gap-1">
+           <ExternalLink className="w-3 h-3" />
+           Cấu hình
         </Link>
-        <h1 className="text-2xl font-bold text-gray-900">Ví của tôi</h1>
       </motion.div>
 
       {/* Balance Card */}
@@ -182,15 +153,39 @@ export default function WalletClient() {
             </motion.div>
           )}
 
-          <motion.button
-            onClick={() => setShowTopUp(true)}
-            className="w-full py-3.5 bg-white text-gray-900 rounded-2xl font-semibold flex items-center justify-center gap-2 hover:bg-white/90 transition-colors shadow-lg"
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
-          >
-            <Plus className="w-5 h-5" />
-            Nạp tiền
-          </motion.button>
+          {/* Top Up Selection Grid - Inline for better UX */}
+          {!showTopUp ? (
+             <motion.button
+                onClick={() => setShowTopUp(true)}
+                className="w-full py-3.5 bg-white text-gray-900 rounded-2xl font-semibold flex items-center justify-center gap-2 hover:bg-white/90 transition-colors shadow-lg"
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+             >
+                <Plus className="w-5 h-5" />
+                Nạp tiền ngay
+             </motion.button>
+          ) : (
+            <div className="bg-white/10 backdrop-blur-md rounded-2xl p-4">
+                <p className="text-sm font-medium mb-3 text-white/90">Chọn mệnh giá nạp:</p>
+                <div className="grid grid-cols-3 gap-2 mb-4">
+                    {topUpAmounts.map(amt => (
+                        <button
+                            key={amt}
+                            onClick={() => setSelectedAmount(amt)}
+                            className="py-2 px-1 bg-white/20 hover:bg-white/30 rounded-xl text-sm font-semibold transition"
+                        >
+                            {formatCurrency(amt).replace('₫','')}
+                        </button>
+                    ))}
+                </div>
+                 <button
+                    onClick={() => setShowTopUp(false)}
+                    className="w-full py-2 text-sm text-white/70 hover:text-white"
+                >
+                    Hủy bỏ
+                </button>
+            </div>
+          )}
         </div>
       </motion.div>
 
@@ -204,7 +199,7 @@ export default function WalletClient() {
         <div className="bg-white rounded-2xl border border-gray-100 p-4">
           <div className="flex items-center gap-2 mb-2">
             <TrendingUp className="w-5 h-5 text-green-500" />
-            <span className="text-sm text-gray-500">Tổng nạp (đã xác nhận)</span>
+            <span className="text-sm text-gray-500">Tổng nạp</span>
           </div>
           <p className="text-xl font-bold text-gray-900">
             {formatCurrency(totalTopUp)}
@@ -220,139 +215,6 @@ export default function WalletClient() {
           </p>
         </div>
       </motion.div>
-
-      {/* Top Up Modal */}
-      <AnimatePresence>
-        {showTopUp && (
-          <motion.div
-            className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-end sm:items-center justify-center z-50 p-4"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            onClick={() => setShowTopUp(false)}
-          >
-            <motion.div
-              className="bg-white rounded-t-3xl sm:rounded-3xl w-full max-w-md p-6 max-h-[85vh] overflow-y-auto"
-              initial={{ opacity: 0, y: 100 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: 100 }}
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div className="flex items-center justify-between mb-6">
-                <h2 className="text-xl font-bold">Nạp tiền</h2>
-                <button
-                  onClick={() => setShowTopUp(false)}
-                  className="p-2 hover:bg-gray-100 rounded-xl transition-colors"
-                >
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
-
-              <div className="space-y-6">
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-3">
-                    Chọn số tiền
-                  </label>
-                  <div className="grid grid-cols-3 gap-2">
-                    {topUpAmounts.map((amount) => (
-                      <motion.button
-                        key={amount}
-                        onClick={() => setSelectedAmount(amount)}
-                        className={cn(
-                          'py-3 px-3 rounded-xl border-2 text-sm font-semibold transition-all',
-                          selectedAmount === amount
-                            ? 'border-primary-500 bg-primary-50 text-primary-600 shadow-sm'
-                            : 'border-gray-200 hover:border-gray-300 text-gray-700'
-                        )}
-                        whileTap={{ scale: 0.95 }}
-                      >
-                        {formatCurrency(amount)}
-                      </motion.button>
-                    ))}
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-3">
-                    Phương thức thanh toán
-                  </label>
-                  <div className="space-y-2">
-                    {paymentMethods.map((method) => (
-                      <motion.button
-                        key={method.id}
-                        onClick={() => setSelectedMethod(method.id)}
-                        className={cn(
-                          'w-full p-4 rounded-xl border-2 flex items-center gap-4 transition-all',
-                          selectedMethod === method.id
-                            ? 'border-primary-500 bg-primary-50'
-                            : 'border-gray-200 hover:border-gray-300'
-                        )}
-                        whileTap={{ scale: 0.98 }}
-                      >
-                        <span className={cn('text-3xl p-2 rounded-xl', method.color)}>{method.icon}</span>
-                        <span className="font-semibold text-gray-900">{method.name}</span>
-                        {selectedMethod === method.id && (
-                          <CheckCircle className="w-5 h-5 text-primary-500 ml-auto" />
-                        )}
-                      </motion.button>
-                    ))}
-                  </div>
-                </div>
-
-                {selectedAmount && selectedMethod && (
-                  <motion.div
-                    className="bg-gray-50 rounded-xl p-4"
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                  >
-                    <div className="flex justify-between mb-2">
-                      <span className="text-gray-600">Số tiền nạp</span>
-                      <span className="font-semibold">{formatCurrency(selectedAmount)}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">Trạng thái</span>
-                      <span className="font-semibold text-yellow-600">Chờ xác nhận</span>
-                    </div>
-                    <p className="text-xs text-gray-500 mt-2">
-                      Vì chưa tích hợp cổng thanh toán tự động, yêu cầu nạp sẽ ở trạng thái chờ xác nhận.
-                    </p>
-                  </motion.div>
-                )}
-
-                <div className="flex gap-3 pt-2">
-                  <motion.button
-                    onClick={() => setShowTopUp(false)}
-                    className="flex-1 py-3.5 border-2 border-gray-200 rounded-xl font-semibold hover:bg-gray-50 transition-colors"
-                    whileTap={{ scale: 0.98 }}
-                  >
-                    Hủy
-                  </motion.button>
-                  <motion.button
-                    onClick={handleTopUp}
-                    disabled={!selectedAmount || !selectedMethod || isProcessing}
-                    className="flex-1 py-3.5 bg-gradient-primary text-white rounded-xl font-semibold disabled:opacity-50 transition-all shadow-primary"
-                    whileHover={selectedAmount && selectedMethod ? { scale: 1.02 } : {}}
-                    whileTap={selectedAmount && selectedMethod ? { scale: 0.98 } : {}}
-                  >
-                    {isProcessing ? (
-                      <span className="flex items-center justify-center gap-2">
-                        <motion.div
-                          className="w-5 h-5 border-2 border-white border-t-transparent rounded-full"
-                          animate={{ rotate: 360 }}
-                          transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
-                        />
-                        Đang tạo...
-                      </span>
-                    ) : (
-                      'Tạo yêu cầu'
-                    )}
-                  </motion.button>
-                </div>
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
 
       {/* Transactions */}
       <motion.div
@@ -382,8 +244,8 @@ export default function WalletClient() {
                   className="bg-white rounded-2xl p-4 border border-gray-100 flex items-center gap-4"
                   whileHover={{ scale: 1.01 }}
                 >
-                  <div className={cn('w-12 h-12 rounded-2xl flex items-center justify-center font-black text-xs', meta.color)}>
-                    {meta.label}
+                  <div className={cn('w-12 h-12 rounded-2xl flex items-center justify-center font-black text-xs text-center p-1', meta.color)}>
+                     <span className="leading-tight">{meta.label}</span>
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="font-semibold text-gray-900 truncate">{tx.description}</p>
@@ -414,6 +276,16 @@ export default function WalletClient() {
           </motion.div>
         )}
       </motion.div>
+
+      {/* Payment Modal */}
+      {selectedAmount && (
+          <TopupModal 
+            isOpen={!!selectedAmount}
+            onClose={() => { setSelectedAmount(null); setShowTopUp(false); }}
+            amount={selectedAmount}
+            onSuccess={handleTopupSuccess}
+          />
+      )}
     </motion.div>
   );
 }

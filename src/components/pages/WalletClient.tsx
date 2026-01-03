@@ -1,13 +1,11 @@
 'use client';
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import Link from 'next/link';
 import { motion, AnimatePresence } from '@/lib/motion';
 import {
   ArrowLeft,
   Wallet,
-  ArrowUpRight,
-  ArrowDownRight,
   Plus,
   CreditCard,
   X,
@@ -15,9 +13,11 @@ import {
   Clock,
   CheckCircle,
 } from 'lucide-react';
-import { useDateStore } from '@/hooks/useDateStore';
+import { supabase } from '@/integrations/supabase/client';
 import { formatCurrency, formatRelativeTime, cn } from '@/lib/utils';
 import { PaymentMethod } from '@/types';
+import { useDbWallet } from '@/hooks/useDbWallet';
+import { useAuth } from '@/contexts/AuthContext';
 
 const topUpAmounts = [50000, 100000, 200000, 500000, 1000000, 2000000];
 
@@ -41,40 +41,74 @@ const itemVariants = {
 };
 
 export default function WalletClient() {
+  const { user } = useAuth();
+  const { balance, escrow, transactions, loading, reload } = useDbWallet();
+
   const [showTopUp, setShowTopUp] = useState(false);
   const [selectedAmount, setSelectedAmount] = useState<number | null>(null);
   const [selectedMethod, setSelectedMethod] = useState<PaymentMethod | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
 
-  const { currentUser, getMyTransactions, topUpWallet } = useDateStore();
-  const transactions = getMyTransactions();
-
   const handleTopUp = async () => {
-    if (selectedAmount && selectedMethod) {
-      setIsProcessing(true);
-      // Simulate processing
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      topUpWallet(selectedAmount, selectedMethod);
-      setIsProcessing(false);
-      setShowTopUp(false);
-      setSelectedAmount(null);
-      setSelectedMethod(null);
-    }
+    if (!user?.id) return;
+    if (!selectedAmount || !selectedMethod) return;
+
+    setIsProcessing(true);
+
+    // Create a pending topup request (no auto balance credit without verification)
+    const transferCode = `DD${Date.now().toString().slice(-8)}`;
+
+    const { error } = await supabase.from('topup_requests').insert({
+      user_id: user.id,
+      amount: selectedAmount,
+      transfer_code: transferCode,
+      status: 'pending',
+    } as any);
+
+    setIsProcessing(false);
+
+    if (error) throw error;
+
+    alert(
+      `Đã tạo yêu cầu nạp tiền.\nMã chuyển khoản: ${transferCode}\nVui lòng chuyển khoản đúng nội dung để được xác nhận.`
+    );
+
+    setShowTopUp(false);
+    setSelectedAmount(null);
+    setSelectedMethod(null);
+
+    await reload();
   };
 
   const getTransactionIcon = (type: string) => {
     switch (type) {
       case 'top_up':
-        return { icon: ArrowDownRight, color: 'bg-green-100 text-green-600' };
+        return { label: 'Nạp tiền', color: 'bg-green-100 text-green-600' };
+      case 'escrow_hold':
+        return { label: 'Giữ tiền (escrow)', color: 'bg-yellow-100 text-yellow-700' };
+      case 'escrow_release':
+        return { label: 'Giải phóng escrow', color: 'bg-green-100 text-green-600' };
       case 'booking_payment':
       case 'vip_payment':
-        return { icon: ArrowUpRight, color: 'bg-red-100 text-red-600' };
+        return { label: 'Thanh toán', color: 'bg-red-100 text-red-600' };
       case 'booking_earning':
-        return { icon: ArrowDownRight, color: 'bg-green-100 text-green-600' };
+        return { label: 'Thu nhập booking', color: 'bg-green-100 text-green-600' };
       default:
-        return { icon: CreditCard, color: 'bg-gray-100 text-gray-600' };
+        return { label: type, color: 'bg-gray-100 text-gray-600' };
     }
   };
+
+  const totalTopUp = useMemo(() => {
+    return transactions
+      .filter((t: any) => t.type === 'top_up' && t.status === 'completed')
+      .reduce((sum: number, t: any) => sum + Number(t.amount || 0), 0);
+  }, [transactions]);
+
+  const totalSpend = useMemo(() => {
+    return transactions
+      .filter((t: any) => ['booking_payment', 'vip_payment', 'escrow_hold'].includes(t.type))
+      .reduce((sum: number, t: any) => sum + Number(t.amount || 0), 0);
+  }, [transactions]);
 
   return (
     <motion.div
@@ -128,12 +162,12 @@ export default function WalletClient() {
                 animate={{ opacity: 1, scale: 1 }}
                 transition={{ delay: 0.2, type: 'spring' }}
               >
-                {formatCurrency(currentUser.wallet.balance)}
+                {formatCurrency(balance)}
               </motion.p>
             </div>
           </div>
 
-          {currentUser.wallet.escrowBalance > 0 && (
+          {escrow > 0 && (
             <motion.div
               className="flex items-center gap-3 bg-white/10 backdrop-blur-sm rounded-xl p-3 mb-6"
               initial={{ opacity: 0, x: -20 }}
@@ -143,7 +177,7 @@ export default function WalletClient() {
               <Clock className="w-5 h-5 text-white/70" />
               <div className="flex-1">
                 <p className="text-white/70 text-sm">Đang giữ (Escrow)</p>
-                <p className="font-semibold">{formatCurrency(currentUser.wallet.escrowBalance)}</p>
+                <p className="font-semibold">{formatCurrency(escrow)}</p>
               </div>
             </motion.div>
           )}
@@ -170,19 +204,19 @@ export default function WalletClient() {
         <div className="bg-white rounded-2xl border border-gray-100 p-4">
           <div className="flex items-center gap-2 mb-2">
             <TrendingUp className="w-5 h-5 text-green-500" />
-            <span className="text-sm text-gray-500">Tổng nạp</span>
+            <span className="text-sm text-gray-500">Tổng nạp (đã xác nhận)</span>
           </div>
           <p className="text-xl font-bold text-gray-900">
-            {formatCurrency(transactions.filter(t => t.type === 'top_up').reduce((sum, t) => sum + t.amount, 0))}
+            {formatCurrency(totalTopUp)}
           </p>
         </div>
         <div className="bg-white rounded-2xl border border-gray-100 p-4">
           <div className="flex items-center gap-2 mb-2">
-            <ArrowUpRight className="w-5 h-5 text-red-500" />
+            <CreditCard className="w-5 h-5 text-red-500" />
             <span className="text-sm text-gray-500">Tổng chi</span>
           </div>
           <p className="text-xl font-bold text-gray-900">
-            {formatCurrency(transactions.filter(t => t.type !== 'top_up' && t.type !== 'booking_earning').reduce((sum, t) => sum + t.amount, 0))}
+            {formatCurrency(totalSpend)}
           </p>
         </div>
       </motion.div>
@@ -276,9 +310,12 @@ export default function WalletClient() {
                       <span className="font-semibold">{formatCurrency(selectedAmount)}</span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-gray-600">Phí giao dịch</span>
-                      <span className="font-semibold text-green-600">Miễn phí</span>
+                      <span className="text-gray-600">Trạng thái</span>
+                      <span className="font-semibold text-yellow-600">Chờ xác nhận</span>
                     </div>
+                    <p className="text-xs text-gray-500 mt-2">
+                      Vì chưa tích hợp cổng thanh toán tự động, yêu cầu nạp sẽ ở trạng thái chờ xác nhận.
+                    </p>
                   </motion.div>
                 )}
 
@@ -304,10 +341,10 @@ export default function WalletClient() {
                           animate={{ rotate: 360 }}
                           transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
                         />
-                        Đang xử lý...
+                        Đang tạo...
                       </span>
                     ) : (
-                      'Xác nhận'
+                      'Tạo yêu cầu'
                     )}
                   </motion.button>
                 </div>
@@ -324,16 +361,19 @@ export default function WalletClient() {
         transition={{ delay: 0.3 }}
       >
         <h2 className="text-lg font-bold text-gray-900 mb-4">Lịch sử giao dịch</h2>
-        {transactions.length > 0 ? (
+
+        {loading ? (
+          <div className="py-10 text-center text-gray-500">Đang tải giao dịch...</div>
+        ) : transactions.length > 0 ? (
           <motion.div
             className="space-y-3"
             variants={containerVariants}
             initial="hidden"
             animate="visible"
           >
-            {transactions.map((tx) => {
-              const { icon: Icon, color } = getTransactionIcon(tx.type);
-              const isIncome = tx.type === 'top_up' || tx.type === 'booking_earning';
+            {transactions.map((tx: any) => {
+              const meta = getTransactionIcon(tx.type);
+              const isIncome = ['booking_earning', 'top_up', 'escrow_release'].includes(tx.type);
 
               return (
                 <motion.div
@@ -342,15 +382,15 @@ export default function WalletClient() {
                   className="bg-white rounded-2xl p-4 border border-gray-100 flex items-center gap-4"
                   whileHover={{ scale: 1.01 }}
                 >
-                  <div className={cn('w-12 h-12 rounded-2xl flex items-center justify-center', color)}>
-                    <Icon className="w-6 h-6" />
+                  <div className={cn('w-12 h-12 rounded-2xl flex items-center justify-center font-black text-xs', meta.color)}>
+                    {meta.label}
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="font-semibold text-gray-900 truncate">{tx.description}</p>
-                    <p className="text-sm text-gray-500">{formatRelativeTime(tx.createdAt)}</p>
+                    <p className="text-sm text-gray-500">{formatRelativeTime(tx.created_at)}</p>
                   </div>
                   <p className={cn('text-lg font-bold', isIncome ? 'text-green-600' : 'text-red-600')}>
-                    {isIncome ? '+' : '-'}{formatCurrency(tx.amount)}
+                    {isIncome ? '+' : '-'}{formatCurrency(Number(tx.amount || 0))}
                   </p>
                 </motion.div>
               );

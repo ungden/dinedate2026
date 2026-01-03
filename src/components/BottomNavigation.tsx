@@ -6,7 +6,7 @@ import { motion } from '@/lib/motion';
 import { 
   Compass, 
   Sparkles, 
-  CircleUser 
+  User 
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -14,20 +14,17 @@ const navItems = [
     { 
         href: '/', 
         label: 'Partner', 
-        icon: Sparkles,
-        activeColor: 'text-rose-500'
+        icon: Sparkles
     },
     { 
         href: '/discover', 
         label: 'Khám phá', 
-        icon: Compass,
-        activeColor: 'text-purple-500'
+        icon: Compass
     },
     { 
         href: '/profile', 
         label: 'Cá nhân', 
-        icon: CircleUser,
-        activeColor: 'text-blue-500'
+        icon: User
     },
 ];
 
@@ -36,8 +33,8 @@ export default function BottomNavigation() {
 
     return (
         <div className="md:hidden fixed bottom-6 left-1/2 -translate-x-1/2 z-50 w-[90%] max-w-sm">
-            {/* Floating Glass Bar */}
-            <nav className="relative bg-white/80 backdrop-blur-xl border border-white/20 rounded-[32px] shadow-[0_8px_32px_rgba(0,0,0,0.12)] p-2">
+            {/* Floating Glass Bar - Pink Theme */}
+            <nav className="relative bg-white/90 backdrop-blur-2xl border border-white/40 rounded-[32px] shadow-2xl shadow-rose-500/10 p-2">
                 <div className="flex justify-between items-center px-2">
                     {navItems.map((item) => {
                         const isActive = pathname === item.href ||
@@ -63,13 +60,13 @@ export default function BottomNavigation() {
                                         transition={{ type: "spring", stiffness: 300, damping: 20 }}
                                         className={cn(
                                             "transition-colors duration-300",
-                                            isActive ? item.activeColor : "text-gray-400 group-hover:text-gray-600"
+                                            isActive ? "text-rose-500" : "text-gray-400 group-hover:text-gray-600"
                                         )}
                                     >
                                         <Icon
                                             className={cn(
-                                                "w-6 h-6",
-                                                isActive && "stroke-[2.5px]"
+                                                "w-[26px] h-[26px]",
+                                                isActive && "stroke-[2.5px] fill-rose-50"
                                             )}
                                         />
                                     </motion.div>
@@ -78,10 +75,7 @@ export default function BottomNavigation() {
                                         <motion.span
                                             initial={{ opacity: 0, scale: 0.5 }}
                                             animate={{ opacity: 1, scale: 1 }}
-                                            className={cn(
-                                                "text-[10px] font-black tracking-wide",
-                                                item.activeColor
-                                            )}
+                                            className="text-[10px] font-black tracking-wide text-rose-500"
                                         >
                                             {item.label}
                                         </motion.span>
@@ -92,7 +86,7 @@ export default function BottomNavigation() {
                                 {isActive && (
                                     <motion.div
                                         layoutId="nav-pill"
-                                        className="absolute inset-0 bg-white shadow-sm rounded-[24px] -z-0"
+                                        className="absolute inset-0 bg-rose-50/80 rounded-[24px] -z-0 border border-rose-100"
                                         transition={{ type: "spring", bounce: 0.2, duration: 0.6 }}
                                     />
                                 )}

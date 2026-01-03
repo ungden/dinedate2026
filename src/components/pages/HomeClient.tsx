@@ -17,9 +17,9 @@ export default function HomeClient() {
   const requests = getRequestsByActivity(selectedActivity);
 
   return (
-    <div className="space-y-8 pb-20 bg-mesh min-h-screen max-w-7xl mx-auto">
-      {/* 1. Category Bar - Removed Sticky, keeping it static at the top */}
-      <div className="bg-white border-b border-gray-100/50 py-4 -mx-4 px-4 sm:-mx-6 sm:px-6 lg:rounded-b-[32px] lg:shadow-soft">
+    <div className="space-y-8 pb-20 bg-mesh-light min-h-screen max-w-7xl mx-auto">
+      {/* 1. Category Bar */}
+      <div className="bg-white/50 backdrop-blur-md border-b border-rose-100/50 py-4 -mx-4 px-4 sm:-mx-6 sm:px-6 sticky top-[60px] z-30">
         <div className="max-w-7xl mx-auto">
             <ActivityFilter
                 selected={selectedActivity}
@@ -29,30 +29,37 @@ export default function HomeClient() {
       </div>
 
       <div className="space-y-8 px-2 md:px-4 lg:px-0">
-        {/* 2. Premium Hero Banner */}
+        {/* 2. Premium Hero Banner - PINK THEME */}
         {!selectedActivity && (
             <Link href="/create-request">
                 <motion.div 
-                    className="relative bg-gray-900 rounded-[32px] md:rounded-[40px] p-8 md:p-12 text-white shadow-2xl overflow-hidden group"
+                    className="relative bg-gradient-to-br from-rose-500 via-pink-600 to-purple-600 rounded-[32px] md:rounded-[40px] p-8 md:p-12 text-white shadow-2xl shadow-rose-500/30 overflow-hidden group"
                     whileTap={{ scale: 0.98 }}
                 >
-                    <div className="absolute -top-24 -right-24 w-80 h-80 bg-primary-500/20 rounded-full blur-[100px] group-hover:bg-primary-500/30 transition-colors duration-500" />
-                    <div className="absolute -bottom-20 -left-20 w-64 h-64 bg-purple-500/10 rounded-full blur-[80px]" />
+                    {/* Abstract Shapes */}
+                    <div className="absolute -top-24 -right-24 w-80 h-80 bg-white/10 rounded-full blur-[80px] group-hover:bg-white/20 transition-colors duration-500" />
+                    <div className="absolute -bottom-20 -left-20 w-64 h-64 bg-orange-500/20 rounded-full blur-[60px]" />
+                    <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-10 mix-blend-overlay" />
                     
                     <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
                         <div className="space-y-2 md:space-y-4 max-w-xl">
                             <div className="flex items-center gap-3 mb-2">
-                                <span className="p-1.5 bg-yellow-400/20 rounded-lg">
-                                    <Sparkles className="w-5 h-5 text-yellow-400 fill-yellow-400" />
+                                <span className="p-1.5 bg-white/20 backdrop-blur-md rounded-lg border border-white/20">
+                                    <Sparkles className="w-5 h-5 text-yellow-300 fill-yellow-300" />
                                 </span>
-                                <span className="text-[12px] md:text-sm font-black uppercase tracking-[0.3em] text-white/60">Find Your Connection</span>
+                                <span className="text-[12px] md:text-sm font-black uppercase tracking-[0.3em] text-white/80">Premium Dating</span>
                             </div>
-                            <h2 className="text-3xl md:text-5xl font-black leading-[1.1] tracking-tight">Đăng lời mời hẹn hò<br/><span className="gradient-text">ngay bây giờ</span></h2>
-                            <p className="text-white/60 text-base md:text-lg font-medium">Bắt đầu những cuộc trò chuyện thú vị và tìm kiếm đối tác đồng hành chỉ trong vài phút.</p>
+                            <h2 className="text-3xl md:text-5xl font-black leading-[1.1] tracking-tight drop-shadow-sm">
+                                Tạo lời mời<br/>
+                                <span className="text-transparent bg-clip-text bg-gradient-to-r from-white via-rose-100 to-white">kết nối ngay</span>
+                            </h2>
+                            <p className="text-rose-100 text-base md:text-lg font-medium max-w-md">
+                                Bắt đầu những cuộc gặp gỡ thú vị và tìm kiếm đối tác đồng hành hoàn hảo cho bạn.
+                            </p>
                         </div>
                         <div className="flex-shrink-0">
-                            <div className="w-16 h-16 md:w-24 md:h-24 bg-gradient-primary rounded-[24px] md:rounded-[32px] flex items-center justify-center shadow-primary group-hover:scale-110 transition-transform duration-300">
-                                <Plus className="w-10 h-10 md:w-14 md:h-14 text-white stroke-[4px]" />
+                            <div className="w-16 h-16 md:w-20 md:h-20 bg-white text-rose-600 rounded-[24px] flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform duration-300">
+                                <Plus className="w-8 h-8 md:w-10 md:h-10 stroke-[3px]" />
                             </div>
                         </div>
                     </div>
@@ -63,13 +70,16 @@ export default function HomeClient() {
         {/* 3. Feed Header */}
         <div className="flex items-center justify-between px-2">
             <div className="space-y-1">
-                <h3 className="text-2xl md:text-3xl font-black text-gray-900 tracking-tight">
-                    {selectedActivity ? 'Đang lọc theo hoạt động' : 'Dành riêng cho bạn'}
+                <h3 className="text-2xl md:text-3xl font-black text-gray-900 tracking-tight flex items-center gap-2">
+                    {selectedActivity ? 'Đang lọc' : 'Dành cho bạn'}
+                    <div className="h-2 w-2 rounded-full bg-rose-500 animate-pulse" />
                 </h3>
-                <p className="text-gray-400 font-medium text-sm md:text-base">Những lời mời mới nhất gần vị trí của bạn</p>
+                <p className="text-gray-500 font-medium text-sm md:text-base">
+                    {selectedActivity ? 'Kết quả tìm kiếm theo hoạt động' : 'Những lời mời mới nhất gần bạn'}
+                </p>
             </div>
             {requests.length > 0 && (
-                <div className="hidden sm:flex px-4 py-2 bg-white rounded-2xl border border-gray-100 text-sm font-black text-gray-400 shadow-sm uppercase tracking-wider">
+                <div className="hidden sm:flex px-4 py-2 bg-rose-50 rounded-2xl border border-rose-100 text-sm font-black text-rose-500 uppercase tracking-wider">
                     {requests.length} Lời mời
                 </div>
             )}
@@ -100,17 +110,16 @@ export default function HomeClient() {
                 <motion.div 
                     initial={{ opacity: 0, scale: 0.95 }}
                     animate={{ opacity: 1, scale: 1 }}
-                    className="py-32 text-center bg-white rounded-[40px] shadow-soft border border-gray-50"
+                    className="py-32 text-center bg-white/60 backdrop-blur-sm rounded-[40px] border border-dashed border-rose-200"
                 >
-                    <div className="text-8xl mb-8">🏜️</div>
-                    <h3 className="text-2xl font-black text-gray-900 mb-3">Chưa có lời mời nào ở đây</h3>
-                    <p className="text-gray-400 font-medium px-10 max-w-md mx-auto">Hãy thử thay đổi danh mục hoặc là người đầu tiên đăng lời mời trong khu vực này nhé!</p>
+                    <div className="text-8xl mb-6 opacity-80">🌸</div>
+                    <h3 className="text-2xl font-black text-gray-900 mb-3">Chưa có lời mời nào</h3>
+                    <p className="text-gray-500 font-medium px-10 max-w-md mx-auto">Hãy là người đầu tiên tạo nên câu chuyện thú vị tại đây!</p>
                 </motion.div>
             )}
         </AnimatePresence>
       </div>
 
-      {/* Floating Action Button for scrolling back up */}
       <BackToTop />
     </div>
   );

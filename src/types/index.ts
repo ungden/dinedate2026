@@ -172,6 +172,10 @@ export interface User {
   availableNow?: boolean;
   availableTonight?: boolean;
   birthYear?: number;
+
+  // Partner agreement flags (stored in public.users for quick checks)
+  partner_agreed_at?: string;
+  partner_agreed_version?: string;
 }
 
 export interface DateRequest {

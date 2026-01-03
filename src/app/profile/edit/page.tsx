@@ -10,6 +10,7 @@ import ProfileGalleryUploader from '@/components/profile/ProfileGalleryUploader'
 import { uploadUserImage, deleteByPublicUrl } from '@/lib/storage';
 import { cn } from '@/lib/utils';
 import toast from 'react-hot-toast';
+import LocationPicker from '@/components/profile/LocationPicker';
 
 const MIN_BIO_LEN = 30;
 const MIN_PHOTOS = 3;
@@ -339,10 +340,16 @@ export default function EditProfilePage() {
             />
           </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+          <div className="space-y-3">
+            <label className="block text-sm font-medium text-gray-700">
               Địa điểm
             </label>
+
+            <LocationPicker
+              value={formData.location}
+              onChange={(next) => setFormData({ ...formData, location: next })}
+            />
+
             <input
               type="text"
               value={formData.location}

@@ -23,7 +23,6 @@ import {
   PaymentConfig,
 } from '@/lib/payment';
 import { formatCurrency, cn } from '@/lib/utils';
-import { QRCodeCanvas } from 'qrcode.react';
 
 interface TopupModalProps {
   isOpen: boolean;
@@ -347,7 +346,11 @@ export default function TopupModal({
                 <div className="bg-white p-3 rounded-2xl border border-gray-200 shadow-sm">
                   {qrUrl ? (
                     <div className="w-52 h-52 flex items-center justify-center">
-                      <QRCodeCanvas value={qrUrl} size={208} level="M" includeMargin />
+                      <img 
+                        src={qrUrl} 
+                        alt="Mã QR chuyển khoản" 
+                        className="w-full h-full object-contain"
+                      />
                     </div>
                   ) : (
                     <div className="w-52 h-52 flex items-center justify-center text-gray-400">
@@ -355,17 +358,6 @@ export default function TopupModal({
                     </div>
                   )}
                 </div>
-
-                {/* Fallback link */}
-                {qrUrl && (
-                  <button
-                    type="button"
-                    onClick={() => window.open(qrUrl, '_blank', 'noopener,noreferrer')}
-                    className="mt-3 text-xs font-bold text-primary-600 hover:underline"
-                  >
-                    Mở QR dạng ảnh (fallback)
-                  </button>
-                )}
 
                 <div className="mt-4 inline-flex items-center gap-2 text-amber-700 bg-amber-50 px-3 py-1.5 rounded-full text-sm font-bold border border-amber-100">
                   <Clock className="w-4 h-4" />

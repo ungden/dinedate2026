@@ -1,10 +1,17 @@
 // @ts-nocheck
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
+const allowedOrigins = (Deno.env.get('ALLOWED_ORIGINS') || 'http://localhost:3000').split(',');
+
+function getCorsHeaders(req: Request) {
+  const origin = req.headers.get('Origin') || '';
+  const isAllowed = allowedOrigins.includes(origin) || allowedOrigins.includes('*');
+  return {
+    'Access-Control-Allow-Origin': isAllowed ? origin : allowedOrigins[0],
+    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+    'Access-Control-Allow-Methods': 'POST, GET, OPTIONS',
+  };
+}
 
 // Map BIN to bank code (format Sepay QR yêu cầu)
 const bankCodes: Record<string, string> = {
@@ -36,6 +43,8 @@ const bankFullNames: Record<string, string> = {
 const DEFAULT_BANK_BIN = "970422"; // MB Bank default
 
 serve(async (req: Request) => {
+  const corsHeaders = getCorsHeaders(req);
+
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }

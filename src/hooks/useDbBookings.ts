@@ -23,7 +23,8 @@ export function useDbBookings() {
       .from('bookings')
       .select('*')
       .eq('user_id', userId)
-      .order('created_at', { ascending: false });
+      .order('created_at', { ascending: false })
+      .limit(50); // Pagination: limit to latest 50 bookings
 
     if (sentErr) throw sentErr;
 
@@ -31,7 +32,8 @@ export function useDbBookings() {
       .from('bookings')
       .select('*')
       .eq('partner_id', userId)
-      .order('created_at', { ascending: false });
+      .order('created_at', { ascending: false })
+      .limit(50); // Pagination: limit to latest 50 bookings
 
     if (receivedErr) throw receivedErr;
 

@@ -51,11 +51,6 @@ export function generateVietQRUrl(config: PaymentConfig, amount: number, transfe
 
   const url = `https://qr.sepay.vn/img?acc=${encodeURIComponent(accountNo)}&bank=${encodeURIComponent(bankCode)}&amount=${amount}&des=${encodeURIComponent(content)}`;
 
-  if (typeof window !== 'undefined') {
-    console.log('[QR Debug] Generated URL:', url);
-    console.log('[QR Debug] Config:', { bankCode, accountNo, amount, transferContent: content });
-  }
-
   return url;
 }
 
@@ -68,17 +63,11 @@ export async function getPaymentConfig(): Promise<PaymentConfig | null> {
     const { data, error } = await supabase.functions.invoke("get-payment-config");
 
     if (error) {
-      console.error('[Payment] Error fetching config:', error);
       throw toError(error, 'Không lấy được cấu hình thanh toán');
-    }
-
-    if (typeof window !== 'undefined') {
-      console.log('[Payment] Config received:', data);
     }
 
     return (data as PaymentConfig) ?? null;
   } catch (err) {
-    console.error('[Payment] Exception:', err);
     throw toError(err, 'Không lấy được cấu hình thanh toán');
   }
 }

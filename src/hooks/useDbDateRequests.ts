@@ -19,7 +19,8 @@ export function useDbDateRequests(activity?: ActivityType) {
           user:users(*)
         `)
         .eq('status', 'active')
-        .order('created_at', { ascending: false });
+        .order('created_at', { ascending: false })
+        .limit(50); // Pagination: limit initial load
 
       if (activity) {
         query = query.eq('activity', activity);

@@ -1,12 +1,13 @@
 'use client';
 
+import { memo } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { MapPin, Star, BadgeCheck } from 'lucide-react';
 import { User } from '@/types';
 import { cn, getVIPBadgeColor } from '@/lib/utils';
 
-export default function PartnerCard({ partner, distance }: { partner: User; distance?: number }) {
+function PartnerCard({ partner, distance }: { partner: User; distance?: number }) {
   const isOnline = !!partner.onlineStatus?.isOnline;
   const isVip = partner.vipStatus?.tier && partner.vipStatus.tier !== 'free';
   const imageSrc = partner.images?.[0] || partner.avatar;
@@ -82,3 +83,5 @@ export default function PartnerCard({ partner, distance }: { partner: User; dist
     </Link>
   );
 }
+
+export default memo(PartnerCard);

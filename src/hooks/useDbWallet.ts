@@ -39,7 +39,8 @@ export function useDbWallet() {
       .from('transactions')
       .select('*')
       .eq('user_id', userId)
-      .order('created_at', { ascending: false });
+      .order('created_at', { ascending: false })
+      .limit(100); // Pagination: limit to latest 100 transactions
 
     if (txErr) throw toError(txErr, 'Không lấy được lịch sử giao dịch');
 

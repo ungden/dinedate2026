@@ -7,10 +7,9 @@ import {
   ArrowLeft,
   Briefcase,
   Check,
-  Sparkles,
-  Zap,
-  ChevronDown,
-  Wand2,
+  CheckCircle,
+  Clock,
+  ChevronRight,
   Coffee,
   Utensils,
   Clapperboard,
@@ -21,36 +20,23 @@ import {
   AlertTriangle,
   Image as ImageIcon,
   FileText,
+  DollarSign,
+  Trash2,
 } from 'lucide-react';
 import { useDateStore } from '@/hooks/useDateStore';
-import { ActivityType } from '@/types';
+import { ActivityType, ServiceDuration } from '@/types';
 import { cn, formatCurrency } from '@/lib/utils';
-import { PARTNER_EARNING_RATE } from '@/lib/platform';
+import { useDbMyServices } from '@/hooks/useDbMyServices';
 
-const SESSION_HOURS = 3;
-
-const ACTIVITY_OPTIONS: { value: ActivityType; label: string; Icon: React.ElementType }[] = [
-  { value: 'cafe', label: 'Cafe', Icon: Coffee },
-  { value: 'dining', label: 'Ăn uống', Icon: Utensils },
-  { value: 'movies', label: 'Xem phim', Icon: Clapperboard },
-  { value: 'drinking', label: 'Cafe/Bar', Icon: Wine },
-  { value: 'karaoke', label: 'Karaoke', Icon: Mic2 },
-  { value: 'tour_guide', label: 'Tour guide', Icon: Map },
-  { value: 'travel', label: 'Du lịch', Icon: Plane },
+const ACTIVITY_OPTIONS: { value: ActivityType; label: string; Icon: React.ElementType; defaultDuration: ServiceDuration }[] = [
+  { value: 'cafe', label: 'Cafe', Icon: Coffee, defaultDuration: 'session' },
+  { value: 'dining', label: 'Ăn uống', Icon: Utensils, defaultDuration: 'session' },
+  { value: 'movies', label: 'Xem phim', Icon: Clapperboard, defaultDuration: 'session' },
+  { value: 'drinking', label: 'Cafe/Bar', Icon: Wine, defaultDuration: 'session' },
+  { value: 'karaoke', label: 'Karaoke', Icon: Mic2, defaultDuration: 'session' },
+  { value: 'tour_guide', label: 'Tour guide', Icon: Map, defaultDuration: 'day' },
+  { value: 'travel', label: 'Du lịch', Icon: Plane, defaultDuration: 'day' },
 ];
-
-const PRICE_PRESETS = [
-  { value: 300000, label: '300k/buổi' },
-  { value: 500000, label: '500k/buổi' },
-  { value: 700000, label: '700k/buổi' },
-  { value: 1000000, label: '1 triệu/buổi' },
-  { value: 1500000, label: '1.5 triệu/buổi' },
-];
-
-const DEFAULT_SUGGESTION: { activities: ActivityType[]; price: number } = {
-  activities: ['cafe', 'dining', 'movies'],
-  price: 500000,
-};
 
 const DEFAULT_TITLES: Partial<Record<ActivityType, string>> = {
   cafe: 'Cafe trò chuyện',
@@ -75,15 +61,32 @@ const DEFAULT_DESCRIPTIONS: Partial<Record<ActivityType, string>> = {
 const MIN_BIO_LEN = 30;
 const MIN_PHOTOS = 3;
 
-export default function BecomePartnerClient() {
-  const { currentUser, addServiceToProfile } = useDateStore();
+// Interface for the detailed configuration step
+interface ServiceConfig {
+  activity: ActivityType;
+  price: number;
+  duration: ServiceDuration;
+}
 
-  const [selectedActivities, setSelectedActivities] = useState<ActivityType[]>(
-    DEFAULT_SUGGESTION.activities
-  );
-  const [selectedPrice, setSelectedPrice] = useState<number>(DEFAULT_SUGGESTION.price);
+export default function BecomePartnerClient() {
+  const { currentUser } = useDateStore();
+  const { addService } = useDbMyServices();
+
+  const [step, setStep] = useState<1 | 2>(1);
+  const [selectedActivities, setSelectedActivities] = useState<ActivityType[]>(['cafe', 'dining']);
+  
+  // Store config per activity
+  const [configs, setConfigs] = useState<Record<ActivityType, ServiceConfig>>({
+    cafe: { activity: 'cafe', price: 300000, duration: 'session' },
+    dining: { activity: 'dining', price: 500000, duration: 'session' },
+    movies: { activity: 'movies', price: 400000, duration: 'session' },
+    drinking: { activity: 'drinking', price: 700000, duration: 'session' },
+    karaoke: { activity: 'karaoke', price: 600000, duration: 'session' },
+    tour_guide: { activity: 'tour_guide', price: 1500000, duration: 'day' },
+    travel: { activity: 'travel', price: 2000000, duration: 'day' },
+  });
+
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [showAdvanced, setShowAdvanced] = useState(false);
 
   const isAlreadyPartner =
     !!currentUser.isServiceProvider && (currentUser.services?.length || 0) > 0;
@@ -113,13 +116,6 @@ export default function BecomePartnerClient() {
 
   const isProfileReady = profileBlockReasons.length === 0;
 
-  const canSubmit =
-    !isAlreadyPartner && isProfileReady && selectedActivities.length > 0 && selectedPrice > 0;
-
-  const earningPerSession = useMemo(() => {
-    return Math.round(selectedPrice * PARTNER_EARNING_RATE);
-  }, [selectedPrice]);
-
   const toggleActivity = (a: ActivityType) => {
     setSelectedActivities((prev) => {
       if (prev.includes(a)) return prev.filter((x) => x !== a);
@@ -127,48 +123,42 @@ export default function BecomePartnerClient() {
     });
   };
 
-  const applyRecommended = () => {
-    setSelectedActivities(DEFAULT_SUGGESTION.activities);
-    setSelectedPrice(DEFAULT_SUGGESTION.price);
+  const updateConfig = (activity: ActivityType, key: keyof ServiceConfig, value: any) => {
+    setConfigs(prev => ({
+      ...prev,
+      [activity]: { ...prev[activity], [key]: value }
+    }));
   };
 
   const handleCreate = async () => {
-    if (!canSubmit) return;
     setIsSubmitting(true);
 
-    await new Promise((r) => setTimeout(r, 250));
-
-    selectedActivities.forEach((activity) => {
-      addServiceToProfile({
-        activity,
-        title: DEFAULT_TITLES[activity] || 'Dịch vụ đồng hành',
-        description: DEFAULT_DESCRIPTIONS[activity] || 'Dịch vụ đồng hành theo yêu cầu.',
-        price: selectedPrice, // price per session (3h)
-        available: true,
-      });
-    });
-
-    setIsSubmitting(false);
-    window.location.href = '/manage-services';
+    try {
+      // Loop through selected and create
+      for (const activity of selectedActivities) {
+        const config = configs[activity];
+        await addService({
+          activity,
+          title: DEFAULT_TITLES[activity] || 'Dịch vụ đồng hành',
+          description: DEFAULT_DESCRIPTIONS[activity] || 'Dịch vụ đồng hành theo yêu cầu.',
+          price: config.price,
+          duration: config.duration,
+          available: true,
+        });
+      }
+      
+      // Redirect
+      window.location.href = '/manage-services';
+    } catch (err) {
+      console.error(err);
+      alert('Có lỗi xảy ra, vui lòng thử lại');
+      setIsSubmitting(false);
+    }
   };
 
-  return (
-    <div className="max-w-2xl mx-auto space-y-6">
-      {/* Header */}
-      <div className="flex items-center gap-4">
-        <Link href="/profile" className="p-2 hover:bg-gray-100 rounded-lg transition">
-          <ArrowLeft className="w-5 h-5" />
-        </Link>
-        <div className="flex-1">
-          <h1 className="text-2xl font-bold text-gray-900">Trở thành Partner</h1>
-          <p className="text-sm text-gray-500">
-            Mặc định đã chọn Cafe + Ăn uống + Xem phim — giá {formatCurrency(DEFAULT_SUGGESTION.price)}/buổi ({SESSION_HOURS}h).
-          </p>
-        </div>
-      </div>
-
-      {/* Already Partner */}
-      {isAlreadyPartner && (
+  if (isAlreadyPartner) {
+    return (
+      <div className="max-w-2xl mx-auto space-y-6 p-4">
         <div className="bg-green-50 border border-green-200 rounded-2xl p-5">
           <div className="flex items-start gap-3">
             <div className="w-10 h-10 bg-green-100 rounded-xl flex items-center justify-center">
@@ -187,10 +177,21 @@ export default function BecomePartnerClient() {
             </div>
           </div>
         </div>
-      )}
+      </div>
+    );
+  }
 
-      {/* Blocking requirements */}
-      {!isAlreadyPartner && !isProfileReady && (
+  // Not ready state
+  if (!isProfileReady) {
+    return (
+      <div className="max-w-2xl mx-auto space-y-6 p-4">
+        <div className="flex items-center gap-4">
+          <Link href="/profile" className="p-2 hover:bg-gray-100 rounded-lg transition">
+            <ArrowLeft className="w-5 h-5" />
+          </Link>
+          <h1 className="text-2xl font-bold text-gray-900">Trở thành Partner</h1>
+        </div>
+
         <div className="bg-rose-50 border border-rose-200 rounded-3xl p-6">
           <div className="flex items-start gap-3">
             <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center border border-rose-100">
@@ -198,22 +199,14 @@ export default function BecomePartnerClient() {
             </div>
             <div className="flex-1">
               <h2 className="text-lg font-bold text-gray-900">Cần hoàn thiện hồ sơ trước</h2>
-              <p className="text-sm text-gray-600 mt-1">
-                Bắt buộc có bio + tối thiểu 3 ảnh rõ mặt để trở thành Partner.
-              </p>
-
               <div className="mt-4 space-y-3">
                 {profileBlockReasons.map((r) => (
                   <div key={r.key} className="bg-white rounded-2xl border border-rose-100 p-4">
                     <div className="flex items-start gap-3">
                       <div className="w-10 h-10 bg-rose-50 rounded-xl flex items-center justify-center">
-                        {r.key === 'bio' ? (
-                          <FileText className="w-5 h-5 text-rose-600" />
-                        ) : (
-                          <ImageIcon className="w-5 h-5 text-rose-600" />
-                        )}
+                        {r.key === 'bio' ? <FileText className="w-5 h-5 text-rose-600" /> : <ImageIcon className="w-5 h-5 text-rose-600" />}
                       </div>
-                      <div className="flex-1">
+                      <div>
                         <p className="font-bold text-gray-900">{r.title}</p>
                         <p className="text-sm text-gray-600 mt-1">{r.detail}</p>
                       </div>
@@ -221,259 +214,200 @@ export default function BecomePartnerClient() {
                   </div>
                 ))}
               </div>
-
-              <div className="mt-5 flex flex-col sm:flex-row gap-3">
+              <div className="mt-5 flex gap-3">
                 <Link href="/profile/edit" className="flex-1">
-                  <button className="w-full py-3.5 bg-gradient-primary text-white rounded-2xl font-bold shadow-primary hover:opacity-90 transition">
-                    Cập nhật hồ sơ ngay
-                  </button>
-                </Link>
-                <Link href="/profile" className="flex-1">
-                  <button className="w-full py-3.5 bg-white border border-rose-200 text-rose-600 rounded-2xl font-bold hover:bg-rose-50 transition">
-                    Để sau
-                  </button>
+                  <button className="w-full py-3 bg-gradient-primary text-white rounded-xl font-bold shadow-primary">Cập nhật ngay</button>
                 </Link>
               </div>
-
-              <p className="text-[11px] text-gray-500 mt-4">
-                Hiện bạn có: <span className="font-bold">{photoCount}</span> ảnh • Bio:{' '}
-                <span className="font-bold">{(currentUser.bio || '').trim().length}</span> ký tự
-              </p>
             </div>
           </div>
         </div>
-      )}
+      </div>
+    );
+  }
 
-      {/* Default-first card */}
-      {!isAlreadyPartner && (
-        <div className="bg-white rounded-3xl border border-gray-100 p-6">
-          <div className="flex items-start justify-between gap-4">
-            <div className="flex items-start gap-3">
-              <div className="w-12 h-12 bg-primary-50 rounded-2xl flex items-center justify-center">
-                <Wand2 className="w-6 h-6 text-primary-600" />
-              </div>
-              <div>
-                <h2 className="text-lg font-bold text-gray-900">Thiết lập mặc định</h2>
-                <p className="text-sm text-gray-500">3 hoạt động cơ bản + giá theo buổi</p>
-              </div>
-            </div>
+  return (
+    <div className="max-w-2xl mx-auto space-y-6 p-4">
+      {/* Header */}
+      <div className="flex items-center gap-4">
+        <button onClick={() => step === 2 ? setStep(1) : window.history.back()} className="p-2 hover:bg-gray-100 rounded-lg transition">
+          <ArrowLeft className="w-5 h-5" />
+        </button>
+        <div className="flex-1">
+          <h1 className="text-2xl font-bold text-gray-900">
+            {step === 1 ? 'Chọn dịch vụ' : 'Thiết lập giá'}
+          </h1>
+          <p className="text-sm text-gray-500">
+            {step === 1 ? 'Bước 1: Chọn những gì bạn muốn làm' : 'Bước 2: Định giá cho từng dịch vụ'}
+          </p>
+        </div>
+        <div className="text-xs font-bold bg-gray-100 px-3 py-1 rounded-full text-gray-500">
+          {step}/2
+        </div>
+      </div>
+
+      {/* STEP 1: SELECT ACTIVITIES */}
+      {step === 1 && (
+        <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} className="space-y-6">
+          <div className="grid grid-cols-2 gap-4">
+            {ACTIVITY_OPTIONS.map((opt) => {
+              const isSelected = selectedActivities.includes(opt.value);
+              const Icon = opt.Icon;
+              
+              return (
+                <button
+                  key={opt.value}
+                  onClick={() => toggleActivity(opt.value)}
+                  className={cn(
+                    'relative p-4 rounded-2xl border-2 text-left transition-all hover:scale-[1.02]',
+                    isSelected
+                      ? 'border-primary-500 bg-primary-50 shadow-md shadow-primary-100'
+                      : 'border-gray-200 bg-white hover:border-gray-300'
+                  )}
+                >
+                  <div className="flex items-start justify-between mb-2">
+                    <div className={cn(
+                      'w-10 h-10 rounded-xl flex items-center justify-center',
+                      isSelected ? 'bg-white text-primary-600' : 'bg-gray-50 text-gray-500'
+                    )}>
+                      <Icon className="w-5 h-5" />
+                    </div>
+                    {isSelected && (
+                      <div className="w-6 h-6 bg-primary-500 rounded-full flex items-center justify-center">
+                        <Check className="w-3 h-3 text-white stroke-[3px]" />
+                      </div>
+                    )}
+                  </div>
+                  <p className={cn("font-bold text-lg", isSelected ? "text-primary-900" : "text-gray-700")}>
+                    {opt.label}
+                  </p>
+                  <p className="text-xs text-gray-500 mt-1">
+                    {opt.defaultDuration === 'day' ? 'Thường đi theo ngày' : 'Thường đi theo buổi'}
+                  </p>
+                </button>
+              );
+            })}
+          </div>
+
+          <div className="fixed bottom-0 left-0 right-0 p-4 bg-white border-t border-gray-100 flex justify-center md:static md:bg-transparent md:border-0 md:p-0">
             <button
-              onClick={applyRecommended}
-              className="px-4 py-2 bg-gray-900 text-white rounded-xl font-bold hover:bg-gray-800 transition"
+              onClick={() => setStep(2)}
+              disabled={selectedActivities.length === 0}
+              className={cn(
+                "w-full md:max-w-md py-4 rounded-2xl font-bold text-lg flex items-center justify-center gap-2 transition shadow-lg",
+                selectedActivities.length > 0
+                  ? "bg-gradient-primary text-white shadow-primary hover:opacity-95"
+                  : "bg-gray-200 text-gray-400 cursor-not-allowed"
+              )}
             >
-              Reset mặc định
+              Tiếp tục ({selectedActivities.length}) <ChevronRight className="w-5 h-5" />
             </button>
           </div>
-
-          <div className="mt-5 grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div className="bg-gray-50 border border-gray-200 rounded-2xl p-4">
-              <p className="text-xs font-black text-gray-500 uppercase tracking-wider mb-3">Hoạt động</p>
-              <div className="flex flex-wrap gap-2">
-                {selectedActivities.map((a) => {
-                  const option = ACTIVITY_OPTIONS.find((o) => o.value === a);
-                  const Icon = option?.Icon;
-                  return (
-                    <span
-                      key={a}
-                      className="inline-flex items-center gap-2 px-3 py-2 rounded-2xl bg-white border border-gray-200 text-sm font-bold text-gray-700"
-                    >
-                      {Icon ? <Icon className="w-4 h-4 text-primary-600" /> : null}
-                      <span>{option?.label || a}</span>
-                    </span>
-                  );
-                })}
-              </div>
-            </div>
-
-            <div className="bg-gray-50 border border-gray-200 rounded-2xl p-4">
-              <p className="text-xs font-black text-gray-500 uppercase tracking-wider mb-2">Giá chung</p>
-              <p className="text-2xl font-black text-gray-900">{formatCurrency(selectedPrice)}/buổi</p>
-              <p className="text-xs text-gray-500 mt-1">
-                1 buổi = {SESSION_HOURS} giờ • Thu nhập (sau phí 30%):{' '}
-                <span className="font-bold text-green-700">{formatCurrency(earningPerSession)}</span>
-              </p>
-            </div>
-          </div>
-
-          {/* Primary CTA */}
-          <div className="mt-6 flex gap-3">
-            <Link href="/profile" className="flex-1">
-              <button className="w-full py-3.5 bg-gray-100 text-gray-700 rounded-2xl font-bold hover:bg-gray-200 transition">
-                Để sau
-              </button>
-            </Link>
-
-            <motion.button
-              onClick={handleCreate}
-              disabled={!canSubmit || isSubmitting}
-              className={cn(
-                'flex-1 py-3.5 rounded-2xl font-bold text-white flex items-center justify-center gap-2 transition shadow-primary',
-                canSubmit && !isSubmitting ? 'bg-gradient-primary hover:opacity-90' : 'bg-gray-300 cursor-not-allowed'
-              )}
-              whileTap={canSubmit && !isSubmitting ? { scale: 0.98 } : {}}
-            >
-              <Briefcase className="w-5 h-5" />
-              {isSubmitting ? 'Đang tạo...' : 'Tạo dịch vụ mặc định'}
-            </motion.button>
-          </div>
-
-          {/* Advanced toggle */}
-          <button
-            onClick={() => setShowAdvanced((v) => !v)}
-            className="mt-5 w-full flex items-center justify-center gap-2 text-sm font-bold text-gray-600 hover:text-gray-900 transition"
-          >
-            {showAdvanced ? 'Ẩn tuỳ chỉnh' : 'Muốn chỉnh? Mở tuỳ chọn'}
-            <ChevronDown className={cn('w-4 h-4 transition-transform', showAdvanced && 'rotate-180')} />
-          </button>
-
-          <AnimatePresence>
-            {showAdvanced && (
-              <motion.div
-                initial={{ height: 0, opacity: 0 }}
-                animate={{ height: 'auto', opacity: 1 }}
-                exit={{ height: 0, opacity: 0 }}
-                className="overflow-hidden"
-              >
-                <div className="pt-5 space-y-6">
-                  {/* Activities */}
-                  <div>
-                    <div className="flex items-center justify-between mb-3">
-                      <p className="text-sm font-bold text-gray-700">Chọn hoạt động (chọn nhiều)</p>
-                      <span className="text-xs text-gray-400 font-medium">{selectedActivities.length} đã chọn</span>
-                    </div>
-
-                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                      {ACTIVITY_OPTIONS.map((opt) => {
-                        const active = selectedActivities.includes(opt.value);
-                        const Icon = opt.Icon;
-
-                        return (
-                          <button
-                            key={opt.value}
-                            type="button"
-                            onClick={() => toggleActivity(opt.value)}
-                            className={cn(
-                              'relative p-4 rounded-2xl border-2 text-left transition',
-                              active
-                                ? 'border-primary-500 bg-primary-50'
-                                : 'border-gray-200 bg-white hover:bg-gray-50'
-                            )}
-                          >
-                            <div className="flex items-start justify-between gap-3">
-                              <div className="flex items-center gap-3">
-                                <div
-                                  className={cn(
-                                    'w-10 h-10 rounded-2xl flex items-center justify-center',
-                                    active ? 'bg-white border border-primary-100' : 'bg-gray-50 border border-gray-200'
-                                  )}
-                                >
-                                  <Icon className={cn('w-5 h-5', active ? 'text-primary-600' : 'text-gray-500')} />
-                                </div>
-                                <p className={cn('font-black', active ? 'text-primary-700' : 'text-gray-900')}>
-                                  {opt.label}
-                                </p>
-                              </div>
-
-                              {active && (
-                                <span className="w-7 h-7 bg-primary-500 text-white rounded-full flex items-center justify-center shadow-sm">
-                                  <Check className="w-4 h-4" />
-                                </span>
-                              )}
-                            </div>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-
-                  {/* Price */}
-                  <div>
-                    <p className="text-sm font-bold text-gray-700 mb-3">Chọn mức giá chung (theo buổi)</p>
-                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                      {PRICE_PRESETS.map((p) => {
-                        const active = selectedPrice === p.value;
-                        return (
-                          <button
-                            key={p.value}
-                            type="button"
-                            onClick={() => setSelectedPrice(p.value)}
-                            className={cn(
-                              'py-3 px-3 rounded-2xl border-2 font-black transition relative',
-                              active
-                                ? 'border-primary-500 bg-primary-50 text-primary-700'
-                                : 'border-gray-200 bg-white text-gray-900 hover:bg-gray-50'
-                            )}
-                          >
-                            {p.label}
-                            {active && (
-                              <span className="absolute -top-2 -right-2 w-6 h-6 bg-primary-500 text-white rounded-full flex items-center justify-center">
-                                <Check className="w-4 h-4" />
-                              </span>
-                            )}
-                          </button>
-                        );
-                      })}
-                    </div>
-
-                    <div className="mt-4 bg-green-50 border border-green-100 rounded-2xl p-4">
-                      <div className="flex items-center gap-2 mb-2">
-                        <Zap className="w-4 h-4 text-green-600" />
-                        <p className="text-sm font-black text-green-800">Thu nhập dự kiến (sau phí 30%)</p>
-                      </div>
-                      <div className="bg-white rounded-xl border border-green-100 p-3">
-                        <p className="text-xs text-gray-500 font-semibold">1 buổi ({SESSION_HOURS} giờ)</p>
-                        <p className="font-black text-green-700">{formatCurrency(earningPerSession)}</p>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Tip */}
-                  <div className="bg-gray-50 border border-gray-200 rounded-2xl p-4">
-                    <div className="flex items-start gap-3">
-                      <div className="w-10 h-10 bg-primary-50 rounded-xl flex items-center justify-center flex-shrink-0">
-                        <Sparkles className="w-5 h-5 text-primary-600" />
-                      </div>
-                      <div>
-                        <p className="font-bold text-gray-900">Mẹo</p>
-                        <p className="text-sm text-gray-600 mt-1">
-                          Tạo xong bạn vẫn có thể vào “Quản lý dịch vụ” để chỉnh tiêu đề/mô tả hoặc bật/tắt dịch vụ.
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Requirement hint */}
-                  {!isProfileReady && (
-                    <div className="bg-rose-50 border border-rose-200 rounded-2xl p-4">
-                      <div className="flex items-start gap-3">
-                        <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center border border-rose-100">
-                          <AlertTriangle className="w-5 h-5 text-rose-600" />
-                        </div>
-                        <div className="flex-1">
-                          <p className="font-bold text-gray-900">Chưa đủ điều kiện tạo Partner</p>
-                          <p className="text-sm text-gray-600 mt-1">
-                            Hoàn thiện Bio + đủ ảnh để mở nút tạo.
-                          </p>
-                          <Link href="/profile/edit" className="inline-block mt-3">
-                            <button className="px-4 py-2 bg-white border border-rose-200 text-rose-600 rounded-xl font-bold hover:bg-rose-50 transition">
-                              Cập nhật hồ sơ
-                            </button>
-                          </Link>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </div>
+        </motion.div>
       )}
 
-      {!isAlreadyPartner && (
-        <p className="text-center text-[11px] font-medium text-gray-400">
-          Hệ thống sẽ tạo {selectedActivities.length} dịch vụ theo hoạt động đã chọn, giá {formatCurrency(selectedPrice)}/buổi ({SESSION_HOURS} giờ).
-        </p>
+      {/* STEP 2: CONFIGURE PRICE */}
+      {step === 2 && (
+        <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="space-y-6 pb-24">
+          <div className="bg-blue-50 p-4 rounded-2xl border border-blue-100 flex gap-3">
+            <div className="w-8 h-8 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center flex-shrink-0">
+              <DollarSign className="w-4 h-4" />
+            </div>
+            <div>
+              <p className="font-bold text-blue-900 text-sm">Gợi ý định giá</p>
+              <ul className="text-xs text-blue-700 mt-1 space-y-1 list-disc pl-4">
+                <li><strong>Theo buổi (3h):</strong> Phù hợp Cafe, Ăn uống, Xem phim. Giá 300k - 1tr.</li>
+                <li><strong>Theo ngày (8h+):</strong> Phù hợp Du lịch, Tour guide. Giá x2 hoặc x3 (1.5tr - 3tr).</li>
+              </ul>
+            </div>
+          </div>
+
+          <div className="space-y-4">
+            {selectedActivities.map((activity) => {
+              const option = ACTIVITY_OPTIONS.find(o => o.value === activity)!;
+              const config = configs[activity];
+              const Icon = option.Icon;
+
+              return (
+                <div key={activity} className="bg-white rounded-2xl border border-gray-200 p-5 shadow-sm">
+                  <div className="flex items-center gap-3 mb-4 border-b border-gray-100 pb-3">
+                    <div className="w-10 h-10 bg-gray-100 rounded-xl flex items-center justify-center text-gray-600">
+                      <Icon className="w-5 h-5" />
+                    </div>
+                    <div className="flex-1">
+                      <h3 className="font-bold text-gray-900 text-lg">{option.label}</h3>
+                    </div>
+                    <button 
+                      onClick={() => toggleActivity(activity)}
+                      className="p-2 hover:bg-red-50 text-gray-400 hover:text-red-500 rounded-lg transition"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    {/* Duration Toggle */}
+                    <div>
+                      <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Cách tính giá</label>
+                      <div className="flex bg-gray-100 p-1 rounded-xl">
+                        <button
+                          onClick={() => updateConfig(activity, 'duration', 'session')}
+                          className={cn(
+                            "flex-1 py-2 text-sm font-bold rounded-lg transition",
+                            config.duration === 'session' ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700"
+                          )}
+                        >
+                          Theo buổi (3h)
+                        </button>
+                        <button
+                          onClick={() => updateConfig(activity, 'duration', 'day')}
+                          className={cn(
+                            "flex-1 py-2 text-sm font-bold rounded-lg transition",
+                            config.duration === 'day' ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700"
+                          )}
+                        >
+                          Theo ngày
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Price Input */}
+                    <div>
+                      <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Giá (VNĐ)</label>
+                      <div className="relative">
+                        <input
+                          type="number"
+                          value={config.price}
+                          onChange={(e) => updateConfig(activity, 'price', Number(e.target.value))}
+                          className="w-full pl-4 pr-12 py-2.5 border border-gray-200 rounded-xl font-bold text-gray-900 focus:ring-2 focus:ring-primary-500 outline-none"
+                          step={50000}
+                        />
+                        <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm text-gray-400 font-medium">đ</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          <div className="fixed bottom-0 left-0 right-0 p-4 bg-white border-t border-gray-100 md:static md:bg-transparent md:border-0 md:p-0">
+            <button
+              onClick={handleCreate}
+              disabled={isSubmitting}
+              className="w-full py-4 bg-gradient-primary text-white rounded-2xl font-bold text-lg shadow-primary hover:opacity-90 flex items-center justify-center gap-2"
+            >
+              {isSubmitting ? (
+                <>Đang tạo...</>
+              ) : (
+                <>
+                  <Briefcase className="w-5 h-5" />
+                  Hoàn tất đăng ký
+                </>
+              )}
+            </button>
+          </div>
+        </motion.div>
       )}
     </div>
   );

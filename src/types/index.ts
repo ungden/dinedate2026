@@ -131,6 +131,8 @@ export const PERSONALITY_TAG_LABELS: Record<PersonalityTag, string> = {
 
 export type Gender = 'male' | 'female' | 'other';
 
+export type ServiceDuration = 'session' | 'day';
+
 export interface ServiceOffering {
   id: string;
   activity: ActivityType;
@@ -138,6 +140,7 @@ export interface ServiceOffering {
   description: string;
   price: number;
   available: boolean;
+  duration: ServiceDuration; // New field
 }
 
 export interface User {
@@ -146,19 +149,8 @@ export interface User {
   age: number;
   avatar: string;
   bio: string;
-
-  /**
-   * Normalized city/province (used for filtering).
-   * Example: "TP. Hồ Chí Minh", "Hà Nội"
-   */
   location: string;
-
-  /**
-   * Optional free-text detail (district/ward...), NOT used for filtering.
-   * Example: "Quận 1", "Bình Thạnh"
-   */
   locationDetail?: string;
-
   coordinates?: LocationCoords;
   onlineStatus?: UserOnlineStatus;
   services?: ServiceOffering[];
@@ -169,24 +161,21 @@ export interface User {
   phone?: string;
   email?: string;
   isBanned?: boolean;
-  role?: 'user' | 'partner' | 'admin'; // Added role
+  role?: 'user' | 'partner' | 'admin';
   occupation?: string;
   interests?: string[];
   rating?: number;
   reviewCount?: number;
-  // Enhanced Partner Profile fields
   gender?: Gender;
-  height?: number; // in cm
+  height?: number;
   zodiac?: ZodiacType;
   personalityTags?: PersonalityTag[];
-  restrictions?: string[]; // e.g., "Không nhận đi bar", "Không uống cồn"
-  voiceIntroUrl?: string; // 15s audio URL
-  hourlyRate?: number; // VND per hour
+  restrictions?: string[];
+  voiceIntroUrl?: string;
+  hourlyRate?: number;
   availableNow?: boolean;
   availableTonight?: boolean;
   birthYear?: number;
-
-  // Partner agreement flags (stored in public.users for quick checks)
   partner_agreed_at?: string;
   partner_agreed_version?: string;
 }
@@ -208,8 +197,8 @@ export interface DateRequest {
   applicants: User[];
   status: 'active' | 'matched' | 'expired' | 'completed';
   createdAt: string;
-  expiresAt?: string; // auto-expire after 15 minutes for new requests
-  recommendedPartnerId?: string; // optional: partner được gợi ý (deal flow từ profile)
+  expiresAt?: string;
+  recommendedPartnerId?: string;
 }
 
 export type HiringAmount = 0 | 300000 | 500000 | 700000 | 1000000;

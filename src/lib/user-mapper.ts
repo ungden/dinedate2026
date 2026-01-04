@@ -1,14 +1,31 @@
-import { User, VIPTier } from '@/types';
+import { User, VIPTier, ServiceOffering } from '@/types';
 
 type DbUserRow = Record<string, any>;
+type DbServiceRow = Record<string, any>;
 
 function toVipTier(tier: any): VIPTier {
   if (tier === 'bronze' || tier === 'silver' || tier === 'gold' || tier === 'platinum') return tier;
   return 'free';
 }
 
+function mapDbServiceToService(row: DbServiceRow): ServiceOffering {
+  return {
+    id: row.id,
+    activity: row.activity as any,
+    title: row.title,
+    description: row.description ?? '',
+    price: Number(row.price ?? 0),
+    available: !!row.available,
+    duration: row.duration === 'day' ? 'day' : 'session',
+  };
+}
+
 export function mapDbUserToUser(row: DbUserRow): User {
   const gallery: string[] = Array.isArray(row.gallery_images) ? row.gallery_images.filter(Boolean) : [];
+
+  const services = Array.isArray(row.services) 
+    ? row.services.map(mapDbServiceToService)
+    : undefined;
 
   return {
     id: row.id,
@@ -26,9 +43,9 @@ export function mapDbUserToUser(row: DbUserRow): User {
       isOnline: !!row.is_online,
       lastSeen: row.last_seen ?? undefined,
     },
-    services: undefined, // loaded separately from services table (DB-backed)
+    services: services, // loaded via join or passed in
     isServiceProvider: row.role === 'partner' || !!row.is_partner_verified,
-    role: row.role ?? 'user', // Map role correctly
+    role: row.role ?? 'user', 
     wallet: {
       balance: Number(row.wallet_balance ?? 0),
       escrowBalance: Number(row.wallet_escrow ?? 0),

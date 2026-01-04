@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { ServiceOffering } from '@/types';
 import { useAuth } from '@/contexts/AuthContext';
@@ -13,6 +13,7 @@ type DbServiceRow = {
   description: string;
   price: number;
   available: boolean;
+  duration?: string;
   created_at?: string;
 };
 
@@ -24,6 +25,7 @@ function mapDbServiceToService(row: DbServiceRow): ServiceOffering {
     description: row.description ?? '',
     price: Number(row.price ?? 0),
     available: !!row.available,
+    duration: (row.duration as any) === 'day' ? 'day' : 'session',
   };
 }
 
@@ -69,6 +71,7 @@ export function useDbMyServices() {
       description: service.description ?? '',
       price: service.price,
       available: service.available ?? true,
+      duration: service.duration ?? 'session',
     };
 
     const { error } = await supabase.from('services').insert(payload as any);

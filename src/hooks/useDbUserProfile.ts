@@ -13,6 +13,7 @@ type DbServiceRow = {
   description: string;
   price: number;
   available: boolean;
+  duration?: string;
 };
 
 function mapDbServiceToService(row: DbServiceRow): ServiceOffering {
@@ -23,6 +24,7 @@ function mapDbServiceToService(row: DbServiceRow): ServiceOffering {
     description: row.description ?? '',
     price: Number(row.price ?? 0),
     available: !!row.available,
+    duration: (row.duration as any) === 'day' ? 'day' : 'session',
   };
 }
 

@@ -37,9 +37,9 @@ export const MOCK_USERS: User[] = [
     rating: 4.9,
     reviewCount: 128,
     services: [
-      { id: 's1', activity: 'dining', title: 'Đi ăn tối', description: 'Cùng bạn khám phá ẩm thực', price: 300000, available: true },
-      { id: 's2', activity: 'cafe', title: 'Cafe date', description: 'Trò chuyện tại quán cafe', price: 200000, available: true },
-      { id: 's3', activity: 'movies', title: 'Xem phim', description: 'Đi xem phim cùng nhau', price: 250000, available: true }
+      { id: 's1', activity: 'dining', title: 'Đi ăn tối', description: 'Cùng bạn khám phá ẩm thực', price: 300000, available: true, duration: 'session' },
+      { id: 's2', activity: 'cafe', title: 'Cafe date', description: 'Trò chuyện tại quán cafe', price: 200000, available: true, duration: 'session' },
+      { id: 's3', activity: 'movies', title: 'Xem phim', description: 'Đi xem phim cùng nhau', price: 250000, available: true, duration: 'session' }
     ]
   },
   {
@@ -76,8 +76,8 @@ export const MOCK_USERS: User[] = [
     rating: 4.7,
     reviewCount: 89,
     services: [
-      { id: 's3', activity: 'movies', title: 'Xem phim', description: 'Đi xem phim, tư vấn phim hay', price: 250000, available: true },
-      { id: 's4', activity: 'cafe', title: 'Cafe chill', description: 'Uống cafe và trò chuyện', price: 200000, available: true }
+      { id: 's3', activity: 'movies', title: 'Xem phim', description: 'Đi xem phim, tư vấn phim hay', price: 250000, available: true, duration: 'session' },
+      { id: 's4', activity: 'cafe', title: 'Cafe chill', description: 'Uống cafe và trò chuyện', price: 200000, available: true, duration: 'session' }
     ]
   },
   {
@@ -116,8 +116,8 @@ export const MOCK_USERS: User[] = [
     rating: 4.8,
     reviewCount: 156,
     services: [
-      { id: 's5', activity: 'dining', title: 'Food tour Sài Gòn', description: 'Khám phá ẩm thực đường phố', price: 200000, available: true },
-      { id: 's6', activity: 'tour_guide', title: 'City tour', description: 'Dẫn bạn đi tham quan', price: 350000, available: true }
+      { id: 's5', activity: 'dining', title: 'Food tour Sài Gòn', description: 'Khám phá ẩm thực đường phố', price: 200000, available: true, duration: 'session' },
+      { id: 's6', activity: 'tour_guide', title: 'City tour', description: 'Dẫn bạn đi tham quan', price: 350000, available: true, duration: 'session' }
     ]
   },
   {
@@ -173,8 +173,8 @@ export const MOCK_USERS: User[] = [
     rating: 4.6,
     reviewCount: 67,
     services: [
-      { id: 's6', activity: 'cafe', title: 'Cafe date', description: 'Đi cafe, trò chuyện thư giãn', price: 180000, available: true },
-      { id: 's7', activity: 'karaoke', title: 'Karaoke night', description: 'Đi hát karaoke cùng nhau', price: 300000, available: true }
+      { id: 's6', activity: 'cafe', title: 'Cafe date', description: 'Đi cafe, trò chuyện thư giãn', price: 180000, available: true, duration: 'session' },
+      { id: 's7', activity: 'karaoke', title: 'Karaoke night', description: 'Đi hát karaoke cùng nhau', price: 300000, available: true, duration: 'session' }
     ]
   },
   {
@@ -211,9 +211,9 @@ export const MOCK_USERS: User[] = [
     rating: 4.8,
     reviewCount: 112,
     services: [
-      { id: 's7', activity: 'movies', title: 'Movie night', description: 'Đi xem phim cuối tuần', price: 280000, available: true },
-      { id: 's8', activity: 'tour_guide', title: 'Photo tour', description: 'Dẫn đi chụp ảnh đẹp', price: 400000, available: true },
-      { id: 's9', activity: 'drinking', title: 'Bar hopping', description: 'Khám phá bar chill', price: 350000, available: true }
+      { id: 's7', activity: 'movies', title: 'Movie night', description: 'Đi xem phim cuối tuần', price: 280000, available: true, duration: 'session' },
+      { id: 's8', activity: 'tour_guide', title: 'Photo tour', description: 'Dẫn đi chụp ảnh đẹp', price: 400000, available: true, duration: 'session' },
+      { id: 's9', activity: 'drinking', title: 'Bar hopping', description: 'Khám phá bar chill', price: 350000, available: true, duration: 'session' }
     ]
   },
   {
@@ -246,8 +246,8 @@ export const MOCK_USERS: User[] = [
     rating: 4.5,
     reviewCount: 34,
     services: [
-      { id: 's10', activity: 'cafe', title: 'Study date', description: 'Cùng học bài tại cafe', price: 120000, available: true },
-      { id: 's11', activity: 'dining', title: 'Lunch buddy', description: 'Cùng đi ăn trưa', price: 150000, available: true }
+      { id: 's10', activity: 'cafe', title: 'Study date', description: 'Cùng học bài tại cafe', price: 120000, available: true, duration: 'session' },
+      { id: 's11', activity: 'dining', title: 'Lunch buddy', description: 'Cùng đi ăn trưa', price: 150000, available: true, duration: 'session' }
     ]
   },
   {
@@ -284,8 +284,8 @@ export const MOCK_USERS: User[] = [
     rating: 4.9,
     reviewCount: 45,
     services: [
-      { id: 's12', activity: 'dining', title: 'Fine dining', description: 'Trải nghiệm nhà hàng cao cấp', price: 500000, available: true },
-      { id: 's13', activity: 'drinking', title: 'Wine tasting', description: 'Thưởng thức rượu vang', price: 600000, available: true }
+      { id: 's12', activity: 'dining', title: 'Fine dining', description: 'Trải nghiệm nhà hàng cao cấp', price: 500000, available: true, duration: 'session' },
+      { id: 's13', activity: 'drinking', title: 'Wine tasting', description: 'Thưởng thức rượu vang', price: 600000, available: true, duration: 'session' }
     ]
   }
 ];

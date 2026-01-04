@@ -14,9 +14,14 @@ import {
   Trash2,
   CheckCircle,
   Briefcase,
-  Loader2
+  Loader2,
+  User as UserIcon,
+  MessageCircle,
+  XCircle,
+  Check
 } from 'lucide-react';
 import { useDbRequestDetail } from '@/hooks/useDbDateRequests';
+import { useDbApplications } from '@/hooks/useDbApplications';
 import {
   formatCurrency,
   formatDate,
@@ -42,8 +47,9 @@ export default function RequestDetailPage() {
   const [isApplying, setIsApplying] = useState(false);
   const [hasApplied, setHasApplied] = useState(false);
 
-  // Load from DB
-  const { request, loading } = useDbRequestDetail(requestId);
+  // DB Data
+  const { request, loading: reqLoading } = useDbRequestDetail(requestId);
+  const { applications, loading: appLoading, acceptApplication, rejectApplication } = useDbApplications(requestId);
 
   // Check if current user applied
   useEffect(() => {
@@ -92,8 +98,6 @@ export default function RequestDetailPage() {
   const handleDelete = async () => {
     if (!confirm('Bạn có chắc muốn xóa lời mời này?')) return;
     
-    // In real app, consider soft delete (status=deleted)
-    // Here simple delete or update status
     const { error } = await supabase.from('date_requests').delete().eq('id', requestId);
     if (!error) {
       toast.success('Đã xóa lời mời');
@@ -103,7 +107,20 @@ export default function RequestDetailPage() {
     }
   };
 
-  if (loading) {
+  const handleAcceptApplicant = async (appId: string, applicantId: string) => {
+    if (!user) return;
+    try {
+      const conversationId = await acceptApplication(appId, applicantId, user.id);
+      toast.success('Đã chấp nhận! Đang mở chat...');
+      if (conversationId) {
+        router.push(`/chat/${conversationId}`);
+      }
+    } catch (error: any) {
+      toast.error('Có lỗi xảy ra: ' + error.message);
+    }
+  };
+
+  if (reqLoading) {
     return (
       <div className="py-20 text-center">
         <Loader2 className="w-8 h-8 animate-spin text-primary-500 mx-auto" />
@@ -125,15 +142,12 @@ export default function RequestDetailPage() {
   }
 
   const isOwner = user?.id === request.userId;
-  const isPartner = !!user?.isServiceProvider; // Logic: only partner can apply? Or any user?
-  // Let's assume ANY user can apply for now to lower barrier, or stick to logic "Only partner can apply"
-  // The original UI logic said "Must be Partner". Let's keep it consistent.
-
+  const isPartner = !!user?.isServiceProvider;
   const isExpired = request.status === 'expired';
   const isMatched = request.status === 'matched';
 
   return (
-    <div className="max-w-3xl mx-auto space-y-6">
+    <div className="max-w-3xl mx-auto space-y-6 pb-20">
       {/* Header */}
       <div className="flex items-start justify-between gap-3">
         <div className="flex items-start gap-4">
@@ -267,7 +281,87 @@ export default function RequestDetailPage() {
           </div>
         </div>
 
-        {/* Apply Section */}
+        {/* --- OWNER VIEW: APPLICANTS LIST --- */}
+        {isOwner && (
+          <div className="border-t border-gray-100 bg-gray-50 p-6">
+            <h3 className="font-bold text-gray-900 mb-4 flex items-center gap-2">
+              <UserIcon className="w-5 h-5 text-gray-600" />
+              Danh sách ứng tuyển ({applications.length})
+            </h3>
+
+            {appLoading ? (
+              <div className="py-4 text-center text-gray-500">Đang tải ứng viên...</div>
+            ) : applications.length === 0 ? (
+              <p className="text-sm text-gray-500 italic">Chưa có ai ứng tuyển.</p>
+            ) : (
+              <div className="space-y-3">
+                {applications.map((app) => (
+                  <div key={app.id} className="bg-white rounded-2xl p-4 border border-gray-200 shadow-sm">
+                    <div className="flex items-start gap-4">
+                      <Link href={`/user/${app.user.id}`}>
+                        <Image
+                          src={app.user.avatar}
+                          alt={app.user.name}
+                          width={56}
+                          height={56}
+                          className="rounded-full object-cover"
+                        />
+                      </Link>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between">
+                          <Link href={`/user/${app.user.id}`} className="font-bold text-gray-900 hover:text-primary-600">
+                            {app.user.name}
+                          </Link>
+                          {app.status === 'pending' && (
+                            <span className="text-xs bg-yellow-100 text-yellow-700 px-2 py-1 rounded-full font-medium">Chờ duyệt</span>
+                          )}
+                          {app.status === 'accepted' && (
+                            <span className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded-full font-medium">Đã chọn</span>
+                          )}
+                          {app.status === 'rejected' && (
+                            <span className="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded-full font-medium">Đã từ chối</span>
+                          )}
+                        </div>
+                        
+                        <p className="text-sm text-gray-600 mt-1 bg-gray-50 p-2 rounded-lg italic">
+                          &quot;{app.message}&quot;
+                        </p>
+
+                        {app.status === 'pending' && !isMatched && (
+                          <div className="flex gap-2 mt-3">
+                            <button
+                              onClick={() => handleAcceptApplicant(app.id, app.user.id)}
+                              className="flex-1 bg-green-600 text-white py-2 rounded-xl text-sm font-bold hover:bg-green-700 transition flex items-center justify-center gap-1"
+                            >
+                              <Check className="w-4 h-4" /> Chấp nhận
+                            </button>
+                            <button
+                              onClick={() => rejectApplication(app.id)}
+                              className="flex-1 bg-gray-100 text-gray-600 py-2 rounded-xl text-sm font-bold hover:bg-gray-200 transition flex items-center justify-center gap-1"
+                            >
+                              <XCircle className="w-4 h-4" /> Từ chối
+                            </button>
+                          </div>
+                        )}
+
+                        {app.status === 'accepted' && (
+                          <div className="mt-3">
+                            <button className="w-full py-2 bg-blue-50 text-blue-600 rounded-xl text-sm font-bold flex items-center justify-center gap-2">
+                              <MessageCircle className="w-4 h-4" />
+                              Nhắn tin ngay
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* --- APPLICANT VIEW: APPLY FORM --- */}
         {!isOwner && !hasApplied && request.status === 'active' && (
           <div className="p-6 border-t border-gray-100">
             {!isPartner ? (

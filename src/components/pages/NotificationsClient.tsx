@@ -1,25 +1,21 @@
 'use client';
 
-import { useState } from 'react';
 import { motion, AnimatePresence } from '@/lib/motion';
-import Link from 'next/link';
 import {
   Bell,
   Check,
-  CheckCheck,
   Heart,
   MessageCircle,
   Calendar,
   Star,
   CreditCard,
-  Crown,
+  CheckCheck,
   AlertCircle,
-  ChevronRight,
-  Trash2,
 } from 'lucide-react';
-import { useDateStore } from '@/hooks/useDateStore';
+import { useDbNotifications } from '@/hooks/useDbNotifications';
 import { formatRelativeTime, cn } from '@/lib/utils';
 import { NotificationType } from '@/types';
+import Link from 'next/link';
 
 const containerVariants = {
   hidden: { opacity: 0 },
@@ -55,8 +51,6 @@ const getNotificationIcon = (type: NotificationType | string) => {
       return { icon: AlertCircle, color: 'bg-red-100 text-red-600' };
     case 'message':
       return { icon: MessageCircle, color: 'bg-blue-100 text-blue-600' };
-    case 'reminder':
-      return { icon: Calendar, color: 'bg-orange-100 text-orange-600' };
     case 'booking':
     case 'booking_accepted':
     case 'booking_rejected':
@@ -65,16 +59,13 @@ const getNotificationIcon = (type: NotificationType | string) => {
       return { icon: Star, color: 'bg-yellow-100 text-yellow-600' };
     case 'payment':
       return { icon: CreditCard, color: 'bg-green-100 text-green-600' };
-    case 'system':
-      return { icon: Bell, color: 'bg-gray-100 text-gray-600' };
     default:
       return { icon: Bell, color: 'bg-gray-100 text-gray-600' };
   }
 };
 
 export default function NotificationsClient() {
-  const { getMyNotifications, markNotificationAsRead, markAllNotificationsAsRead } = useDateStore();
-  const notifications = getMyNotifications();
+  const { notifications, markAsRead, markAllAsRead } = useDbNotifications();
   const unreadCount = notifications.filter((n) => !n.read).length;
 
   return (
@@ -91,7 +82,7 @@ export default function NotificationsClient() {
         </div>
         {unreadCount > 0 && (
           <motion.button
-            onClick={markAllNotificationsAsRead}
+            onClick={markAllAsRead}
             className="flex items-center gap-2 px-4 py-2 text-primary-600 font-medium hover:bg-primary-50 rounded-xl transition-colors"
             whileTap={{ scale: 0.95 }}
           >
@@ -101,7 +92,7 @@ export default function NotificationsClient() {
         )}
       </motion.div>
 
-      {/* Filter Tabs */}
+      {/* Filter Tabs - Visual only for now */}
       <motion.div
         className="flex gap-2 overflow-x-auto pb-2 hide-scrollbar"
         initial={{ opacity: 0, y: 10 }}
@@ -113,12 +104,6 @@ export default function NotificationsClient() {
         </button>
         <button className="px-4 py-2 bg-white border border-gray-200 text-gray-600 rounded-xl font-medium whitespace-nowrap hover:bg-gray-50">
           Chưa đọc ({unreadCount})
-        </button>
-        <button className="px-4 py-2 bg-white border border-gray-200 text-gray-600 rounded-xl font-medium whitespace-nowrap hover:bg-gray-50">
-          Ứng tuyển
-        </button>
-        <button className="px-4 py-2 bg-white border border-gray-200 text-gray-600 rounded-xl font-medium whitespace-nowrap hover:bg-gray-50">
-          Booking
         </button>
       </motion.div>
 
@@ -134,49 +119,65 @@ export default function NotificationsClient() {
             {notifications.map((notification) => {
               const { icon: Icon, color } = getNotificationIcon(notification.type);
 
+              // Determine redirect link based on type
+              let link = '#';
+              if (notification.type === 'application' && notification.data?.requestId) {
+                link = `/request/${notification.data.requestId}`;
+              } else if (notification.type === 'message' && notification.data?.conversationId) {
+                link = `/chat/${notification.data.conversationId}`;
+              } else if (notification.type.includes('booking') && notification.data?.bookingId) {
+                link = '/manage-bookings'; // Or detail page
+              }
+
+              const Content = (
+                <div className="flex items-start gap-4 p-4">
+                  <div className={cn('w-12 h-12 rounded-2xl flex items-center justify-center flex-shrink-0', color)}>
+                    <Icon className="w-6 h-6" />
+                  </div>
+
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-start justify-between gap-2 mb-1">
+                      <h3 className={cn(
+                        'font-semibold text-gray-900',
+                        !notification.read && 'text-primary-700'
+                      )}>
+                        {notification.title}
+                      </h3>
+                      <span className="text-xs text-gray-400 whitespace-nowrap flex-shrink-0">
+                        {formatRelativeTime(notification.createdAt)}
+                      </span>
+                    </div>
+                    <p className={cn(
+                      'text-sm line-clamp-2',
+                      notification.read ? 'text-gray-500' : 'text-gray-700'
+                    )}>
+                      {notification.message}
+                    </p>
+                  </div>
+
+                  {!notification.read && (
+                    <span className="w-3 h-3 bg-primary-500 rounded-full flex-shrink-0 mt-1.5" />
+                  )}
+                </div>
+              );
+
               return (
                 <motion.div
                   key={notification.id}
                   variants={itemVariants}
                   exit="exit"
                   layout
+                  className={cn(
+                    'transition-colors',
+                    notification.read ? 'bg-white hover:bg-gray-50' : 'bg-primary-50/30'
+                  )}
+                  onClick={() => markAsRead(notification.id)}
                 >
-                  <motion.div
-                    className={cn(
-                      'flex items-start gap-4 p-4 transition-colors cursor-pointer',
-                      notification.read ? 'bg-white hover:bg-gray-50' : 'bg-primary-50/30'
-                    )}
-                    onClick={() => markNotificationAsRead(notification.id)}
-                    whileHover={{ x: 4 }}
-                  >
-                    <div className={cn('w-12 h-12 rounded-2xl flex items-center justify-center flex-shrink-0', color)}>
-                      <Icon className="w-6 h-6" />
-                    </div>
-
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-start justify-between gap-2 mb-1">
-                        <h3 className={cn(
-                          'font-semibold text-gray-900',
-                          !notification.read && 'text-primary-700'
-                        )}>
-                          {notification.title}
-                        </h3>
-                        <span className="text-xs text-gray-400 whitespace-nowrap flex-shrink-0">
-                          {formatRelativeTime(notification.createdAt)}
-                        </span>
-                      </div>
-                      <p className={cn(
-                        'text-sm line-clamp-2',
-                        notification.read ? 'text-gray-500' : 'text-gray-700'
-                      )}>
-                        {notification.message}
-                      </p>
-                    </div>
-
-                    {!notification.read && (
-                      <span className="w-3 h-3 bg-primary-500 rounded-full flex-shrink-0 mt-1.5" />
-                    )}
-                  </motion.div>
+                  {link !== '#' ? (
+                    <Link href={link}>{Content}</Link>
+                  ) : (
+                    Content
+                  )}
                 </motion.div>
               );
             })}
@@ -202,16 +203,6 @@ export default function NotificationsClient() {
           <p className="text-gray-600 mb-6 max-w-sm mx-auto">
             Các thông báo về hoạt động của bạn sẽ xuất hiện ở đây
           </p>
-
-          <Link href="/">
-            <motion.button
-              className="btn-primary"
-              whileHover={{ scale: 1.03 }}
-              whileTap={{ scale: 0.97 }}
-            >
-              Khám phá lời mời
-            </motion.button>
-          </Link>
         </motion.div>
       )}
     </div>

@@ -28,29 +28,52 @@ function mapDbServiceToService(row: DbServiceRow): ServiceOffering {
   };
 }
 
-export function useDbUserProfile(userId?: string) {
+function isUUID(str: string) {
+  const regex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  return regex.test(str);
+}
+
+export function useDbUserProfile(slug?: string) {
   const [user, setUser] = useState<User | null>(null);
   const [services, setServices] = useState<ServiceOffering[]>([]);
   const [reviews, setReviews] = useState<Review[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!userId) return;
+    if (!slug) return;
 
     let cancelled = false;
 
     const load = async () => {
       setLoading(true);
 
-      const { data: userRow, error: userErr } = await supabase
-        .from('users')
-        .select('*')
-        .eq('id', userId)
-        .single();
+      let userRow = null;
+      let userError = null;
 
-      if (userErr) throw userErr;
+      // Detect if slug is UUID or Username
+      if (isUUID(slug)) {
+        const { data, error } = await supabase.from('users').select('*').eq('id', slug).single();
+        userRow = data;
+        userError = error;
+      } else {
+        const { data, error } = await supabase.from('users').select('*').eq('username', slug).single();
+        userRow = data;
+        userError = error;
+      }
+
+      if (userError) {
+        console.error("User not found:", userError);
+        setLoading(false);
+        return;
+      }
+
+      if (!userRow) {
+        setLoading(false);
+        return;
+      }
 
       const mappedUser = mapDbUserToUser(userRow as any);
+      const userId = mappedUser.id; // Get actual UUID for subsequent queries
 
       const { data: servicesRows, error: servicesErr } = await supabase
         .from('services')
@@ -58,7 +81,7 @@ export function useDbUserProfile(userId?: string) {
         .eq('user_id', userId)
         .order('created_at', { ascending: false });
 
-      if (servicesErr) throw servicesErr;
+      if (servicesErr) console.error(servicesErr);
 
       const mappedServices = (servicesRows || []).map((r: any) => mapDbServiceToService(r as DbServiceRow));
 
@@ -68,9 +91,9 @@ export function useDbUserProfile(userId?: string) {
         .eq('reviewee_id', userId)
         .order('created_at', { ascending: false });
 
-      if (reviewErr) throw reviewErr;
+      if (reviewErr) console.error(reviewErr);
 
-      // For now: reviewer object isn't joined; keep minimal mapping so UI doesn't crash
+      // For now: reviewer object isn't joined; keep minimal mapping
       const mappedReviews: Review[] = (reviewRows || []).map((r: any) => ({
         id: r.id,
         userId: r.reviewee_id,
@@ -104,7 +127,7 @@ export function useDbUserProfile(userId?: string) {
     return () => {
       cancelled = true;
     };
-  }, [userId]);
+  }, [slug]);
 
   const rating = useMemo(() => {
     if (user?.rating) return user.rating;

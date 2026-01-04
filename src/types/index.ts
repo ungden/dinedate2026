@@ -151,6 +151,7 @@ export interface BankInfo {
 
 export interface User {
   id: string;
+  username?: string; // New field
   name: string;
   age: number;
   avatar: string;

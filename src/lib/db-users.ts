@@ -5,6 +5,7 @@ export function mapUserUpdatesToDb(updates: Partial<User>) {
 
   // public.users columns we actually support from the UI
   if (updates.name !== undefined) db.name = updates.name;
+  if (updates.username !== undefined) db.username = updates.username; // Added
   if (updates.avatar !== undefined) db.avatar = updates.avatar;
   if (updates.bio !== undefined) db.bio = updates.bio;
 
@@ -36,6 +37,9 @@ export function mapUserUpdatesToDb(updates: Partial<User>) {
   }
   if ((updates as any).availableNow !== undefined) db.available_now = !!(updates as any).availableNow;
   if ((updates as any).availableTonight !== undefined) db.available_tonight = !!(updates as any).availableTonight;
+  
+  // Bank Info
+  if (updates.bankInfo !== undefined) db.bank_info = updates.bankInfo;
 
   return db;
 }

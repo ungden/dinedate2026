@@ -1,15 +1,56 @@
 'use client';
 
+import { useState } from 'react';
 import Link from 'next/link';
 import { useAuth } from '@/contexts/AuthContext';
-import { ArrowLeft, Bell, Lock, LogOut, ChevronRight, User, Trash2 } from 'lucide-react';
+import { ArrowLeft, Bell, Lock, LogOut, ChevronRight, User, Trash2, AtSign, Loader2, Check } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { supabase } from '@/integrations/supabase/client';
 
 export default function SettingsClient() {
-  const { user, logout } = useAuth();
+  const { user, logout, updateUser } = useAuth();
+  const [username, setUsername] = useState(user?.username || '');
+  const [isChecking, setIsChecking] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+
+  const handleUpdateUsername = async () => {
+    if (!username.trim()) return;
+    if (username === user?.username) return;
+    
+    // Validate format: alphanumeric, 3-20 chars
+    const regex = /^[a-zA-Z0-9_]{3,20}$/;
+    if (!regex.test(username)) {
+      toast.error('Username chỉ chứa chữ, số và gạch dưới, dài 3-20 ký tự.');
+      return;
+    }
+
+    setIsChecking(true);
+    // Check uniqueness
+    const { data: existing } = await supabase
+      .from('users')
+      .select('id')
+      .eq('username', username)
+      .maybeSingle();
+    
+    setIsChecking(false);
+
+    if (existing) {
+      toast.error('Username này đã có người dùng');
+      return;
+    }
+
+    setIsSaving(true);
+    try {
+        await updateUser({ username: username });
+        toast.success('Đã cập nhật username!');
+    } catch (e: any) {
+        toast.error('Lỗi: ' + e.message);
+    } finally {
+        setIsSaving(false);
+    }
+  };
 
   const handleChangePassword = () => {
-    // In a real app, this would redirect to a change password flow or open a modal
     toast('Tính năng đổi mật khẩu đang được phát triển', { icon: '🚧' });
   };
 
@@ -34,6 +75,38 @@ export default function SettingsClient() {
         </div>
         
         <div className="divide-y divide-gray-100">
+          {/* Username Section */}
+          <div className="p-4">
+            <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 bg-purple-50 text-purple-600 rounded-xl flex items-center justify-center">
+                        <AtSign className="w-5 h-5" />
+                    </div>
+                    <div>
+                        <p className="font-medium text-gray-900">Username (Đường dẫn hồ sơ)</p>
+                        <p className="text-xs text-gray-500">dinedate.vn/user/{username || user?.id}</p>
+                    </div>
+                </div>
+            </div>
+            <div className="flex gap-2">
+                <input 
+                    type="text" 
+                    value={username}
+                    onChange={(e) => setUsername(e.target.value.toLowerCase().replace(/\s/g, ''))}
+                    placeholder="Nhập username..."
+                    className="flex-1 px-4 py-2 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary-500 outline-none"
+                />
+                <button 
+                    onClick={handleUpdateUsername}
+                    disabled={isChecking || isSaving || username === user?.username}
+                    className="px-4 py-2 bg-gray-900 text-white rounded-xl font-bold text-sm disabled:opacity-50 disabled:cursor-not-allowed transition flex items-center gap-2"
+                >
+                    {isChecking || isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
+                    Lưu
+                </button>
+            </div>
+          </div>
+
           <div className="p-4 flex items-center justify-between">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center">

@@ -35,6 +35,7 @@ export function mapDbUserToUser(row: DbUserRow): User {
 
   return {
     id: row.id,
+    username: row.username ?? undefined,
     name: row.name ?? 'Người dùng',
     age: row.birth_year ? new Date().getFullYear() - Number(row.birth_year) : 25,
     avatar: row.avatar ?? row.avatar_url ?? `https://api.dicebear.com/7.x/avataaars/svg?seed=${row.id}`,

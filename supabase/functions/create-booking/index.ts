@@ -14,9 +14,19 @@ function getCorsHeaders(req: Request) {
   };
 }
 
-const PLATFORM_FEE_RATE = 0.3
+const BASE_PLATFORM_FEE_RATE = 0.3
 const DEFAULT_SESSION_HOURS = 3;
 const DEFAULT_DAY_HOURS = 8;
+
+// VIP Discount Rates (Percentage off the fee)
+// E.g. Bronze gets 5% off the 30% fee.
+const VIP_DISCOUNTS = {
+    free: 0,
+    bronze: 0.05,
+    silver: 0.10,
+    gold: 0.20,
+    platinum: 0.30
+};
 
 type CreateBookingBody = {
   providerId: string
@@ -100,6 +110,20 @@ serve(async (req: Request) => {
     return new Response(JSON.stringify({ error: 'Service does not belong to provider' }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
   }
 
+  // 1.5) Fetch Provider Info to check VIP status
+  const { data: providerRow } = await supabaseAdmin
+    .from('users')
+    .select('vip_tier')
+    .eq('id', body.providerId)
+    .single();
+  
+  const providerTier = providerRow?.vip_tier || 'free';
+  const discountRate = VIP_DISCOUNTS[providerTier] || 0;
+  
+  // Calculate effective fee rate: 30% * (1 - discount)
+  // E.g. Gold (20% off) -> 0.30 * 0.8 = 0.24 (24% fee)
+  const effectiveFeeRate = BASE_PLATFORM_FEE_RATE * (1 - discountRate);
+
   // Determine duration
   let durationHours = Number(body.durationHours || 0);
   
@@ -121,7 +145,9 @@ serve(async (req: Request) => {
   // For now, 1 booking = 1 unit (1 session or 1 day). 
   // If we want to support multiple days/sessions later, we'd multiply here.
   const subTotal = Math.round(unitPrice)
-  const platformFee = Math.round(subTotal * PLATFORM_FEE_RATE)
+  
+  // Apply fee logic
+  const platformFee = Math.round(subTotal * effectiveFeeRate)
   const partnerEarning = Math.round(subTotal - platformFee)
   const totalCharge = subTotal 
 

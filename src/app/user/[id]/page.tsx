@@ -21,6 +21,7 @@ import {
   X,
   ChevronLeft,
   ChevronRight,
+  Lock,
 } from 'lucide-react';
 import { cn, formatCurrency, formatRelativeTime, getVIPBadgeColor, getActivityIcon, getActivityLabel, isNewPartner, isQualityPartner } from '@/lib/utils';
 import { ServiceOffering } from '@/types';
@@ -100,6 +101,10 @@ export default function UserProfilePage() {
   const gallery = user.images || [user.avatar];
   const isNew = isNewPartner(user.createdAt);
   const isQuality = isQualityPartner(rating, user.reviewCount);
+
+  // VIP Logic to see age
+  const canSeeAge = authUser?.vipStatus.tier === 'vip' || authUser?.vipStatus.tier === 'svip' || isCurrentUser;
+  const displayAge = canSeeAge && user.age ? `, ${user.age}` : '';
 
   const openBookingForService = (serviceId: string) => {
     if (isCurrentUser) return;
@@ -201,7 +206,17 @@ export default function UserProfilePage() {
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
-                    <h1 className="text-[22px] font-black text-gray-900 truncate">{user.name}</h1>
+                    <h1 className="text-[22px] font-black text-gray-900 truncate">
+                      {user.name}{displayAge}
+                    </h1>
+                    {/* Lock Icon if age hidden */}
+                    {!canSeeAge && user.age > 0 && (
+                      <div className="flex items-center gap-1 px-2 py-0.5 bg-gray-100 rounded-lg text-[10px] font-bold text-gray-500">
+                        <Lock className="w-2.5 h-2.5" />
+                        <span>VIP xem tuổi</span>
+                      </div>
+                    )}
+
                     {isNew && (
                       <span className="px-2 py-0.5 rounded-lg text-[10px] font-black uppercase bg-blue-100 text-blue-600 flex-shrink-0">
                         Mới

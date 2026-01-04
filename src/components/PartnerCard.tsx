@@ -6,14 +6,20 @@ import Link from 'next/link';
 import { MapPin, Star, BadgeCheck, Sparkles, Zap } from 'lucide-react';
 import { User } from '@/types';
 import { cn, getVIPBadgeColor, isNewPartner, isQualityPartner } from '@/lib/utils';
+import { useAuth } from '@/contexts/AuthContext';
 
 function PartnerCard({ partner, distance }: { partner: User; distance?: number }) {
+  const { user: currentUser } = useAuth();
   const isOnline = !!partner.onlineStatus?.isOnline;
   const isVip = partner.vipStatus?.tier && partner.vipStatus.tier !== 'free';
   const imageSrc = partner.images?.[0] || partner.avatar;
 
   const isNew = isNewPartner(partner.createdAt);
   const isQuality = isQualityPartner(partner.rating, partner.reviewCount);
+
+  // VIP Logic to see age
+  const canSeeAge = currentUser?.vipStatus.tier === 'vip' || currentUser?.vipStatus.tier === 'svip';
+  const displayAge = canSeeAge && partner.age ? `, ${partner.age}` : '';
 
   return (
     <Link href={`/user/${partner.id}`} className="block group">
@@ -42,7 +48,7 @@ function PartnerCard({ partner, distance }: { partner: User; distance?: number }
           <div className="flex items-center justify-between mb-1">
             <div className="flex items-center gap-1.5 min-w-0">
                 <h3 className="text-[17px] font-bold text-gray-900 truncate group-hover:text-primary-600 transition-colors">
-                    {partner.name}
+                    {partner.name}{displayAge}
                 </h3>
                 {isVip && (
                     <BadgeCheck className="w-4 h-4 text-blue-500 fill-blue-50 flex-shrink-0" />

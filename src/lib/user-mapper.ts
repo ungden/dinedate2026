@@ -3,8 +3,11 @@ import { User, VIPTier, ServiceOffering } from '@/types';
 type DbUserRow = Record<string, any>;
 type DbServiceRow = Record<string, any>;
 
+// Normalized tier mapping
 function toVipTier(tier: any): VIPTier {
-  if (tier === 'bronze' || tier === 'silver' || tier === 'gold' || tier === 'platinum') return tier;
+  const t = String(tier).toLowerCase();
+  if (t === 'svip') return 'svip';
+  if (t === 'vip' || t === 'gold' || t === 'silver' || t === 'bronze') return 'vip'; // Map legacy tiers to VIP
   return 'free';
 }
 
@@ -37,7 +40,7 @@ export function mapDbUserToUser(row: DbUserRow): User {
     id: row.id,
     username: row.username ?? undefined,
     name: row.name ?? 'Người dùng',
-    age: row.birth_year ? new Date().getFullYear() - Number(row.birth_year) : 25,
+    age: row.birth_year ? new Date().getFullYear() - Number(row.birth_year) : 0, // 0 means unset
     avatar: row.avatar ?? row.avatar_url ?? `https://api.dicebear.com/7.x/avataaars/svg?seed=${row.id}`,
     bio: row.bio ?? '',
     location: row.location ?? 'Hà Nội',
@@ -50,7 +53,7 @@ export function mapDbUserToUser(row: DbUserRow): User {
       isOnline: !!row.is_online,
       lastSeen: row.last_seen ?? undefined,
     },
-    services: services, // loaded via join or passed in
+    services: services, 
     isServiceProvider: row.role === 'partner' || !!row.is_partner_verified,
     isPro: !!row.is_pro,
     role: row.role ?? 'user', 
@@ -64,6 +67,7 @@ export function mapDbUserToUser(row: DbUserRow): User {
       expiryDate: row.vip_expiry ?? undefined,
       benefits: [],
     },
+    totalSpending: Number(row.total_spending || 0),
     images: gallery.length > 0 ? gallery : row.avatar ? [row.avatar] : [],
     phone: row.phone ?? undefined,
     email: row.email ?? undefined,
@@ -85,8 +89,6 @@ export function mapDbUserToUser(row: DbUserRow): User {
     partner_agreed_at: row.partner_agreed_at ?? undefined,
     partner_agreed_version: row.partner_agreed_version ?? undefined,
     createdAt: row.created_at ?? undefined,
-    
-    // Map JSONB bank_info
     bankInfo: row.bank_info || undefined,
   };
 }

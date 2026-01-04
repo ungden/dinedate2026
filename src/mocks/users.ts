@@ -13,7 +13,7 @@ export const MOCK_USERS: User[] = [
     isServiceProvider: true,
     wallet: { balance: 2500000, escrowBalance: 0, currency: 'VND' },
     vipStatus: {
-      tier: 'gold',
+      tier: 'svip',
       expiryDate: '2025-12-31',
       benefits: ['Unlimited bookings', 'Priority support', 'Featured profile', '20% discount']
     },
@@ -54,7 +54,7 @@ export const MOCK_USERS: User[] = [
     isServiceProvider: true,
     wallet: { balance: 1800000, escrowBalance: 0, currency: 'VND' },
     vipStatus: {
-      tier: 'silver',
+      tier: 'vip',
       expiryDate: '2025-06-30',
       benefits: ['Priority listing', '10% discount', 'Verified badge']
     },
@@ -92,7 +92,7 @@ export const MOCK_USERS: User[] = [
     isServiceProvider: true,
     wallet: { balance: 950000, escrowBalance: 0, currency: 'VND' },
     vipStatus: {
-      tier: 'bronze',
+      tier: 'vip',
       expiryDate: '2025-03-31',
       benefits: ['Verified badge', '5% discount']
     },
@@ -150,7 +150,7 @@ export const MOCK_USERS: User[] = [
     isServiceProvider: true,
     wallet: { balance: 1200000, escrowBalance: 0, currency: 'VND' },
     vipStatus: {
-      tier: 'silver',
+      tier: 'vip',
       expiryDate: '2025-08-15',
       benefits: ['Priority listing', '10% discount', 'Verified badge']
     },
@@ -189,7 +189,7 @@ export const MOCK_USERS: User[] = [
     isServiceProvider: true,
     wallet: { balance: 800000, escrowBalance: 0, currency: 'VND' },
     vipStatus: {
-      tier: 'bronze',
+      tier: 'vip',
       expiryDate: '2025-05-20',
       benefits: ['Verified badge', '5% discount']
     },
@@ -262,7 +262,7 @@ export const MOCK_USERS: User[] = [
     isServiceProvider: true,
     wallet: { balance: 5000000, escrowBalance: 0, currency: 'VND' },
     vipStatus: {
-      tier: 'platinum',
+      tier: 'svip',
       expiryDate: '2026-12-31',
       benefits: ['VIP experience', 'Personal concierge', 'Exclusive events', 'Max discount']
     },

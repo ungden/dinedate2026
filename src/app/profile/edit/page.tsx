@@ -17,7 +17,6 @@ const MIN_BIO_LEN = 30;
 const MIN_PHOTOS = 3;
 
 function getNiceUploadError(err: unknown): string {
-  // ... (keep existing error helper)
   const anyErr = err as any;
   const msg = String(anyErr?.message || anyErr?.error_description || anyErr?.context?.body?.message || '');
   return msg || 'Lỗi không xác định';
@@ -43,6 +42,7 @@ export default function EditProfilePage() {
     locationDetail: user?.locationDetail || '',
     occupation: user?.occupation || '',
     interests: user?.interests?.join(', ') || '',
+    birthYear: user?.birthYear?.toString() || '',
     coordinates: user?.coordinates
   });
 
@@ -140,10 +140,20 @@ export default function EditProfilePage() {
     e.preventDefault();
     if (!user?.id) return;
 
+    if (!formData.birthYear) {
+        toast.error('Vui lòng nhập năm sinh');
+        return;
+    }
+
+    const year = parseInt(formData.birthYear);
+    if (year < 1960 || year > new Date().getFullYear() - 16) {
+        toast.error('Năm sinh không hợp lệ (phải trên 16 tuổi)');
+        return;
+    }
+
     setLoading(true);
 
     try {
-      // 1. Update standard profile using auth context helper
       await updateUser({
         name: formData.name,
         bio: formData.bio,
@@ -153,11 +163,10 @@ export default function EditProfilePage() {
         interests: formData.interests.split(',').map((i) => i.trim()).filter(Boolean),
         avatar: avatarUrl,
         images: galleryImages,
-        coordinates: formData.coordinates
+        coordinates: formData.coordinates,
+        birthYear: year
       } as any);
 
-      // 2. Explicitly update lat/long columns in DB if coordinates exist
-      // (The helper might map them, but let's be sure since we added logic)
       if (formData.coordinates) {
         await supabase.from('users').update({
           latitude: formData.coordinates.latitude,
@@ -234,6 +243,18 @@ export default function EditProfilePage() {
           </div>
 
           <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Năm sinh (Bắt buộc)</label>
+            <input 
+                type="number" 
+                value={formData.birthYear} 
+                onChange={(e) => setFormData({ ...formData, birthYear: e.target.value })} 
+                className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500"
+                placeholder="VD: 1999"
+                required 
+            />
+          </div>
+
+          <div>
             <div className="flex items-center justify-between mb-1">
               <label className="block text-sm font-medium text-gray-700">Giới thiệu</label>
               <span className={cn('text-xs font-bold', bioLen >= MIN_BIO_LEN ? 'text-green-600' : 'text-rose-600')}>{bioLen}/{MIN_BIO_LEN}</span>
@@ -243,7 +264,6 @@ export default function EditProfilePage() {
 
           <LocationPicker value={formData.location} onChange={(next) => setFormData({ ...formData, location: next })} />
 
-          {/* GPS Coordinate Updater */}
           <div className="bg-blue-50 p-4 rounded-xl border border-blue-100">
             <div className="flex items-center justify-between">
               <div>
@@ -265,7 +285,7 @@ export default function EditProfilePage() {
               </button>
             </div>
             <p className="text-[11px] text-blue-600/70 mt-2">
-              Cập nhật GPS giúp bạn xuất hiện chính xác trong tính năng "Tìm quanh đây" của người dùng khác.
+              Cập nhật GPS giúp bạn xuất hiện chính xác trong tính năng "Tìm quanh đây".
             </p>
           </div>
 

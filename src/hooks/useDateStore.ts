@@ -122,10 +122,13 @@ interface DateStore {
 
   // Actions - Wallet
   topUpWallet: (amount: number, method: PaymentMethod) => Transaction;
-  purchaseVIP: (tier: VIPTier) => Transaction | null;
+  
+  // NOTE: Purchase VIP is removed as it's now spending-based
+  // purchaseVIP: (tier: VIPTier) => Transaction | null;
+  
   payForBooking: (bookingId: string) => Transaction | null;
   getMyTransactions: () => Transaction[];
-  getVIPPrice: (tier: VIPTier) => number;
+  // getVIPPrice: (tier: VIPTier) => number;
 }
 
 export const useDateStore = create<DateStore>()(
@@ -299,7 +302,6 @@ export const useDateStore = create<DateStore>()(
         }));
       },
 
-      // Legacy multi-applicant match: kept for compatibility, but not used in strict 1-1 flow
       selectApplicant: (requestId, applicantUserId) => {
         const { dateRequests, currentUser, conversations, users } = get();
         const request = dateRequests.find((r) => r.id === requestId);
@@ -851,76 +853,6 @@ export const useDateStore = create<DateStore>()(
         return transaction;
       },
 
-      purchaseVIP: (tier) => {
-        const { currentUser } = get();
-        const vipPrices: Record<VIPTier, number> = {
-          free: 0,
-          bronze: 99000,
-          silver: 199000,
-          gold: 399000,
-          platinum: 699000,
-        };
-
-        const price = vipPrices[tier];
-        if (currentUser.wallet.balance < price) {
-          return null;
-        }
-
-        const benefits: Record<VIPTier, string[]> = {
-          free: [],
-          bronze: ['Verified badge', '5% discount'],
-          silver: ['Priority listing', '10% discount', 'Verified badge'],
-          gold: ['Unlimited bookings', 'Priority support', 'Featured profile', '20% discount'],
-          platinum: ['All Gold benefits', '30% discount', '24/7 VIP support', 'Exclusive events'],
-        };
-
-        const expiryDate = new Date();
-        expiryDate.setMonth(expiryDate.getMonth() + 1);
-
-        const transaction: Transaction = {
-          id: Date.now().toString(),
-          userId: currentUser.id,
-          type: 'vip_payment',
-          amount: price,
-          status: 'completed',
-          description: `Nâng cấp VIP ${tier.toUpperCase()}`,
-          paymentMethod: 'wallet',
-          createdAt: new Date().toISOString(),
-          completedAt: new Date().toISOString(),
-        };
-
-        set((state) => ({
-          transactions: [transaction, ...state.transactions],
-          currentUser: {
-            ...state.currentUser,
-            wallet: {
-              ...state.currentUser.wallet,
-              balance: state.currentUser.wallet.balance - price,
-            },
-            vipStatus: {
-              tier,
-              expiryDate: expiryDate.toISOString(),
-              benefits: benefits[tier],
-            },
-          },
-          users: state.users.map((u) =>
-            u.id === state.currentUser.id
-              ? {
-                  ...u,
-                  wallet: { ...u.wallet, balance: u.wallet.balance - price },
-                  vipStatus: {
-                    tier,
-                    expiryDate: expiryDate.toISOString(),
-                    benefits: benefits[tier],
-                  },
-                }
-              : u
-          ),
-        }));
-
-        return transaction;
-      },
-
       payForBooking: (bookingId) => {
         const { bookings, currentUser } = get();
         const booking = bookings.find((b) => b.id === bookingId);
@@ -990,17 +922,6 @@ export const useDateStore = create<DateStore>()(
         return transactions
           .filter((t) => t.userId === currentUser.id)
           .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-      },
-
-      getVIPPrice: (tier) => {
-        const prices: Record<VIPTier, number> = {
-          free: 0,
-          bronze: 99000,
-          silver: 199000,
-          gold: 399000,
-          platinum: 699000,
-        };
-        return prices[tier];
       },
     }),
     {

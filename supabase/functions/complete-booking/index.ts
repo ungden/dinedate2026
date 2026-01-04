@@ -14,6 +14,10 @@ function getCorsHeaders(req: Request) {
   };
 }
 
+// Spending Thresholds
+const VIP_THRESHOLD = 1_000_000;
+const SVIP_THRESHOLD = 100_000_000;
+
 serve(async (req: Request) => {
   const corsHeaders = getCorsHeaders(req);
 
@@ -29,15 +33,13 @@ serve(async (req: Request) => {
   
   const token = authHeader.replace('Bearer ', '')
   const supabaseUrl = Deno.env.get('SUPABASE_URL')!
-  const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY')!
   const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
 
-  const supabaseUser = createClient(supabaseUrl, supabaseAnonKey, {
-    global: { headers: { Authorization: `Bearer ${token}` } }
-  })
+  const admin = createClient(supabaseUrl, supabaseServiceKey)
   
-  const { data: userData, error: userErr } = await supabaseUser.auth.getUser()
-  if (userErr || !userData.user) {
+  // Verify user
+  const { data: userData, error: userErr } = await admin.auth.getUser(token);
+  if (userErr || !userData?.user?.id) {
     return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
   }
   
@@ -49,10 +51,7 @@ serve(async (req: Request) => {
     return new Response(JSON.stringify({ error: 'Missing bookingId' }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
   }
 
-  // 3. Admin Client
-  const admin = createClient(supabaseUrl, supabaseServiceKey)
-
-  // 4. Fetch Booking
+  // 3. Fetch Booking
   const { data: booking, error: bookingErr } = await admin
     .from('bookings')
     .select('*')
@@ -63,7 +62,6 @@ serve(async (req: Request) => {
     return new Response(JSON.stringify({ error: 'Booking not found' }), { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
   }
 
-  // Permission Logic
   const isPartner = booking.partner_id === callerId;
   const isBooker = booking.user_id === callerId;
 
@@ -71,15 +69,12 @@ serve(async (req: Request) => {
     return new Response(JSON.stringify({ error: 'Permission denied' }), { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
   }
 
-  // --- LOGIC FLOW ---
-
   // A. If already paid
   if (booking.status === 'completed') {
     return new Response(JSON.stringify({ message: 'Already completed' }), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
   }
 
   // B. Partner marks as finished -> Move to 'completed_pending'
-  // Only if status is currently in_progress or accepted
   if (isPartner && (booking.status === 'in_progress' || booking.status === 'accepted')) {
       await admin.from('bookings').update({ 
           status: 'completed_pending',
@@ -94,7 +89,6 @@ serve(async (req: Request) => {
 
   // C. User Confirms (Release Money)
   if (isBooker && (booking.status === 'completed_pending' || booking.status === 'in_progress')) {
-      // 5. Calculate amounts
       const totalAmount = Number(booking.total_amount)
       const partnerEarning = Number(booking.partner_earning)
       const bookerId = booking.user_id
@@ -103,10 +97,35 @@ serve(async (req: Request) => {
       // 6. Execute Transaction
       
       // Deduct Escrow from Booker
-      const { data: bookerWallet } = await admin.from('users').select('wallet_escrow').eq('id', bookerId).single()
+      const { data: bookerWallet } = await admin.from('users').select('wallet_escrow, total_spending, vip_tier').eq('id', bookerId).single()
       const currentEscrow = Number(bookerWallet?.wallet_escrow || 0)
+      const currentSpending = Number(bookerWallet?.total_spending || 0)
+      
       const newEscrow = currentEscrow - totalAmount
-      await admin.from('users').update({ wallet_escrow: newEscrow }).eq('id', bookerId)
+      const newSpending = currentSpending + totalAmount
+
+      // Determine New Tier
+      let newTier = bookerWallet?.vip_tier || 'free';
+      if (newSpending >= SVIP_THRESHOLD) newTier = 'svip';
+      else if (newSpending >= VIP_THRESHOLD && newTier !== 'svip') newTier = 'vip';
+
+      // Update Booker: Escrow, Spending, Tier
+      await admin.from('users').update({ 
+          wallet_escrow: newEscrow,
+          total_spending: newSpending,
+          vip_tier: newTier
+      }).eq('id', bookerId)
+
+      // Notify if upgraded
+      if (newTier !== bookerWallet?.vip_tier) {
+          await admin.from('notifications').insert({
+              user_id: bookerId,
+              type: 'system',
+              title: `🎉 Chúc mừng! Bạn đã lên hạng ${newTier.toUpperCase()}`,
+              message: `Tổng chi tiêu của bạn đã đạt mốc. Bạn đã mở khóa đặc quyền xem tuổi Partner.`,
+              read: false
+          });
+      }
 
       // Add Balance to Partner
       const { data: partnerWallet } = await admin.from('users').select('wallet_balance').eq('id', partnerId).single()
@@ -142,18 +161,14 @@ serve(async (req: Request) => {
       })
 
       // === PRO PARTNER UPGRADE LOGIC ===
-      // Check criteria: 5 completed bookings + rating >= 4.8
-      
-      // Count completed bookings
       const { count } = await admin
         .from('bookings')
         .select('*', { count: 'exact', head: true })
         .eq('partner_id', partnerId)
         .eq('status', 'completed');
       
-      const completedCount = (count || 0) + 1; // +1 for current one
+      const completedCount = (count || 0) + 1; 
 
-      // Get rating
       const { data: partnerUser } = await admin
         .from('users')
         .select('average_rating, is_pro')
@@ -164,10 +179,7 @@ serve(async (req: Request) => {
       const isAlreadyPro = !!partnerUser?.is_pro;
 
       if (!isAlreadyPro && completedCount >= 5 && rating >= 4.8) {
-          // UPGRADE!
           await admin.from('users').update({ is_pro: true }).eq('id', partnerId);
-          
-          // Notify Partner
           await admin.from('notifications').insert({
               user_id: partnerId,
               type: 'system',

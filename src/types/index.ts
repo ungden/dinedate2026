@@ -1,8 +1,8 @@
-export type VIPTier = 'free' | 'bronze' | 'silver' | 'gold' | 'platinum';
+export type VIPTier = 'free' | 'vip' | 'svip';
 
 export interface VIPStatus {
   tier: VIPTier;
-  expiryDate?: string;
+  expiryDate?: string; // Legacy support or optional
   benefits: string[];
 }
 
@@ -151,7 +151,7 @@ export interface BankInfo {
 
 export interface User {
   id: string;
-  username?: string; // New field
+  username?: string; 
   name: string;
   age: number;
   avatar: string;
@@ -162,9 +162,10 @@ export interface User {
   onlineStatus?: UserOnlineStatus;
   services?: ServiceOffering[];
   isServiceProvider?: boolean;
-  isPro?: boolean; // New field for Pro Partner status
+  isPro?: boolean;
   wallet: Wallet;
   vipStatus: VIPStatus;
+  totalSpending?: number; // New field
   images?: string[];
   phone?: string;
   email?: string;
@@ -186,8 +187,8 @@ export interface User {
   birthYear?: number;
   partner_agreed_at?: string;
   partner_agreed_version?: string;
-  createdAt?: string; // Added field
-  bankInfo?: BankInfo; // New field
+  createdAt?: string; 
+  bankInfo?: BankInfo; 
 }
 
 export interface DateRequest {

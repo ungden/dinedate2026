@@ -81,10 +81,8 @@ export function getActivityColor(activity: string): string {
 export function getVIPBadgeColor(tier: string): string {
   const colors: Record<string, string> = {
     free: 'bg-gray-400',
-    bronze: 'bg-amber-600',
-    silver: 'bg-gray-400',
-    gold: 'bg-yellow-500',
-    platinum: 'bg-gradient-to-r from-gray-300 to-gray-500',
+    vip: 'bg-yellow-500 shadow-md shadow-yellow-500/20',
+    svip: 'bg-gradient-to-r from-purple-500 to-indigo-600 shadow-md shadow-purple-500/20',
   };
   return colors[tier] || 'bg-gray-400';
 }
@@ -92,10 +90,8 @@ export function getVIPBadgeColor(tier: string): string {
 export function getVIPTextColor(tier: string): string {
   const colors: Record<string, string> = {
     free: 'text-gray-600',
-    bronze: 'text-amber-700',
-    silver: 'text-gray-600',
-    gold: 'text-yellow-600',
-    platinum: 'text-gray-700',
+    vip: 'text-yellow-600',
+    svip: 'text-purple-700',
   };
   return colors[tier] || 'text-gray-600';
 }

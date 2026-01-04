@@ -56,13 +56,20 @@ serve(async (req: Request) => {
     });
   }
 
+  // If secret is configured, require header.
   if (webhookSecret) {
     const provided = req.headers.get("x-sepay-secret");
     if (!provided || provided !== webhookSecret) {
-      return new Response(JSON.stringify({ success: false, error: "Unauthorized" }), {
-        status: 401,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: "Missing or invalid x-sepay-secret",
+        }),
+        {
+          status: 401,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        }
+      );
     }
   }
 
@@ -85,27 +92,34 @@ serve(async (req: Request) => {
         .eq("status", "pending")
         .maybeSingle();
 
+      if (reqErr) {
+        console.log("Find request error:", reqErr);
+      }
+
       if (req) {
         // Verify amount (cho phép sai số nhỏ nếu cần, ở đây yêu cầu chính xác hoặc lớn hơn)
         const amount = findAmount(payload);
         if (amount && amount >= req.amount) {
-           matchedRequestId = req.id;
-           matchedRequest = req;
+          matchedRequestId = req.id;
+          matchedRequest = req;
         } else {
-           console.log(`Amount mismatch or too low. Expected: ${req.amount}, Got: ${amount}`);
+          console.log(`Amount mismatch or too low. Expected: ${req.amount}, Got: ${amount}`);
         }
       }
     }
 
     if (!matchedRequestId || !matchedRequest) {
-      return new Response(JSON.stringify({ success: true, message: "Ignored: No matching pending request found" }), {
-        status: 200,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return new Response(
+        JSON.stringify({ success: true, message: "Ignored: No matching pending request found" }),
+        {
+          status: 200,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        }
+      );
     }
 
     // 2. Xử lý giao dịch thành công
-    
+
     // a. Cập nhật trạng thái yêu cầu nạp
     const { error: updateReqErr } = await admin
       .from("topup_requests")
@@ -123,7 +137,7 @@ serve(async (req: Request) => {
       .select("wallet_balance")
       .eq("id", matchedRequest.user_id)
       .single();
-      
+
     if (userErr) throw userErr;
 
     const newBalance = (Number(user.wallet_balance) || 0) + Number(matchedRequest.amount);
@@ -137,18 +151,16 @@ serve(async (req: Request) => {
     if (updateWalletErr) throw updateWalletErr;
 
     // d. Ghi log transaction
-    const { error: txErr } = await admin
-      .from("transactions")
-      .insert({
-        user_id: matchedRequest.user_id,
-        type: "top_up",
-        amount: matchedRequest.amount,
-        status: "completed",
-        description: `Nạp tiền tự động qua Sepay (${matchedRequest.transfer_code})`,
-        payment_method: "banking",
-        related_id: matchedRequestId,
-        completed_at: new Date().toISOString(),
-      });
+    const { error: txErr } = await admin.from("transactions").insert({
+      user_id: matchedRequest.user_id,
+      type: "top_up",
+      amount: matchedRequest.amount,
+      status: "completed",
+      description: `Nạp tiền tự động qua Sepay (${matchedRequest.transfer_code})`,
+      payment_method: "banking",
+      related_id: matchedRequestId,
+      completed_at: new Date().toISOString(),
+    });
 
     if (txErr) console.error("Transaction log error:", txErr);
 

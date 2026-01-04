@@ -41,10 +41,10 @@ serve(async (req: Request) => {
   }
 
   try {
-    const bankVA = Deno.env.get("SEPAY_BANK_VA") || "";
-    const accountName = Deno.env.get("SEPAY_VA_ACCOUNT_NAME") || "";
-    const bankBinRaw = Deno.env.get("SEPAY_BANK_BIN") || "";
-    const bankNameOverride = Deno.env.get("SEPAY_BANK_NAME") || "";
+    const bankVA = (Deno.env.get("SEPAY_BANK_VA") || "").trim();
+    const accountName = (Deno.env.get("SEPAY_VA_ACCOUNT_NAME") || "").trim();
+    const bankBinRaw = (Deno.env.get("SEPAY_BANK_BIN") || "").trim();
+    const bankNameOverride = (Deno.env.get("SEPAY_BANK_NAME") || "").trim();
 
     if (!bankVA) {
       return new Response(
@@ -56,11 +56,11 @@ serve(async (req: Request) => {
       );
     }
 
-    const resolvedBin = bankBinRaw.trim() || DEFAULT_BANK_BIN;
-    
-    const bankCode = bankNameOverride.trim() || bankCodes[resolvedBin] || "MB";
-    const bankFullName = bankNameOverride.trim() 
-      ? (bankFullNames[resolvedBin] || bankNameOverride) 
+    const resolvedBin = bankBinRaw || DEFAULT_BANK_BIN;
+
+    const bankCode = (bankNameOverride || bankCodes[resolvedBin] || "MB").trim();
+    const bankFullName = bankNameOverride
+      ? (bankFullNames[resolvedBin] || bankNameOverride)
       : (bankFullNames[resolvedBin] || "MB Bank");
 
     return new Response(
@@ -68,7 +68,7 @@ serve(async (req: Request) => {
         is_active: true,
         bank_name: bankCode,
         bank_full_name: bankFullName,
-        bank_account: bankVA,
+        bank_account: bankVA, // already trimmed
         bank_holder: accountName || "SEPAY",
         bank_bin: resolvedBin,
       }),

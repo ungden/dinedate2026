@@ -36,26 +36,26 @@ function toError(err: unknown, fallback = 'Đã xảy ra lỗi') {
   return new Error(String(msg));
 }
 
+function normalizeNoSpaces(input: string) {
+  return input.replace(/\s+/g, '');
+}
+
 /**
  * Generate VietQR URL using SePay QR service
  * Format: https://qr.sepay.vn/img?acc={account}&bank={bankCode}&amount={amount}&des={content}
- * 
- * This matches the implementation in tien-nhan-chi-lo-new project
  */
 export function generateVietQRUrl(config: PaymentConfig, amount: number, transferContent: string): string {
-  // bank_name from edge function should already be short code like "MB", "VCB", etc.
-  const bankCode = config.bank_name;
-  const accountNo = config.bank_account;
-  
-  // Build URL exactly like tien-nhan-chi-lo-new
-  const url = `https://qr.sepay.vn/img?acc=${encodeURIComponent(accountNo)}&bank=${encodeURIComponent(bankCode)}&amount=${amount}&des=${encodeURIComponent(transferContent)}`;
-  
-  // Debug log in development
+  const bankCode = (config.bank_name || '').trim();
+  const accountNo = normalizeNoSpaces((config.bank_account || '').trim());
+  const content = (transferContent || '').trim();
+
+  const url = `https://qr.sepay.vn/img?acc=${encodeURIComponent(accountNo)}&bank=${encodeURIComponent(bankCode)}&amount=${amount}&des=${encodeURIComponent(content)}`;
+
   if (typeof window !== 'undefined') {
     console.log('[QR Debug] Generated URL:', url);
-    console.log('[QR Debug] Config:', { bankCode, accountNo, amount, transferContent });
+    console.log('[QR Debug] Config:', { bankCode, accountNo, amount, transferContent: content });
   }
-  
+
   return url;
 }
 
@@ -66,17 +66,16 @@ export function getBankDisplayName(config: PaymentConfig): string {
 export async function getPaymentConfig(): Promise<PaymentConfig | null> {
   try {
     const { data, error } = await supabase.functions.invoke("get-payment-config");
-    
+
     if (error) {
       console.error('[Payment] Error fetching config:', error);
       throw toError(error, 'Không lấy được cấu hình thanh toán');
     }
-    
-    // Debug log
+
     if (typeof window !== 'undefined') {
       console.log('[Payment] Config received:', data);
     }
-    
+
     return (data as PaymentConfig) ?? null;
   } catch (err) {
     console.error('[Payment] Exception:', err);

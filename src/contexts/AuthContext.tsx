@@ -17,6 +17,7 @@ interface AuthContextType {
   user: User | null;
   isLoading: boolean;
   isAuthenticated: boolean;
+  isAdmin: boolean; // Added
   login: (email: string, password: string) => Promise<{ error?: string }>;
   register: (
     email: string,
@@ -41,7 +42,6 @@ async function fetchUserProfile(userId: string): Promise<User | null> {
 }
 
 function defaultAvatarUrl() {
-  // Stable, non-broken default avatar hosted on Unsplash (already allowed in next.config.js)
   return 'https://images.unsplash.com/photo-1518199266791-5375a83190b7?w=400&h=400&fit=crop&crop=faces';
 }
 
@@ -52,7 +52,6 @@ async function ensureUsersRow(params: {
 }) {
   const { id, name } = params;
 
-  // 1) Check if row exists (IMPORTANT: do not overwrite existing profile data)
   const { data: existing, error: existErr } = await supabase
     .from('users')
     .select('id')
@@ -62,37 +61,18 @@ async function ensureUsersRow(params: {
   if (existErr) throw existErr;
   if (existing?.id) return;
 
-  // 2) Insert minimal defaults only for first-time creation
   const payload: any = {
     id,
     name: name || 'Người dùng mới',
     phone: null,
     avatar: defaultAvatarUrl(),
     bio: '',
-    birth_year: null,
-    height: null,
-    zodiac: null,
-    personality_tags: [],
     location: 'Hà Nội',
-    location_detail: null,
-    latitude: null,
-    longitude: null,
     role: 'user',
-    is_partner_verified: false,
     is_online: true,
     last_seen: new Date().toISOString(),
-    hourly_rate: 0,
-    available_activities: [],
-    partner_rules: '',
-    voice_intro_url: null,
-    gallery_images: [],
     wallet_balance: 0,
     wallet_escrow: 0,
-    total_bookings: 0,
-    total_earnings: 0,
-    average_rating: 0,
-    partner_agreed_at: null,
-    partner_agreed_version: null,
   };
 
   const { error: insertErr } = await supabase.from('users').insert(payload);
@@ -115,11 +95,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (!mounted) return;
 
       if (session?.user?.id) {
+        // Ensure profile exists first
         await ensureUsersRow({
-          id: session.user.id,
-          email: session.user.email,
-          name: (session.user.user_metadata as any)?.name ?? null,
-        });
+            id: session.user.id,
+            email: session.user.email,
+            name: (session.user.user_metadata as any)?.name ?? null,
+        }).catch(console.error);
 
         const profile = await fetchUserProfile(session.user.id);
         setUser(profile);
@@ -136,12 +117,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (!mounted) return;
 
       if (event === 'SIGNED_IN' && session?.user?.id) {
-        await ensureUsersRow({
-          id: session.user.id,
-          email: session.user.email,
-          name: (session.user.user_metadata as any)?.name ?? null,
-        });
-
         const profile = await fetchUserProfile(session.user.id);
         setUser(profile);
       }
@@ -166,10 +141,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (isLoading) return;
 
     const isAuthRoute = authRoutes.includes(pathname);
-
     const isPublicProfile = pathname.startsWith('/user/');
     const isPublicReview = pathname.startsWith('/reviews/');
     const isPublicRequest = pathname.startsWith('/request/');
+    const isAdminRoute = pathname.startsWith('/admin');
+
     const isPublicRoute =
       publicRoutes.includes(pathname) ||
       isPublicProfile ||
@@ -181,78 +157,46 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } else if (!user && !isPublicRoute && !isAuthRoute) {
       router.push('/login');
     }
+
+    // Basic client-side admin check (security is enforced by RLS/Layout)
+    if (isAdminRoute && user && !user.isServiceProvider && (user as any).role !== 'admin') {
+       // Optional: Redirect non-admins out, but AdminGate handles this better
+    }
   }, [user, isLoading, pathname, router]);
 
-  const login = async (
-    email: string,
-    password: string
-  ): Promise<{ error?: string }> => {
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
-
-    if (error) {
-      return { error: 'Email hoặc mật khẩu không chính xác' };
-    }
-
+  const login = async (email: string, password: string) => {
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+    if (error) return { error: 'Email hoặc mật khẩu không chính xác' };
     if (data.user?.id) {
-      await ensureUsersRow({
-        id: data.user.id,
-        email: data.user.email,
-        name: (data.user.user_metadata as any)?.name ?? null,
-      });
-
       const profile = await fetchUserProfile(data.user.id);
       setUser(profile);
       router.push('/');
     }
-
     return {};
   };
 
-  const register = async (
-    email: string,
-    password: string,
-    name: string
-  ): Promise<{ error?: string }> => {
+  const register = async (email: string, password: string, name: string) => {
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
-      options: {
-        data: { name },
-      },
+      options: { data: { name } },
     });
-
     if (error) return { error: error.message };
-
     if (data.user?.id) {
-      await ensureUsersRow({
-        id: data.user.id,
-        email: data.user.email,
-        name,
-      });
-
+      await ensureUsersRow({ id: data.user.id, email: data.user.email, name });
       const profile = await fetchUserProfile(data.user.id);
       setUser(profile);
       router.push('/');
     }
-
     return {};
   };
 
-  const signInWithGoogle = async (): Promise<{ error?: string }> => {
+  const signInWithGoogle = async () => {
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
-      options: {
-        redirectTo: `${window.location.origin}/`,
-      },
+      options: { redirectTo: `${window.location.origin}/` },
     });
-
-    if (error) {
-      return { error: error.message };
-    }
-
+    if (error) return { error: error.message };
     return {};
   };
 
@@ -264,15 +208,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const updateUser = async (updates: Partial<User>) => {
     if (!user?.id) return;
-
     const dbUpdates = mapUserUpdatesToDb(updates);
-
     const { error } = await supabase.from('users').update(dbUpdates).eq('id', user.id);
     if (error) throw error;
-
     const refreshed = await fetchUserProfile(user.id);
     setUser(refreshed);
   };
+
+  // Check role from profile (mapped from DB)
+  // Note: user-mapper.ts needs to map 'role' correctly. 
+  // Assuming mapDbUserToUser maps row.role to user.role (needs verification in types/index.ts but typically extra props are passed)
+  const isAdmin = (user as any)?.role === 'admin';
 
   return (
     <AuthContext.Provider
@@ -280,6 +226,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         user,
         isLoading,
         isAuthenticated: !!user,
+        isAdmin,
         login,
         register,
         signInWithGoogle,

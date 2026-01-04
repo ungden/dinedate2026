@@ -134,7 +134,8 @@ export default function CreateRequestClient() {
         date: formData.date,
         time: formData.time,
         hiring_amount: formData.hiringAmount,
-        hiring_option: `tier${hiringOptions.findIndex((h) => h.amount === formData.hiringAmount)}`,
+        // Remove 'tier' prefix to allow DB flexibility, just send the label or a generic code
+        hiring_option: formData.hiringAmount > 0 ? 'paid' : 'free', 
         max_participants: 2,
         status: 'active'
       });

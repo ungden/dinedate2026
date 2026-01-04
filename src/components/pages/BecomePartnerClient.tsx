@@ -32,6 +32,7 @@ import { useDbMyServices } from '@/hooks/useDbMyServices';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import toast from 'react-hot-toast';
+import { PARTNER_EARNING_RATE } from '@/lib/platform';
 
 const ACTIVITY_OPTIONS: { value: ActivityType; label: string; Icon: React.ElementType; defaultDuration: ServiceDuration }[] = [
   { value: 'cafe', label: 'Cafe', Icon: Coffee, defaultDuration: 'session' },
@@ -364,7 +365,17 @@ export default function BecomePartnerClient() {
       {/* STEP 2: CONFIGURE */}
       {step === 2 && (
         <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="space-y-6 pb-20">
-          <div className="space-y-6">
+          <div className="bg-blue-50 border border-blue-100 rounded-xl p-3 text-xs text-blue-800 space-y-1">
+                <div className="flex justify-between items-center font-bold">
+                    <span>Phí nền tảng:</span>
+                    <span>30%</span>
+                </div>
+                <p className="text-[10px] leading-relaxed opacity-80 mt-1">
+                    Phí này được dùng để: Xây dựng & bảo trì hệ thống, Bảo vệ quyền lợi 2 bên (Escrow), Marketing tìm khách mới, CSKH 24/7.
+                </p>
+          </div>
+
+          <div className="space-y-4">
             {selectedActivities.map((activity) => {
               const option = ACTIVITY_OPTIONS.find((o) => o.value === activity)!;
               const cfg = configs[activity];
@@ -428,6 +439,10 @@ export default function BecomePartnerClient() {
                               ))}
                             </div>
                           )}
+                          <div className="flex justify-between items-center mt-2 text-[10px] text-gray-500 px-1">
+                             <span>Thực nhận:</span>
+                             <span className="font-bold text-green-600">{formatCurrency(cfg.sessionPrice * PARTNER_EARNING_RATE)}</span>
+                          </div>
                         </div>
                       )}
                     </div>
@@ -470,6 +485,10 @@ export default function BecomePartnerClient() {
                               className="w-full pl-3 pr-10 py-2 rounded-lg border border-gray-200 text-sm font-bold"
                             />
                             <span className="absolute right-3 top-2 text-xs text-gray-400">đ</span>
+                            <div className="flex justify-between items-center mt-2 text-[10px] text-gray-500 px-1">
+                                <span>Thực nhận:</span>
+                                <span className="font-bold text-green-600">{formatCurrency(cfg.dayPrice * PARTNER_EARNING_RATE)}</span>
+                            </div>
                         </div>
                       )}
                     </div>

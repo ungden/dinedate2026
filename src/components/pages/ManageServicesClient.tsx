@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, Plus, Edit2, Trash2, ToggleLeft, ToggleRight, Sparkles, Check, Clock, Lock } from 'lucide-react';
+import { ArrowLeft, Plus, Edit2, Trash2, ToggleLeft, ToggleRight, Sparkles, Check, Clock, Lock, Info, ShieldCheck, TrendingUp, Users } from 'lucide-react';
 import {
   formatCurrency,
   getActivityIcon,
@@ -247,9 +247,18 @@ export default function ManageServicesClient() {
                   )}
                   
                   {formData.price > 0 && (
-                    <div className="mt-2 text-xs text-gray-500 flex justify-between">
-                      <span>Phí nền tảng (30%): -{formatCurrency(formData.price * (1 - PARTNER_EARNING_RATE))}</span>
-                      <span className="font-bold text-green-600">Thực nhận: {formatCurrency(formData.price * PARTNER_EARNING_RATE)}</span>
+                    <div className="mt-3 bg-blue-50 border border-blue-100 rounded-xl p-3 text-xs text-blue-800 space-y-1">
+                        <div className="flex justify-between items-center font-bold">
+                            <span>Thực nhận (70%):</span>
+                            <span className="text-green-600 text-sm">{formatCurrency(formData.price * PARTNER_EARNING_RATE)}</span>
+                        </div>
+                        <div className="flex justify-between items-center text-blue-600/80">
+                            <span>Phí nền tảng (30%):</span>
+                            <span>{formatCurrency(formData.price * (1 - PARTNER_EARNING_RATE))}</span>
+                        </div>
+                        <p className="pt-2 mt-2 border-t border-blue-200 text-[10px] leading-relaxed opacity-80">
+                            30% phí được dùng để: Xây dựng & bảo trì hệ thống, Bảo vệ quyền lợi 2 bên, Marketing tìm khách mới, CSKH 24/7.
+                        </p>
                     </div>
                   )}
                 </div>

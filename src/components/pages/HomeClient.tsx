@@ -2,19 +2,17 @@
 
 import { useState } from 'react';
 import { motion, AnimatePresence } from '@/lib/motion';
-import { Plus, Sparkles } from 'lucide-react';
+import { Plus, Sparkles, Loader2 } from 'lucide-react';
 import Link from 'next/link';
-import { useDateStore } from '@/hooks/useDateStore';
 import { ActivityType } from '@/types';
 import DateRequestCard from '@/components/DateRequestCard';
 import ActivityFilter from '@/components/ActivityFilter';
 import BackToTop from '@/components/BackToTop';
+import { useDbDateRequests } from '@/hooks/useDbDateRequests';
 
 export default function HomeClient() {
   const [selectedActivity, setSelectedActivity] = useState<ActivityType | undefined>();
-  const { getRequestsByActivity } = useDateStore();
-
-  const requests = getRequestsByActivity(selectedActivity);
+  const { requests, loading } = useDbDateRequests(selectedActivity);
 
   return (
     <div className="space-y-8 pb-20 bg-mesh-light min-h-screen max-w-7xl mx-auto">
@@ -78,7 +76,7 @@ export default function HomeClient() {
                     {selectedActivity ? 'Kết quả tìm kiếm theo hoạt động' : 'Những lời mời mới nhất gần bạn'}
                 </p>
             </div>
-            {requests.length > 0 && (
+            {!loading && requests.length > 0 && (
                 <div className="hidden sm:flex px-4 py-2 bg-rose-50 rounded-2xl border border-rose-100 text-sm font-black text-rose-500 uppercase tracking-wider">
                     {requests.length} Lời mời
                 </div>
@@ -86,38 +84,45 @@ export default function HomeClient() {
         </div>
 
         {/* 4. The Feed */}
-        <AnimatePresence mode="popLayout">
-            {requests.length > 0 ? (
-                <motion.div
-                    className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8"
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    exit={{ opacity: 0 }}
-                >
-                    {requests.map((request, idx) => (
-                        <motion.div 
-                            key={request.id}
-                            initial={{ opacity: 0, y: 30 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            transition={{ delay: idx * 0.05, duration: 0.4 }}
-                            className="h-full"
-                        >
-                            <DateRequestCard request={request} />
-                        </motion.div>
-                    ))}
-                </motion.div>
-            ) : (
-                <motion.div 
-                    initial={{ opacity: 0, scale: 0.95 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    className="py-32 text-center bg-white/60 backdrop-blur-sm rounded-[40px] border border-dashed border-rose-200"
-                >
-                    <div className="text-8xl mb-6 opacity-80">🌸</div>
-                    <h3 className="text-2xl font-black text-gray-900 mb-3">Chưa có lời mời nào</h3>
-                    <p className="text-gray-500 font-medium px-10 max-w-md mx-auto">Hãy là người đầu tiên tạo nên câu chuyện thú vị tại đây!</p>
-                </motion.div>
-            )}
-        </AnimatePresence>
+        {loading ? (
+            <div className="py-20 text-center">
+                <Loader2 className="w-8 h-8 animate-spin text-primary-500 mx-auto" />
+                <p className="text-gray-500 mt-2">Đang tải lời mời...</p>
+            </div>
+        ) : (
+            <AnimatePresence mode="popLayout">
+                {requests.length > 0 ? (
+                    <motion.div
+                        className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8"
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                    >
+                        {requests.map((request, idx) => (
+                            <motion.div 
+                                key={request.id}
+                                initial={{ opacity: 0, y: 30 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                transition={{ delay: idx * 0.05, duration: 0.4 }}
+                                className="h-full"
+                            >
+                                <DateRequestCard request={request} />
+                            </motion.div>
+                        ))}
+                    </motion.div>
+                ) : (
+                    <motion.div 
+                        initial={{ opacity: 0, scale: 0.95 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        className="py-32 text-center bg-white/60 backdrop-blur-sm rounded-[40px] border border-dashed border-rose-200"
+                    >
+                        <div className="text-8xl mb-6 opacity-80">🌸</div>
+                        <h3 className="text-2xl font-black text-gray-900 mb-3">Chưa có lời mời nào</h3>
+                        <p className="text-gray-500 font-medium px-10 max-w-md mx-auto">Hãy là người đầu tiên tạo nên câu chuyện thú vị tại đây!</p>
+                    </motion.div>
+                )}
+            </AnimatePresence>
+        )}
       </div>
 
       <BackToTop />

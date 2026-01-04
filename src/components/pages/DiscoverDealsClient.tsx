@@ -3,11 +3,11 @@
 import { useMemo, useState } from 'react';
 import Link from 'next/link';
 import { motion, AnimatePresence } from '@/lib/motion';
-import { Search, Filter, X, Clock, MapPin, Calendar, Wallet } from 'lucide-react';
-import { useDateStore } from '@/hooks/useDateStore';
+import { Search, Filter, X, Clock, MapPin, Calendar, Loader2 } from 'lucide-react';
 import { ActivityType, DateRequest } from '@/types';
 import { cn, formatCurrency, formatDate, getActivityIcon, getActivityLabel } from '@/lib/utils';
 import RequestCountdown from '@/components/RequestCountdown';
+import { useDbDateRequests } from '@/hooks/useDbDateRequests';
 
 const ACTIVITY_OPTIONS: { type: ActivityType; label: string; emoji: string }[] = [
   { type: 'dining', label: 'Ăn uống', emoji: '🍽️' },
@@ -75,42 +75,39 @@ function DealRowCard({ request }: { request: DateRequest }) {
 }
 
 export default function DiscoverDealsClient() {
-  const { dateRequests } = useDateStore();
+  const [selectedActivity, setSelectedActivity] = useState<ActivityType | 'all'>('all');
+  const { requests, loading } = useDbDateRequests(selectedActivity === 'all' ? undefined : selectedActivity);
 
   const [query, setQuery] = useState('');
-  const [selectedActivity, setSelectedActivity] = useState<ActivityType | 'all'>('all');
   const [showFilters, setShowFilters] = useState(false);
 
   const filtered = useMemo(() => {
-    const base = dateRequests.filter((r) => r.status === 'active');
-
-    return base.filter((r) => {
-      if (selectedActivity !== 'all' && r.activity !== selectedActivity) return false;
-
-      if (query.trim()) {
-        const q = query.trim().toLowerCase();
-        const hay = `${r.title} ${r.description} ${r.location} ${r.user?.name || ''}`.toLowerCase();
-        if (!hay.includes(q)) return false;
-      }
-
-      return true;
+    // Client-side text filter only, DB already filtered by activity
+    if (!query.trim()) return requests;
+    
+    const q = query.trim().toLowerCase();
+    return requests.filter((r) => {
+      const hay = `${r.title} ${r.description} ${r.location} ${r.user?.name || ''}`.toLowerCase();
+      return hay.includes(q);
     });
-  }, [dateRequests, query, selectedActivity]);
+  }, [requests, query]);
 
   const activeFiltersCount = (selectedActivity !== 'all' ? 1 : 0) + (query.trim() ? 1 : 0);
 
   return (
     <div className="space-y-6 pb-24 min-h-screen">
-      {/* Sticky controls - compact like Partner */}
+      {/* Sticky controls */}
       <div className="sticky top-[60px] z-30 -mx-4 px-4 bg-rose-50/80 backdrop-blur-xl border-b border-rose-200/50 py-4 space-y-4 shadow-sm">
         <div className="flex items-center justify-between">
           <div className="text-[12px] font-black text-rose-900/50 uppercase tracking-wider">
             Khám phá deal
           </div>
 
-          <div className="text-[12px] font-black text-rose-600 bg-white/60 border border-rose-100 px-3 py-1.5 rounded-full">
-            {filtered.length} kết quả
-          </div>
+          {!loading && (
+            <div className="text-[12px] font-black text-rose-600 bg-white/60 border border-rose-100 px-3 py-1.5 rounded-full">
+              {filtered.length} kết quả
+            </div>
+          )}
         </div>
 
         <div className="flex gap-2">
@@ -212,7 +209,12 @@ export default function DiscoverDealsClient() {
 
       {/* List */}
       <div className="space-y-3">
-        {filtered.length > 0 ? (
+        {loading ? (
+          <div className="py-20 text-center">
+            <Loader2 className="w-8 h-8 animate-spin text-primary-500 mx-auto" />
+            <p className="text-gray-500 mt-2">Đang tải deal...</p>
+          </div>
+        ) : filtered.length > 0 ? (
           filtered.map((r, idx) => (
             <motion.div
               key={r.id}

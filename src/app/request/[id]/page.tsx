@@ -14,8 +14,9 @@ import {
   Trash2,
   CheckCircle,
   Briefcase,
+  Loader2
 } from 'lucide-react';
-import { useDateStore } from '@/hooks/useDateStore';
+import { useDbRequestDetail } from '@/hooks/useDbDateRequests';
 import {
   formatCurrency,
   formatDate,
@@ -26,47 +27,89 @@ import {
   cn,
 } from '@/lib/utils';
 import RequestCountdown from '@/components/RequestCountdown';
+import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/integrations/supabase/client';
+import toast from 'react-hot-toast';
 
 export default function RequestDetailPage() {
   const params = useParams();
   const router = useRouter();
   const requestId = params.id as string;
+  const { user } = useAuth();
 
   const [applyMessage, setApplyMessage] = useState('');
   const [showApplyForm, setShowApplyForm] = useState(false);
+  const [isApplying, setIsApplying] = useState(false);
+  const [hasApplied, setHasApplied] = useState(false);
 
-  const {
-    dateRequests,
-    currentUser,
-    applyToRequest,
-    getMyApplications,
-    deleteRequest,
-    expireRequestsIfNeeded,
-  } = useDateStore();
+  // Load from DB
+  const { request, loading } = useDbRequestDetail(requestId);
 
-  const request = dateRequests.find((r) => r.id === requestId);
-  const myApplications = getMyApplications();
-  const hasApplied = myApplications.some((a) => a.requestId === requestId);
-  const isOwner = request?.userId === currentUser.id;
-  const isPartner = !!currentUser.isServiceProvider;
-
+  // Check if current user applied
   useEffect(() => {
-    expireRequestsIfNeeded();
-  }, [expireRequestsIfNeeded]);
+    if (!user || !requestId) return;
+    const checkApplied = async () => {
+      const { data } = await supabase
+        .from('applications')
+        .select('id')
+        .eq('request_id', requestId)
+        .eq('user_id', user.id)
+        .maybeSingle();
+      if (data) setHasApplied(true);
+    };
+    checkApplied();
+  }, [user, requestId]);
 
-  const handleApply = () => {
+  const handleApply = async () => {
     if (!applyMessage.trim()) return;
-    applyToRequest(requestId, applyMessage.trim());
-    setApplyMessage('');
-    setShowApplyForm(false);
-  };
+    if (!user) {
+      toast.error('Vui lòng đăng nhập');
+      router.push('/login');
+      return;
+    }
 
-  const handleDelete = () => {
-    if (confirm('Bạn có chắc muốn huỷ/xóa lời mời này?')) {
-      deleteRequest(requestId);
-      router.push('/discover');
+    setIsApplying(true);
+    try {
+      const { error } = await supabase.from('applications').insert({
+        request_id: requestId,
+        user_id: user.id,
+        message: applyMessage.trim(),
+        status: 'pending'
+      });
+
+      if (error) throw error;
+
+      toast.success('Đã gửi ứng tuyển thành công! 🎉');
+      setHasApplied(true);
+      setShowApplyForm(false);
+    } catch (err: any) {
+      toast.error('Lỗi khi ứng tuyển: ' + err.message);
+    } finally {
+      setIsApplying(false);
     }
   };
+
+  const handleDelete = async () => {
+    if (!confirm('Bạn có chắc muốn xóa lời mời này?')) return;
+    
+    // In real app, consider soft delete (status=deleted)
+    // Here simple delete or update status
+    const { error } = await supabase.from('date_requests').delete().eq('id', requestId);
+    if (!error) {
+      toast.success('Đã xóa lời mời');
+      router.push('/discover');
+    } else {
+      toast.error('Không thể xóa');
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="py-20 text-center">
+        <Loader2 className="w-8 h-8 animate-spin text-primary-500 mx-auto" />
+      </div>
+    );
+  }
 
   if (!request) {
     return (
@@ -80,6 +123,11 @@ export default function RequestDetailPage() {
       </div>
     );
   }
+
+  const isOwner = user?.id === request.userId;
+  const isPartner = !!user?.isServiceProvider; // Logic: only partner can apply? Or any user?
+  // Let's assume ANY user can apply for now to lower barrier, or stick to logic "Only partner can apply"
+  // The original UI logic said "Must be Partner". Let's keep it consistent.
 
   const isExpired = request.status === 'expired';
   const isMatched = request.status === 'matched';
@@ -167,20 +215,20 @@ export default function RequestDetailPage() {
         {/* Status banners */}
         {isExpired && (
           <div className="p-4 bg-red-50 border-b border-red-100 text-red-700 text-sm font-medium">
-            Lời mời đã hết hạn sau 15 phút. Bạn có thể tạo lời mời mới.
+            Lời mời đã hết hạn.
           </div>
         )}
         {isMatched && (
           <div className="p-4 bg-green-50 border-b border-green-100 text-green-700 text-sm font-medium flex items-center gap-2">
             <CheckCircle className="w-5 h-5" />
-            Đã match! Bạn có thể vào Tin nhắn để trò chuyện.
+            Đã match! Chủ lời mời đã chọn người đồng hành.
           </div>
         )}
 
         {/* Content */}
         <div className="p-6">
           <h2 className="text-2xl font-black text-gray-900 mb-3">{request.title}</h2>
-          <p className="text-gray-600 mb-6">{request.description}</p>
+          <p className="text-gray-600 mb-6 whitespace-pre-wrap">{request.description}</p>
 
           {/* Details Grid */}
           <div className="grid grid-cols-2 gap-4 mb-6">
@@ -219,7 +267,7 @@ export default function RequestDetailPage() {
           </div>
         </div>
 
-        {/* Apply Section - Logic: Check if partner first */}
+        {/* Apply Section */}
         {!isOwner && !hasApplied && request.status === 'active' && (
           <div className="p-6 border-t border-gray-100">
             {!isPartner ? (
@@ -231,7 +279,7 @@ export default function RequestDetailPage() {
                 <p className="text-sm text-gray-600 mb-4 max-w-sm mx-auto">
                   Bạn cần đăng ký làm người cung cấp dịch vụ (Partner) để có thể gửi yêu cầu tham gia các lời mời hấp dẫn này.
                 </p>
-                <Link href="/manage-services">
+                <Link href="/become-partner/terms">
                   <button className="px-6 py-3 bg-gradient-primary text-white rounded-xl font-bold shadow-primary hover:opacity-95 transition w-full sm:w-auto">
                     Đăng ký Partner ngay
                   </button>
@@ -255,15 +303,15 @@ export default function RequestDetailPage() {
                   </button>
                   <button
                     onClick={handleApply}
-                    disabled={!applyMessage.trim()}
+                    disabled={!applyMessage.trim() || isApplying}
                     className={cn(
                       'flex-1 py-3 rounded-xl font-medium transition flex items-center justify-center gap-2',
-                      applyMessage.trim()
+                      applyMessage.trim() && !isApplying
                         ? 'bg-gradient-primary text-white hover:opacity-90'
                         : 'bg-gray-200 text-gray-400'
                     )}
                   >
-                    <Send className="w-5 h-5" />
+                    {isApplying ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5" />}
                     Ứng tuyển
                   </button>
                 </div>

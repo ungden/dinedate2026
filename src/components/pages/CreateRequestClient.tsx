@@ -3,14 +3,16 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeft, Calendar, Clock, MapPin, Wallet } from 'lucide-react';
-import { useDateStore } from '@/hooks/useDateStore';
+import { ArrowLeft, Calendar, Clock, MapPin, Wallet, Loader2 } from 'lucide-react';
 import { ActivityType, HiringAmount } from '@/types';
 import {
   getActivityIcon,
   getActivityLabel,
   cn,
 } from '@/lib/utils';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
+import toast from 'react-hot-toast';
 
 const activities: ActivityType[] = ['dining', 'drinking', 'movies', 'travel', 'cafe', 'karaoke', 'tour_guide'];
 
@@ -77,7 +79,8 @@ const titleSuggestions: Record<ActivityType, string[]> = {
 
 export default function CreateRequestClient() {
   const router = useRouter();
-  const { createDateRequest } = useDateStore();
+  const { user } = useAuth();
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const [formData, setFormData] = useState({
     activity: 'dining' as ActivityType,
@@ -108,24 +111,44 @@ export default function CreateRequestClient() {
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (!user) {
+      toast.error('Vui lòng đăng nhập để tạo lời mời');
+      router.push('/login');
+      return;
+    }
 
     if (!validate()) return;
 
-    createDateRequest({
-      activity: formData.activity,
-      title: formData.title,
-      description: formData.description,
-      location: formData.location,
-      date: formData.date,
-      time: formData.time,
-      hiringAmount: formData.hiringAmount,
-      hiringOption: `tier${hiringOptions.findIndex((h) => h.amount === formData.hiringAmount)}`,
-      maxParticipants: 2, // Hardcode 1-1 match (Owner + 1 Guest)
-    });
+    setIsSubmitting(true);
 
-    router.push('/discover');
+    try {
+      const { error } = await supabase.from('date_requests').insert({
+        user_id: user.id,
+        activity: formData.activity,
+        title: formData.title,
+        description: formData.description,
+        location: formData.location,
+        date: formData.date,
+        time: formData.time,
+        hiring_amount: formData.hiringAmount,
+        hiring_option: `tier${hiringOptions.findIndex((h) => h.amount === formData.hiringAmount)}`,
+        max_participants: 2,
+        status: 'active'
+      });
+
+      if (error) throw error;
+
+      toast.success('Đã tạo lời mời thành công! 🎉');
+      router.push('/discover');
+    } catch (err: any) {
+      console.error(err);
+      toast.error(err.message || 'Có lỗi xảy ra');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -327,14 +350,17 @@ export default function CreateRequestClient() {
           </div>
         </div>
 
-        {/* Removed "Max Participants" Section */}
-
         {/* Submit */}
         <button
           type="submit"
-          className="w-full py-4 bg-gradient-primary text-white rounded-xl font-semibold hover:opacity-90 transition shadow-primary"
+          disabled={isSubmitting}
+          className={cn(
+            "w-full py-4 bg-gradient-primary text-white rounded-xl font-semibold transition shadow-primary flex items-center justify-center gap-2",
+            isSubmitting ? "opacity-70 cursor-not-allowed" : "hover:opacity-90"
+          )}
         >
-          Đăng lời mời
+          {isSubmitting ? <Loader2 className="w-5 h-5 animate-spin" /> : null}
+          {isSubmitting ? 'Đang đăng...' : 'Đăng lời mời'}
         </button>
       </form>
     </div>

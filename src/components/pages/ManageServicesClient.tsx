@@ -60,14 +60,27 @@ export default function ManageServicesClient() {
     e.preventDefault();
     if (!formData.title || !formData.price) return;
 
-    // Security check: Force 'session' if not Pro
-    const finalDuration = isPro ? formData.duration : 'session';
+    // Security & Logic Enforcement
+    let finalDuration: ServiceDuration = 'session';
+    let finalPrice = formData.price;
+
+    if (isPro) {
+        finalDuration = formData.duration;
+    } else {
+        // Non-Pro restriction: Always session, Price must be in presets
+        finalDuration = 'session';
+        
+        // If the submitted price isn't in presets (e.g. via devtools or bug), snap to nearest or default
+        if (!PRICE_PRESETS_SESSION.includes(finalPrice)) {
+            finalPrice = PRICE_PRESETS_SESSION[0]; // Default to 300k if invalid
+        }
+    }
 
     const payload = {
       activity: formData.activity,
       title: formData.title,
       description: formData.description,
-      price: formData.price,
+      price: finalPrice,
       duration: finalDuration,
     };
 

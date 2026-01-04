@@ -76,8 +76,10 @@ interface ServiceConfig {
 }
 
 function defaultConfigForActivity(activity: ActivityType): ServiceConfig {
-  const defaultSession = activity !== 'tour_guide' && activity !== 'travel';
-  const defaultDay = false; // Initially disabled for everyone
+  // Tour guide and travel might imply day duration, but for non-pro we force session
+  // They can enable day later if they become Pro.
+  const defaultSession = true; 
+  const defaultDay = false; 
 
   return {
     activity,
@@ -204,7 +206,7 @@ export default function BecomePartnerClient() {
         });
       }
 
-      if (cfg.dayEnabled && isPro) { // Security check
+      if (cfg.dayEnabled && isPro) { // Strict security check
         await addService({
           activity,
           title: `${baseTitle} (theo ngày)`,

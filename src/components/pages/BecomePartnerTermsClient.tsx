@@ -8,6 +8,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { cn } from '@/lib/utils';
 import PartnerTermsContent, { PARTNER_TERMS_VERSION } from '../partner/PartnerTermsContent';
 import { useAuth } from '@/contexts/AuthContext';
+import toast from 'react-hot-toast';
 
 const SCROLL_UNLOCK_OFFSET_PX = 120;
 
@@ -49,24 +50,39 @@ export default function BecomePartnerTermsClient() {
 
     setIsSaving(true);
 
-    const payload = {
-      user_id: user.id,
-      version: PARTNER_TERMS_VERSION,
-      agreed_at: new Date().toISOString(),
-      ip: null as string | null,
-      user_agent: typeof navigator !== 'undefined' ? navigator.userAgent : null,
-    };
+    try {
+      const payload = {
+        user_id: user.id,
+        version: PARTNER_TERMS_VERSION,
+        agreed_at: new Date().toISOString(),
+        ip: null as string | null,
+        user_agent: typeof navigator !== 'undefined' ? navigator.userAgent : null,
+      };
 
-    const { error } = await supabase.from('partner_agreements').insert(payload as any);
-    if (error) throw error;
+      // 1. Lưu log vào bảng partner_agreements
+      const { error: insertError } = await supabase.from('partner_agreements').insert(payload as any);
+      
+      if (insertError) {
+        console.error('Lỗi insert agreement:', insertError);
+        throw new Error(insertError.message || 'Không thể lưu xác nhận điều khoản');
+      }
 
-    await updateUser({
-      partner_agreed_at: payload.agreed_at as any,
-      partner_agreed_version: PARTNER_TERMS_VERSION as any,
-    } as any);
+      // 2. Cập nhật user profile để client biết đã đồng ý
+      await updateUser({
+        partner_agreed_at: payload.agreed_at as any,
+        partner_agreed_version: PARTNER_TERMS_VERSION as any,
+      } as any);
 
-    setIsSaving(false);
-    router.push('/become-partner');
+      toast.success('Xác nhận thành công!');
+      
+      // Chuyển hướng
+      router.push('/become-partner');
+      
+    } catch (error: any) {
+      console.error('Lỗi khi đồng ý điều khoản:', error);
+      toast.error('Có lỗi xảy ra: ' + (error.message || 'Vui lòng thử lại sau'));
+      setIsSaving(false); // Reset trạng thái để user có thể thử lại
+    }
   };
 
   return (
@@ -168,7 +184,7 @@ export default function BecomePartnerTermsClient() {
             {isSaving ? (
               <>
                 <Loader2 className="w-5 h-5 animate-spin" />
-                Đang lưu xác nhận...
+                Đang xử lý...
               </>
             ) : (
               <>

@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import Link from 'next/link';
-import { motion } from '@/lib/motion';
+import { motion, AnimatePresence } from '@/lib/motion';
 import {
   ArrowLeft,
   Wallet as WalletIcon,
@@ -11,10 +11,14 @@ import {
   TrendingUp,
   Clock,
   ExternalLink,
+  ArrowRight,
+  X
 } from 'lucide-react';
 import { formatCurrency, formatRelativeTime, cn } from '@/lib/utils';
 import { useDbWallet } from '@/hooks/useDbWallet';
 import TopupModal from '@/components/TopupModal';
+import { supabase } from '@/integrations/supabase/client';
+import toast from 'react-hot-toast';
 
 const topUpAmounts = [50000, 100000, 200000, 500000, 1000000, 2000000];
 
@@ -32,6 +36,10 @@ export default function WalletClient() {
   const { balance, escrow, transactions, loading, reload } = useDbWallet();
 
   const [selectedAmount, setSelectedAmount] = useState<number | null>(null);
+  const [showWithdraw, setShowWithdraw] = useState(false);
+  const [withdrawAmount, setWithdrawAmount] = useState('');
+  const [bankInfo, setBankInfo] = useState('');
+  const [isWithdrawing, setIsWithdrawing] = useState(false);
 
   const totalTopUp = useMemo(() => {
     return transactions
@@ -58,6 +66,8 @@ export default function WalletClient() {
         return { label: 'Thanh toán', color: 'bg-rose-100 text-rose-700' };
       case 'booking_earning':
         return { label: 'Thu nhập', color: 'bg-green-100 text-green-700' };
+      case 'withdrawal':
+        return { label: 'Rút tiền', color: 'bg-gray-100 text-gray-700' };
       default:
         return { label: type, color: 'bg-gray-100 text-gray-700' };
     }
@@ -65,6 +75,47 @@ export default function WalletClient() {
 
   const handleTopupSuccess = async () => {
     await reload();
+  };
+
+  const handleWithdraw = async () => {
+    const amount = Number(withdrawAmount);
+    if (!amount || amount < 50000) {
+      toast.error('Số tiền rút tối thiểu 50.000đ');
+      return;
+    }
+    if (amount > balance) {
+      toast.error('Số dư không đủ');
+      return;
+    }
+    if (!bankInfo.trim()) {
+      toast.error('Vui lòng nhập thông tin ngân hàng');
+      return;
+    }
+
+    setIsWithdrawing(true);
+    const { data: auth } = await supabase.auth.getUser();
+    
+    // Create withdrawal request
+    const { error } = await supabase.from('withdrawal_requests').insert({
+      user_id: auth.user?.id,
+      amount,
+      bank_name: 'Manual', // Simply storing raw string in note for MVP
+      account_number: '0000',
+      account_name: 'USER',
+      status: 'pending',
+      note: bankInfo
+    });
+
+    if (error) {
+      toast.error('Lỗi tạo yêu cầu rút tiền');
+      console.error(error);
+    } else {
+      toast.success('Đã gửi yêu cầu rút tiền');
+      setShowWithdraw(false);
+      setWithdrawAmount('');
+      setBankInfo('');
+    }
+    setIsWithdrawing(false);
   };
 
   return (
@@ -112,13 +163,22 @@ export default function WalletClient() {
             </div>
           </div>
 
-          <button
-            onClick={() => setSelectedAmount(200000)}
-            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-gradient-primary text-white font-black shadow-primary hover:opacity-90 transition"
-          >
-            <Plus className="w-5 h-5" />
-            Nạp tiền
-          </button>
+          <div className="flex flex-col gap-2">
+            <button
+                onClick={() => setSelectedAmount(200000)}
+                className="inline-flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-gradient-primary text-white font-black shadow-primary hover:opacity-90 transition text-sm"
+            >
+                <Plus className="w-4 h-4" />
+                Nạp tiền
+            </button>
+            <button
+                onClick={() => setShowWithdraw(true)}
+                className="inline-flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-gray-100 text-gray-700 font-black hover:bg-gray-200 transition text-sm"
+            >
+                <ArrowRight className="w-4 h-4" />
+                Rút tiền
+            </button>
+          </div>
         </div>
 
         {/* Amount quick picks */}
@@ -212,6 +272,58 @@ export default function WalletClient() {
           onSuccess={handleTopupSuccess}
         />
       )}
+
+      {/* Withdrawal Modal */}
+      <AnimatePresence>
+        {showWithdraw && (
+            <motion.div 
+                className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+            >
+                <div className="bg-white rounded-3xl w-full max-w-sm p-6 relative">
+                    <button onClick={() => setShowWithdraw(false)} className="absolute top-4 right-4 p-2 hover:bg-gray-100 rounded-full">
+                        <X className="w-5 h-5 text-gray-500" />
+                    </button>
+                    
+                    <h3 className="text-xl font-bold text-gray-900 mb-4">Rút tiền</h3>
+                    
+                    <div className="space-y-4">
+                        <div>
+                            <label className="text-sm font-bold text-gray-700">Số tiền rút</label>
+                            <input 
+                                type="number" 
+                                value={withdrawAmount}
+                                onChange={(e) => setWithdrawAmount(e.target.value)}
+                                className="w-full mt-1 p-3 border rounded-xl font-bold text-lg"
+                                placeholder="0"
+                            />
+                            <p className="text-xs text-gray-500 mt-1">Tối đa: {formatCurrency(balance)}</p>
+                        </div>
+                        
+                        <div>
+                            <label className="text-sm font-bold text-gray-700">Thông tin nhận tiền</label>
+                            <textarea 
+                                value={bankInfo}
+                                onChange={(e) => setBankInfo(e.target.value)}
+                                className="w-full mt-1 p-3 border rounded-xl text-sm h-24"
+                                placeholder="Tên Ngân hàng - Số TK - Tên chủ TK"
+                            />
+                        </div>
+
+                        <button
+                            onClick={handleWithdraw}
+                            disabled={isWithdrawing}
+                            className="w-full py-3 bg-gradient-primary text-white rounded-xl font-bold hover:opacity-90 disabled:bg-gray-300"
+                        >
+                            {isWithdrawing ? 'Đang gửi...' : 'Gửi yêu cầu'}
+                        </button>
+                    </div>
+                </div>
+            </motion.div>
+        )}
+      </AnimatePresence>
     </motion.div>
   );
 }

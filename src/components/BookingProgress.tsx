@@ -14,12 +14,14 @@ import {
     Square,
     Timer,
     AlertTriangle,
-    Camera,
-    Star
+    Star,
+    Loader2
 } from 'lucide-react';
-import { ServiceBooking, User } from '@/types';
+import { ServiceBooking } from '@/types';
 import { formatCurrency, cn } from '@/lib/utils';
 import { PARTNER_EARNING_RATE } from '@/lib/platform';
+import { completeBookingViaEdge } from '@/lib/booking';
+import toast from 'react-hot-toast';
 
 interface BookingProgressProps {
     booking: ServiceBooking;
@@ -40,10 +42,12 @@ export default function BookingProgress({
 }: BookingProgressProps) {
     const [stage, setStage] = useState<BookingStage>(
         booking.status === 'in_progress' ? 'in_progress' :
-            booking.status === 'accepted' ? 'accepted' : 'pending'
+            booking.status === 'accepted' ? 'accepted' : 
+            booking.status === 'completed' ? 'completed' : 'pending'
     );
     const [elapsedTime, setElapsedTime] = useState(0);
     const [isTimerRunning, setIsTimerRunning] = useState(false);
+    const [isCompleting, setIsCompleting] = useState(false);
 
     // Timer effect
     useEffect(() => {
@@ -74,10 +78,23 @@ export default function BookingProgress({
         onStart();
     };
 
-    const handleFinish = () => {
-        setStage('completed');
+    const handleFinish = async () => {
+        if (!confirm('Xác nhận hoàn thành công việc và nhận thanh toán?')) return;
+        
+        setIsCompleting(true);
         setIsTimerRunning(false);
-        onFinish();
+
+        try {
+            await completeBookingViaEdge(booking.id);
+            setStage('completed');
+            toast.success('Đã hoàn thành! Tiền đã được cộng vào ví.');
+            onFinish();
+        } catch (error: any) {
+            toast.error(error.message);
+            setIsTimerRunning(true); // resume timer if fail
+        } finally {
+            setIsCompleting(false);
+        }
     };
 
     const stages = [
@@ -257,12 +274,13 @@ export default function BookingProgress({
                 {stage === 'in_progress' && (
                     <motion.button
                         onClick={handleFinish}
+                        disabled={isCompleting}
                         className="w-full py-4 bg-gradient-to-r from-primary-500 to-purple-500 text-white rounded-xl font-bold text-lg flex items-center justify-center gap-2 shadow-lg"
                         whileHover={{ scale: 1.02 }}
                         whileTap={{ scale: 0.98 }}
                     >
-                        <Square className="w-5 h-5" />
-                        <span>Hoàn thành</span>
+                        {isCompleting ? <Loader2 className="w-5 h-5 animate-spin" /> : <Square className="w-5 h-5" />}
+                        <span>{isCompleting ? 'Đang xử lý...' : 'Hoàn thành'}</span>
                     </motion.button>
                 )}
 
@@ -277,10 +295,7 @@ export default function BookingProgress({
                         </motion.div>
                         <h3 className="text-xl font-bold text-gray-900 mb-1">Hoàn thành! 🎉</h3>
                         <p className="text-gray-600">
-                            Tổng thời gian: {formatTime(elapsedTime)}
-                        </p>
-                        <p className="text-lg font-bold text-primary-600 mt-2">
-                            +{formatCurrency(booking.escrowAmount * PARTNER_EARNING_RATE)}
+                            Tiền đã được chuyển vào ví của bạn.
                         </p>
                     </div>
                 )}

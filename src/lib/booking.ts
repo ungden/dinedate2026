@@ -32,3 +32,15 @@ export async function createBookingViaEdge(params: {
 
   return { bookingId: data.bookingId as string };
 }
+
+export async function completeBookingViaEdge(bookingId: string): Promise<boolean> {
+  const { error } = await supabase.functions.invoke('complete-booking', {
+    body: { bookingId },
+  });
+
+  if (error) {
+    throw toError(error, 'Không thể hoàn thành đơn hàng');
+  }
+
+  return true;
+}

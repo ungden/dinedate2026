@@ -99,3 +99,17 @@ export function getVIPTextColor(tier: string): string {
   };
   return colors[tier] || 'text-gray-600';
 }
+
+// Logic for Badges
+export function isNewPartner(dateString?: string): boolean {
+  if (!dateString) return false;
+  const created = new Date(dateString);
+  const now = new Date();
+  const diffTime = Math.abs(now.getTime() - created.getTime());
+  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+  return diffDays <= 30; // 30 days
+}
+
+export function isQualityPartner(rating: number = 5, count: number = 0): boolean {
+  return count > 10 && rating > 4.8;
+}

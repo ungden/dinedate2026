@@ -15,8 +15,10 @@ import {
   Wallet,
   Calendar,
   Clock,
+  Zap,
+  Sparkles,
 } from 'lucide-react';
-import { cn, formatCurrency, formatRelativeTime, getVIPBadgeColor, getActivityIcon, getActivityLabel } from '@/lib/utils';
+import { cn, formatCurrency, formatRelativeTime, getVIPBadgeColor, getActivityIcon, getActivityLabel, isNewPartner, isQualityPartner } from '@/lib/utils';
 import { ServiceOffering } from '@/types';
 import { useAuth } from '@/contexts/AuthContext';
 import AuthModal from '@/components/AuthModal';
@@ -89,6 +91,8 @@ export default function UserProfilePage() {
   }
 
   const coverImage = user.images?.[0] || user.avatar;
+  const isNew = isNewPartner(user.createdAt);
+  const isQuality = isQualityPartner(rating, user.reviewCount);
 
   const openBookingForService = (serviceId: string) => {
     if (isCurrentUser) return;
@@ -180,7 +184,19 @@ export default function UserProfilePage() {
               <div className="min-w-0 flex-1">
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
-                    <h1 className="text-[22px] font-black text-gray-900 truncate">{user.name}</h1>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <h1 className="text-[22px] font-black text-gray-900 truncate">{user.name}</h1>
+                      {isNew && (
+                        <span className="px-2 py-0.5 rounded-lg text-[10px] font-black uppercase bg-blue-100 text-blue-600 flex-shrink-0">
+                          Mới
+                        </span>
+                      )}
+                      {isQuality && (
+                        <span className="px-2 py-0.5 rounded-lg text-[10px] font-black uppercase bg-orange-100 text-orange-600 flex items-center gap-0.5 flex-shrink-0">
+                          <Zap className="w-3 h-3 fill-orange-600" /> Uy tín
+                        </span>
+                      )}
+                    </div>
                     <div className="flex flex-wrap items-center gap-2 mt-1 text-sm text-gray-500">
                       <span className="inline-flex items-center gap-1">
                         <MapPin className="w-4 h-4 text-primary-500" />
@@ -189,7 +205,7 @@ export default function UserProfilePage() {
                       <span className="text-gray-300">•</span>
                       <span className="inline-flex items-center gap-1">
                         <Star className="w-4 h-4 text-yellow-500 fill-yellow-500" />
-                        <span className="font-bold text-yellow-700">{rating ? rating.toFixed(1) : '0.0'}</span>
+                        <span className="font-bold text-yellow-700">{rating ? rating.toFixed(1) : '5.0'}</span>
                         <span className="text-gray-400">({user.reviewCount || reviews.length} đánh giá)</span>
                       </span>
                     </div>

@@ -179,6 +179,7 @@ export interface User {
   birthYear?: number;
   partner_agreed_at?: string;
   partner_agreed_version?: string;
+  createdAt?: string; // Added field
 }
 
 export interface DateRequest {

@@ -3,14 +3,17 @@
 import { memo } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { MapPin, Star, BadgeCheck } from 'lucide-react';
+import { MapPin, Star, BadgeCheck, Sparkles, Zap } from 'lucide-react';
 import { User } from '@/types';
-import { cn, getVIPBadgeColor } from '@/lib/utils';
+import { cn, getVIPBadgeColor, isNewPartner, isQualityPartner } from '@/lib/utils';
 
 function PartnerCard({ partner, distance }: { partner: User; distance?: number }) {
   const isOnline = !!partner.onlineStatus?.isOnline;
   const isVip = partner.vipStatus?.tier && partner.vipStatus.tier !== 'free';
   const imageSrc = partner.images?.[0] || partner.avatar;
+
+  const isNew = isNewPartner(partner.createdAt);
+  const isQuality = isQualityPartner(partner.rating, partner.reviewCount);
 
   return (
     <Link href={`/user/${partner.id}`} className="block group">
@@ -37,16 +40,26 @@ function PartnerCard({ partner, distance }: { partner: User; distance?: number }
         {/* Content Section */}
         <div className="flex-1 min-w-0 py-1">
           <div className="flex items-center justify-between mb-1">
-            <div className="flex items-center gap-1.5">
+            <div className="flex items-center gap-1.5 min-w-0">
                 <h3 className="text-[17px] font-bold text-gray-900 truncate group-hover:text-primary-600 transition-colors">
                     {partner.name}
                 </h3>
                 {isVip && (
-                    <BadgeCheck className="w-4 h-4 text-blue-500 fill-blue-50" />
+                    <BadgeCheck className="w-4 h-4 text-blue-500 fill-blue-50 flex-shrink-0" />
+                )}
+                {isNew && (
+                    <span className="px-1.5 py-0.5 rounded text-[9px] font-black uppercase bg-blue-100 text-blue-600 flex-shrink-0">
+                      Mới
+                    </span>
+                )}
+                {isQuality && (
+                    <span className="px-1.5 py-0.5 rounded text-[9px] font-black uppercase bg-orange-100 text-orange-600 flex items-center gap-0.5 flex-shrink-0">
+                      <Zap className="w-2.5 h-2.5 fill-orange-600" /> Uy tín
+                    </span>
                 )}
             </div>
             
-            <div className="flex items-center gap-1 bg-yellow-50 px-2 py-0.5 rounded-lg">
+            <div className="flex items-center gap-1 bg-yellow-50 px-2 py-0.5 rounded-lg flex-shrink-0">
                 <Star className="w-3 h-3 text-yellow-500 fill-yellow-500" />
                 <span className="text-xs font-bold text-yellow-700">{(partner.rating ?? 5.0).toFixed(1)}</span>
             </div>

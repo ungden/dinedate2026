@@ -27,6 +27,12 @@ export function mapDbUserToUser(row: DbUserRow): User {
     ? row.services.map(mapDbServiceToService)
     : undefined;
 
+  const reviewCount = Number(row.review_count ?? row.reviewCount ?? 0);
+  // Default to 5.0 stars if no reviews yet
+  const rating = reviewCount > 0 
+    ? (Number(row.average_rating ?? row.rating ?? 0)) 
+    : 5.0;
+
   return {
     id: row.id,
     name: row.name ?? 'Người dùng',
@@ -45,7 +51,7 @@ export function mapDbUserToUser(row: DbUserRow): User {
     },
     services: services, // loaded via join or passed in
     isServiceProvider: row.role === 'partner' || !!row.is_partner_verified,
-    isPro: !!row.is_pro, // New field mapped
+    isPro: !!row.is_pro,
     role: row.role ?? 'user', 
     wallet: {
       balance: Number(row.wallet_balance ?? 0),
@@ -61,8 +67,8 @@ export function mapDbUserToUser(row: DbUserRow): User {
     phone: row.phone ?? undefined,
     email: row.email ?? undefined,
     occupation: row.occupation ?? undefined,
-    rating: Number(row.average_rating ?? row.rating ?? 0) || undefined,
-    reviewCount: Number(row.review_count ?? row.reviewCount ?? 0) || undefined,
+    rating: rating,
+    reviewCount: reviewCount,
 
     gender: row.gender ?? undefined,
     height: row.height ?? undefined,
@@ -77,5 +83,6 @@ export function mapDbUserToUser(row: DbUserRow): User {
 
     partner_agreed_at: row.partner_agreed_at ?? undefined,
     partner_agreed_version: row.partner_agreed_version ?? undefined,
+    createdAt: row.created_at ?? undefined,
   };
 }

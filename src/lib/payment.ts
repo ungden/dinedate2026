@@ -26,8 +26,6 @@ function toError(err: unknown, fallback = 'Đã xảy ra lỗi') {
 
   const anyErr = err as any;
 
-  // Supabase function invoke errors often look like:
-  // { message, name, context: { body: { message } } }
   const msg =
     anyErr?.context?.body?.message ||
     anyErr?.message ||
@@ -38,17 +36,27 @@ function toError(err: unknown, fallback = 'Đã xảy ra lỗi') {
   return new Error(String(msg));
 }
 
-// Generate QR Code URL using SePay QR API (More reliable for SePay integration)
+/**
+ * Generate VietQR URL using SePay QR service
+ * Format: https://qr.sepay.vn/img?acc={account}&bank={bankCode}&amount={amount}&des={content}
+ * 
+ * This matches the implementation in tien-nhan-chi-lo-new project
+ */
 export function generateVietQRUrl(config: PaymentConfig, amount: number, transferContent: string): string {
-  // SePay QR prefers bank code (e.g., 'MB', 'VCB') over BIN
-  const bankCode = config.bank_name || "MB"; 
+  // bank_name from edge function should already be short code like "MB", "VCB", etc.
+  const bankCode = config.bank_name;
   const accountNo = config.bank_account;
   
-  const content = encodeURIComponent(transferContent);
-  const accountName = encodeURIComponent(config.bank_holder || "");
+  // Build URL exactly like tien-nhan-chi-lo-new
+  const url = `https://qr.sepay.vn/img?acc=${encodeURIComponent(accountNo)}&bank=${encodeURIComponent(bankCode)}&amount=${amount}&des=${encodeURIComponent(transferContent)}`;
   
-  // Using SePay's QR generator which mirrors tien-nhan-chi-lo-new implementation
-  return `https://qr.sepay.vn/img?acc=${encodeURIComponent(accountNo)}&bank=${encodeURIComponent(bankCode)}&amount=${amount}&des=${content}`;
+  // Debug log in development
+  if (typeof window !== 'undefined') {
+    console.log('[QR Debug] Generated URL:', url);
+    console.log('[QR Debug] Config:', { bankCode, accountNo, amount, transferContent });
+  }
+  
+  return url;
 }
 
 export function getBankDisplayName(config: PaymentConfig): string {
@@ -56,11 +64,24 @@ export function getBankDisplayName(config: PaymentConfig): string {
 }
 
 export async function getPaymentConfig(): Promise<PaymentConfig | null> {
-  const { data, error } = await supabase.functions.invoke("get-payment-config");
-  if (error) {
-    throw toError(error, 'Không lấy được cấu hình thanh toán');
+  try {
+    const { data, error } = await supabase.functions.invoke("get-payment-config");
+    
+    if (error) {
+      console.error('[Payment] Error fetching config:', error);
+      throw toError(error, 'Không lấy được cấu hình thanh toán');
+    }
+    
+    // Debug log
+    if (typeof window !== 'undefined') {
+      console.log('[Payment] Config received:', data);
+    }
+    
+    return (data as PaymentConfig) ?? null;
+  } catch (err) {
+    console.error('[Payment] Exception:', err);
+    throw toError(err, 'Không lấy được cấu hình thanh toán');
   }
-  return (data as PaymentConfig) ?? null;
 }
 
 export async function cancelTopupRequest(requestId: string): Promise<boolean> {

@@ -22,23 +22,25 @@ import {
   Trash2,
   Clock,
   Sparkles,
+  Lock,
+  Loader2,
 } from 'lucide-react';
 import { useDateStore } from '@/hooks/useDateStore';
-import { ActivityType } from '@/types';
-import { cn } from '@/lib/utils';
+import { ActivityType, ServiceDuration } from '@/types';
+import { cn, formatCurrency } from '@/lib/utils';
 import { useDbMyServices } from '@/hooks/useDbMyServices';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import toast from 'react-hot-toast';
 
-const ACTIVITY_OPTIONS: { value: ActivityType; label: string; Icon: React.ElementType }[] = [
-  { value: 'cafe', label: 'Cafe', Icon: Coffee },
-  { value: 'dining', label: 'Ăn uống', Icon: Utensils },
-  { value: 'movies', label: 'Xem phim', Icon: Clapperboard },
-  { value: 'drinking', label: 'Cafe/Bar', Icon: Wine },
-  { value: 'karaoke', label: 'Karaoke', Icon: Mic2 },
-  { value: 'tour_guide', label: 'Tour guide', Icon: Map },
-  { value: 'travel', label: 'Du lịch', Icon: Plane },
+const ACTIVITY_OPTIONS: { value: ActivityType; label: string; Icon: React.ElementType; defaultDuration: ServiceDuration }[] = [
+  { value: 'cafe', label: 'Cafe', Icon: Coffee, defaultDuration: 'session' },
+  { value: 'dining', label: 'Ăn uống', Icon: Utensils, defaultDuration: 'session' },
+  { value: 'movies', label: 'Xem phim', Icon: Clapperboard, defaultDuration: 'session' },
+  { value: 'drinking', label: 'Cafe/Bar', Icon: Wine, defaultDuration: 'session' },
+  { value: 'karaoke', label: 'Karaoke', Icon: Mic2, defaultDuration: 'session' },
+  { value: 'tour_guide', label: 'Tour guide', Icon: Map, defaultDuration: 'day' },
+  { value: 'travel', label: 'Du lịch', Icon: Plane, defaultDuration: 'day' },
 ];
 
 const DEFAULT_TITLES: Partial<Record<ActivityType, string>> = {
@@ -64,63 +66,33 @@ const DEFAULT_DESCRIPTIONS: Partial<Record<ActivityType, string>> = {
 const MIN_BIO_LEN = 30;
 const MIN_PHOTOS = 3;
 
-type ServiceConfig = {
+interface ServiceConfig {
   activity: ActivityType;
-
   sessionEnabled: boolean;
   sessionPrice: number;
-
   dayEnabled: boolean;
   dayPrice: number;
-};
+}
 
 function defaultConfigForActivity(activity: ActivityType): ServiceConfig {
-  // sensible defaults:
-  // - most activities default session ON
-  // - travel/tour default day ON (but still allow session too)
-  const defaultSession =
-    activity === 'tour_guide' || activity === 'travel' ? false : true;
-  const defaultDay = activity === 'tour_guide' || activity === 'travel';
-
-  const sessionPriceMap: Partial<Record<ActivityType, number>> = {
-    cafe: 300000,
-    dining: 500000,
-    movies: 400000,
-    drinking: 700000,
-    karaoke: 600000,
-    tour_guide: 700000, // optional session for tour guide
-    travel: 900000, // optional session for travel
-  };
-
-  const dayPriceMap: Partial<Record<ActivityType, number>> = {
-    cafe: 1000000,
-    dining: 1200000,
-    movies: 1000000,
-    drinking: 1500000,
-    karaoke: 1500000,
-    tour_guide: 1500000,
-    travel: 2000000,
-  };
+  const defaultSession = activity !== 'tour_guide' && activity !== 'travel';
+  const defaultDay = false; // Initially disabled for everyone
 
   return {
     activity,
     sessionEnabled: defaultSession,
-    sessionPrice: sessionPriceMap[activity] ?? 500000,
+    sessionPrice: 500000,
     dayEnabled: defaultDay,
-    dayPrice: dayPriceMap[activity] ?? 1500000,
+    dayPrice: 1500000,
   };
 }
 
 export default function BecomePartnerClient() {
-  const { currentUser } = useDateStore();
   const { addService } = useDbMyServices();
   const { user: authUser, refreshProfile } = useAuth();
 
   const [step, setStep] = useState<1 | 2>(1);
-  const [selectedActivities, setSelectedActivities] = useState<ActivityType[]>([
-    'cafe',
-    'dining',
-  ]);
+  const [selectedActivities, setSelectedActivities] = useState<ActivityType[]>(['cafe', 'dining']);
 
   const [configs, setConfigs] = useState<Record<ActivityType, ServiceConfig>>({
     cafe: defaultConfigForActivity('cafe'),
@@ -135,6 +107,7 @@ export default function BecomePartnerClient() {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const isAlreadyPartner = !!authUser?.isServiceProvider;
+  const isPro = !!authUser?.isPro;
 
   const photoCount = (authUser?.images || []).filter(Boolean).length;
   const isBioOk = (authUser?.bio || '').trim().length >= MIN_BIO_LEN;
@@ -196,21 +169,6 @@ export default function BecomePartnerClient() {
     await refreshProfile();
   };
 
-  const validateStep2 = () => {
-    // each selected activity must have at least one option enabled
-    for (const a of selectedActivities) {
-      const cfg = configs[a];
-      const hasOne =
-        (cfg.sessionEnabled && cfg.sessionPrice > 0) ||
-        (cfg.dayEnabled && cfg.dayPrice > 0);
-
-      if (!hasOne) {
-        return { ok: false, activity: a };
-      }
-    }
-    return { ok: true as const };
-  };
-
   const handleCreate = async () => {
     if (!authUser?.id) {
       toast.error('Vui lòng đăng nhập');
@@ -223,29 +181,21 @@ export default function BecomePartnerClient() {
       return;
     }
 
-    const v = validateStep2();
-    if (!v.ok) {
-      toast.error('Mỗi hoạt động cần chọn ít nhất 1 gói (theo buổi hoặc theo ngày).');
-      return;
-    }
-
     setIsSubmitting(true);
 
-    // 1) Mark partner in DB FIRST so you appear in Partner list immediately
+    // 1) Mark partner
     await markPartnerActive();
 
-    // 2) Create services: one row per enabled option
+    // 2) Create services
     for (const activity of selectedActivities) {
       const cfg = configs[activity];
-
       const baseTitle = DEFAULT_TITLES[activity] || 'Dịch vụ đồng hành';
-      const baseDesc =
-        DEFAULT_DESCRIPTIONS[activity] || 'Dịch vụ đồng hành theo yêu cầu.';
+      const baseDesc = DEFAULT_DESCRIPTIONS[activity] || 'Dịch vụ đồng hành theo yêu cầu.';
 
       if (cfg.sessionEnabled) {
         await addService({
           activity,
-          title: `${baseTitle} (theo buổi)`,
+          title: `${baseTitle}`,
           description: baseDesc,
           price: cfg.sessionPrice,
           duration: 'session',
@@ -253,7 +203,7 @@ export default function BecomePartnerClient() {
         });
       }
 
-      if (cfg.dayEnabled) {
+      if (cfg.dayEnabled && isPro) { // Security check
         await addService({
           activity,
           title: `${baseTitle} (theo ngày)`,
@@ -266,10 +216,10 @@ export default function BecomePartnerClient() {
     }
 
     toast.success('Đã kích hoạt Partner!');
-
-    // 3) Go to Partner dashboard
     window.location.href = '/partner-dashboard';
   };
+
+  const PRICE_PRESETS = [300000, 500000, 700000, 1000000];
 
   if (isAlreadyPartner) {
     return (
@@ -287,7 +237,7 @@ export default function BecomePartnerClient() {
               <div className="mt-3 flex flex-wrap gap-2">
                 <Link href="/partner-dashboard">
                   <button className="px-4 py-2 bg-green-600 text-white rounded-xl font-bold hover:bg-green-700 transition">
-                    Đi tới Partner Dashboard
+                    Dashboard
                   </button>
                 </Link>
                 <Link href="/manage-services">
@@ -303,7 +253,6 @@ export default function BecomePartnerClient() {
     );
   }
 
-  // Not ready state
   if (!isProfileReady) {
     return (
       <div className="max-w-2xl mx-auto space-y-6 p-4">
@@ -313,41 +262,22 @@ export default function BecomePartnerClient() {
           </Link>
           <h1 className="text-2xl font-bold text-gray-900">Trở thành Partner</h1>
         </div>
-
         <div className="bg-rose-50 border border-rose-200 rounded-3xl p-6">
-          <div className="flex items-start gap-3">
-            <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center border border-rose-100">
-              <AlertTriangle className="w-6 h-6 text-rose-600" />
-            </div>
-            <div className="flex-1">
-              <h2 className="text-lg font-bold text-gray-900">Cần hoàn thiện hồ sơ trước</h2>
-              <div className="mt-4 space-y-3">
-                {profileBlockReasons.map((r) => (
-                  <div key={r.key} className="bg-white rounded-2xl border border-rose-100 p-4">
-                    <div className="flex items-start gap-3">
-                      <div className="w-10 h-10 bg-rose-50 rounded-xl flex items-center justify-center">
-                        {r.key === 'bio' ? (
-                          <FileText className="w-5 h-5 text-rose-600" />
-                        ) : (
-                          <ImageIcon className="w-5 h-5 text-rose-600" />
-                        )}
-                      </div>
-                      <div>
-                        <p className="font-bold text-gray-900">{r.title}</p>
-                        <p className="text-sm text-gray-600 mt-1">{r.detail}</p>
-                      </div>
-                    </div>
-                  </div>
-                ))}
+          <h2 className="text-lg font-bold text-gray-900">Cần hoàn thiện hồ sơ trước</h2>
+          <div className="mt-4 space-y-3">
+            {profileBlockReasons.map((r) => (
+              <div key={r.key} className="bg-white rounded-2xl border border-rose-100 p-4">
+                <p className="font-bold text-gray-900">{r.title}</p>
+                <p className="text-sm text-gray-600 mt-1">{r.detail}</p>
               </div>
-              <div className="mt-5 flex gap-3">
-                <Link href="/profile/edit" className="flex-1">
-                  <button className="w-full py-3 bg-gradient-primary text-white rounded-xl font-bold shadow-primary">
-                    Cập nhật ngay
-                  </button>
-                </Link>
-              </div>
-            </div>
+            ))}
+          </div>
+          <div className="mt-5">
+            <Link href="/profile/edit" className="flex-1">
+              <button className="w-full py-3 bg-gradient-primary text-white rounded-xl font-bold shadow-primary">
+                Cập nhật ngay
+              </button>
+            </Link>
           </div>
         </div>
       </div>
@@ -366,18 +296,33 @@ export default function BecomePartnerClient() {
         </button>
         <div className="flex-1">
           <h1 className="text-2xl font-bold text-gray-900">
-            {step === 1 ? 'Chọn hoạt động' : 'Thiết lập gói giá'}
+            {step === 1 ? 'Chọn dịch vụ' : 'Thiết lập giá'}
           </h1>
           <p className="text-sm text-gray-500">
-            {step === 1
-              ? 'Bước 1: Chọn những gì bạn muốn cung cấp'
-              : 'Bước 2: Bạn có thể bật cả theo buổi và theo ngày cho mỗi hoạt động'}
+            {step === 1 ? 'Chọn sở trường của bạn' : 'Cấu hình giá cho từng dịch vụ'}
           </p>
         </div>
-        <div className="text-xs font-bold bg-gray-100 px-3 py-1 rounded-full text-gray-500">
-          {step}/2
-        </div>
+        <div className="text-xs font-bold bg-gray-100 px-3 py-1 rounded-full text-gray-500">{step}/2</div>
       </div>
+
+      {/* PRO BANNER */}
+      {!isPro && step === 2 && (
+        <div className="bg-gradient-to-r from-gray-800 to-gray-900 text-white rounded-2xl p-4 flex items-start gap-3 shadow-lg">
+          <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center backdrop-blur-sm">
+            <Lock className="w-5 h-5 text-white" />
+          </div>
+          <div>
+            <p className="font-bold text-sm">Chế độ Partner tiêu chuẩn</p>
+            <p className="text-xs text-white/80 mt-1">
+              Hoàn thành <b>5 đơn hàng</b> + <b>đánh giá 4.8★</b> để mở khóa:
+            </p>
+            <div className="flex gap-2 mt-2">
+              <span className="text-[10px] font-bold bg-white/10 px-2 py-1 rounded">✅ Booking theo ngày</span>
+              <span className="text-[10px] font-bold bg-white/10 px-2 py-1 rounded">✅ Tự nhập giá</span>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* STEP 1: SELECT ACTIVITIES */}
       {step === 1 && (
@@ -386,7 +331,6 @@ export default function BecomePartnerClient() {
             {ACTIVITY_OPTIONS.map((opt) => {
               const isSelected = selectedActivities.includes(opt.value);
               const Icon = opt.Icon;
-
               return (
                 <button
                   key={opt.value}
@@ -400,52 +344,27 @@ export default function BecomePartnerClient() {
                     <div className={cn('w-10 h-10 rounded-xl flex items-center justify-center', isSelected ? 'bg-white text-primary-600' : 'bg-gray-50 text-gray-500')}>
                       <Icon className="w-5 h-5" />
                     </div>
-                    {isSelected && (
-                      <div className="w-6 h-6 bg-primary-500 rounded-full flex items-center justify-center">
-                        <Check className="w-3 h-3 text-white stroke-[3px]" />
-                      </div>
-                    )}
+                    {isSelected && <div className="w-5 h-5 bg-primary-500 rounded-full flex items-center justify-center"><Check className="w-3 h-3 text-white" /></div>}
                   </div>
-                  <p className={cn('font-bold text-lg', isSelected ? 'text-primary-900' : 'text-gray-700')}>
-                    {opt.label}
-                  </p>
-                  <p className="text-xs text-gray-500 mt-1">Có thể bật theo buổi / theo ngày</p>
+                  <p className="font-bold text-sm">{opt.label}</p>
                 </button>
               );
             })}
           </div>
-
-          <div className="fixed bottom-0 left-0 right-0 p-4 bg-white border-t border-gray-100 flex justify-center md:static md:bg-transparent md:border-0 md:p-0">
-            <button
-              onClick={() => setStep(2)}
-              disabled={selectedActivities.length === 0}
-              className={cn(
-                'w-full md:max-w-md py-4 rounded-2xl font-bold text-lg flex items-center justify-center gap-2 transition shadow-lg',
-                selectedActivities.length > 0 ? 'bg-gradient-primary text-white shadow-primary hover:opacity-95' : 'bg-gray-200 text-gray-400 cursor-not-allowed'
-              )}
-            >
-              Tiếp tục ({selectedActivities.length}) <ChevronRight className="w-5 h-5" />
-            </button>
-          </div>
+          <button
+            onClick={() => setStep(2)}
+            disabled={selectedActivities.length === 0}
+            className="w-full py-4 bg-gradient-primary text-white rounded-2xl font-bold shadow-primary disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            Tiếp tục
+          </button>
         </motion.div>
       )}
 
-      {/* STEP 2: CONFIGURE PRICE */}
+      {/* STEP 2: CONFIGURE */}
       {step === 2 && (
-        <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="space-y-6 pb-24">
-          <div className="bg-blue-50 p-4 rounded-2xl border border-blue-100 flex gap-3">
-            <div className="w-8 h-8 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center flex-shrink-0">
-              <DollarSign className="w-4 h-4" />
-            </div>
-            <div>
-              <p className="font-bold text-blue-900 text-sm">Bạn có thể bật 1 hoặc 2 gói</p>
-              <p className="text-xs text-blue-700 mt-1">
-                Ví dụ Tour guide: bật cả <b>theo buổi</b> và <b>theo ngày</b> nếu bạn muốn.
-              </p>
-            </div>
-          </div>
-
-          <div className="space-y-4">
+        <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="space-y-6 pb-20">
+          <div className="space-y-6">
             {selectedActivities.map((activity) => {
               const option = ACTIVITY_OPTIONS.find((o) => o.value === activity)!;
               const cfg = configs[activity];
@@ -453,143 +372,121 @@ export default function BecomePartnerClient() {
 
               return (
                 <div key={activity} className="bg-white rounded-2xl border border-gray-200 p-5 shadow-sm">
-                  <div className="flex items-center gap-3 mb-4 border-b border-gray-100 pb-3">
+                  <div className="flex items-center gap-3 mb-4 pb-3 border-b border-gray-100">
                     <div className="w-10 h-10 bg-gray-100 rounded-xl flex items-center justify-center text-gray-600">
                       <Icon className="w-5 h-5" />
                     </div>
-                    <div className="flex-1">
-                      <h3 className="font-bold text-gray-900 text-lg">{option.label}</h3>
-                      <p className="text-xs text-gray-500">Chọn gói & giá</p>
-                    </div>
-                    <button
-                      onClick={() => toggleActivity(activity)}
-                      className="p-2 hover:bg-red-50 text-gray-400 hover:text-red-500 rounded-lg transition"
-                      aria-label="Bỏ hoạt động"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
+                    <h3 className="font-bold text-gray-900 flex-1">{option.label}</h3>
                   </div>
 
-                  <div className="space-y-3">
-                    {/* Session option */}
-                    <div className="bg-gray-50 rounded-2xl p-4 border border-gray-100">
-                      <div className="flex items-center justify-between gap-3">
+                  <div className="space-y-4">
+                    {/* Session Option */}
+                    <div className="bg-gray-50 rounded-xl p-3 border border-gray-100">
+                      <div className="flex items-center justify-between mb-3">
                         <div className="flex items-center gap-2">
-                          <div className="w-9 h-9 bg-white rounded-xl border border-gray-200 flex items-center justify-center text-gray-700">
-                            <Clock className="w-4 h-4" />
-                          </div>
-                          <div>
-                            <p className="font-bold text-gray-900 text-sm">Theo buổi</p>
-                            <p className="text-xs text-gray-500">Một buổi (3h)</p>
-                          </div>
+                          <Clock className="w-4 h-4 text-gray-500" />
+                          <span className="text-sm font-bold text-gray-700">Theo buổi (3h)</span>
                         </div>
-
                         <button
-                          type="button"
                           onClick={() => updateConfig(activity, 'sessionEnabled', !cfg.sessionEnabled)}
                           className={cn(
-                            'px-3 py-1.5 rounded-full text-xs font-black border transition',
-                            cfg.sessionEnabled
-                              ? 'bg-green-50 text-green-700 border-green-200'
-                              : 'bg-white text-gray-600 border-gray-200'
+                            'px-3 py-1 rounded-lg text-xs font-bold transition-colors',
+                            cfg.sessionEnabled ? 'bg-green-100 text-green-700' : 'bg-gray-200 text-gray-500'
                           )}
                         >
-                          {cfg.sessionEnabled ? 'Đang bật' : 'Tắt'}
+                          {cfg.sessionEnabled ? 'Bật' : 'Tắt'}
                         </button>
                       </div>
 
                       {cfg.sessionEnabled && (
-                        <div className="mt-3">
-                          <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">
-                            Giá theo buổi (VNĐ)
-                          </label>
-                          <div className="relative">
-                            <input
-                              type="number"
-                              value={cfg.sessionPrice}
-                              onChange={(e) => updateConfig(activity, 'sessionPrice', Number(e.target.value))}
-                              className="w-full pl-4 pr-12 py-2.5 border border-gray-200 rounded-xl font-bold text-gray-900 focus:ring-2 focus:ring-primary-500 outline-none bg-white"
-                              step={50000}
-                              min={0}
-                            />
-                            <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm text-gray-400 font-medium">đ</span>
-                          </div>
+                        <div>
+                          {isPro ? (
+                            <div className="relative">
+                              <input
+                                type="number"
+                                value={cfg.sessionPrice}
+                                onChange={(e) => updateConfig(activity, 'sessionPrice', Number(e.target.value))}
+                                className="w-full pl-3 pr-10 py-2 rounded-lg border border-gray-200 text-sm font-bold"
+                              />
+                              <span className="absolute right-3 top-2 text-xs text-gray-400">đ</span>
+                            </div>
+                          ) : (
+                            <div className="grid grid-cols-2 gap-2">
+                              {PRICE_PRESETS.map((price) => (
+                                <button
+                                  key={price}
+                                  onClick={() => updateConfig(activity, 'sessionPrice', price)}
+                                  className={cn(
+                                    'py-2 rounded-lg border text-xs font-bold transition-colors',
+                                    cfg.sessionPrice === price
+                                      ? 'border-primary-500 bg-primary-50 text-primary-700'
+                                      : 'border-gray-200 bg-white text-gray-600'
+                                  )}
+                                >
+                                  {formatCurrency(price)}
+                                </button>
+                              ))}
+                            </div>
+                          )}
                         </div>
                       )}
                     </div>
 
-                    {/* Day option */}
-                    <div className="bg-gray-50 rounded-2xl p-4 border border-gray-100">
-                      <div className="flex items-center justify-between gap-3">
+                    {/* Day Option (Locked for non-pro) */}
+                    <div className={cn(
+                      "rounded-xl p-3 border",
+                      isPro ? "bg-gray-50 border-gray-100" : "bg-gray-100 border-gray-200 opacity-80"
+                    )}>
+                      <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
-                          <div className="w-9 h-9 bg-white rounded-xl border border-gray-200 flex items-center justify-center text-gray-700">
-                            <Sparkles className="w-4 h-4" />
-                          </div>
-                          <div>
-                            <p className="font-bold text-gray-900 text-sm">Theo ngày</p>
-                            <p className="text-xs text-gray-500">Một ngày</p>
-                          </div>
+                          <Sparkles className="w-4 h-4 text-gray-500" />
+                          <span className="text-sm font-bold text-gray-700">Theo ngày</span>
+                          {!isPro && <Lock className="w-3 h-3 text-gray-400" />}
                         </div>
-
-                        <button
-                          type="button"
-                          onClick={() => updateConfig(activity, 'dayEnabled', !cfg.dayEnabled)}
-                          className={cn(
-                            'px-3 py-1.5 rounded-full text-xs font-black border transition',
-                            cfg.dayEnabled
-                              ? 'bg-green-50 text-green-700 border-green-200'
-                              : 'bg-white text-gray-600 border-gray-200'
-                          )}
-                        >
-                          {cfg.dayEnabled ? 'Đang bật' : 'Tắt'}
-                        </button>
+                        
+                        {isPro ? (
+                          <button
+                            onClick={() => updateConfig(activity, 'dayEnabled', !cfg.dayEnabled)}
+                            className={cn(
+                              'px-3 py-1 rounded-lg text-xs font-bold transition-colors',
+                              cfg.dayEnabled ? 'bg-green-100 text-green-700' : 'bg-gray-200 text-gray-500'
+                            )}
+                          >
+                            {cfg.dayEnabled ? 'Bật' : 'Tắt'}
+                          </button>
+                        ) : (
+                          <span className="text-[10px] font-bold bg-gray-200 text-gray-500 px-2 py-1 rounded">
+                            Khóa
+                          </span>
+                        )}
                       </div>
 
-                      {cfg.dayEnabled && (
-                        <div className="mt-3">
-                          <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">
-                            Giá theo ngày (VNĐ)
-                          </label>
-                          <div className="relative">
-                            <input
+                      {isPro && cfg.dayEnabled && (
+                        <div className="mt-3 relative">
+                           <input
                               type="number"
                               value={cfg.dayPrice}
                               onChange={(e) => updateConfig(activity, 'dayPrice', Number(e.target.value))}
-                              className="w-full pl-4 pr-12 py-2.5 border border-gray-200 rounded-xl font-bold text-gray-900 focus:ring-2 focus:ring-primary-500 outline-none bg-white"
-                              step={50000}
-                              min={0}
+                              className="w-full pl-3 pr-10 py-2 rounded-lg border border-gray-200 text-sm font-bold"
                             />
-                            <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm text-gray-400 font-medium">đ</span>
-                          </div>
+                            <span className="absolute right-3 top-2 text-xs text-gray-400">đ</span>
                         </div>
                       )}
                     </div>
-
-                    {/* Validation note */}
-                    {!cfg.sessionEnabled && !cfg.dayEnabled && (
-                      <div className="text-xs font-bold text-rose-600 bg-rose-50 border border-rose-100 rounded-xl p-3">
-                        Cần bật ít nhất 1 gói (theo buổi hoặc theo ngày) cho hoạt động này.
-                      </div>
-                    )}
                   </div>
                 </div>
               );
             })}
           </div>
 
-          <div className="fixed bottom-0 left-0 right-0 p-4 bg-white border-t border-gray-100 md:static md:bg-transparent md:border-0 md:p-0">
-            <button
-              onClick={handleCreate}
-              disabled={isSubmitting}
-              className={cn(
-                'w-full py-4 rounded-2xl font-bold text-lg shadow-primary hover:opacity-90 flex items-center justify-center gap-2',
-                isSubmitting ? 'bg-gray-200 text-gray-500' : 'bg-gradient-primary text-white'
-              )}
-            >
-              <Briefcase className="w-5 h-5" />
-              {isSubmitting ? 'Đang kích hoạt...' : 'Hoàn tất & Bật Partner'}
-            </button>
-          </div>
+          <button
+            onClick={handleCreate}
+            disabled={isSubmitting}
+            className="w-full py-4 bg-gradient-primary text-white rounded-2xl font-bold shadow-primary flex items-center justify-center gap-2 disabled:opacity-70"
+          >
+            {isSubmitting ? <Loader2 className="w-5 h-5 animate-spin" /> : <Briefcase className="w-5 h-5" />}
+            {isSubmitting ? 'Đang kích hoạt...' : 'Hoàn tất & Bật Partner'}
+          </button>
         </motion.div>
       )}
     </div>

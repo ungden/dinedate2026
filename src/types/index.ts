@@ -155,6 +155,7 @@ export interface User {
   onlineStatus?: UserOnlineStatus;
   services?: ServiceOffering[];
   isServiceProvider?: boolean;
+  isPro?: boolean; // New field for Pro Partner status
   wallet: Wallet;
   vipStatus: VIPStatus;
   images?: string[];

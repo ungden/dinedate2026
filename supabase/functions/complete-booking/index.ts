@@ -93,9 +93,6 @@ serve(async (req: Request) => {
   }
 
   // C. User Confirms (Release Money)
-  // This happens if:
-  // 1. Status is 'completed_pending' AND User calls it.
-  // 2. OR Status is 'in_progress' AND User calls it (User can force finish).
   if (isBooker && (booking.status === 'completed_pending' || booking.status === 'in_progress')) {
       // 5. Calculate amounts
       const totalAmount = Number(booking.total_amount)
@@ -143,6 +140,42 @@ serve(async (req: Request) => {
         description: `Thu nhập từ dịch vụ: ${booking.activity}`,
         related_id: bookingId
       })
+
+      // === PRO PARTNER UPGRADE LOGIC ===
+      // Check criteria: 5 completed bookings + rating >= 4.8
+      
+      // Count completed bookings
+      const { count } = await admin
+        .from('bookings')
+        .select('*', { count: 'exact', head: true })
+        .eq('partner_id', partnerId)
+        .eq('status', 'completed');
+      
+      const completedCount = (count || 0) + 1; // +1 for current one
+
+      // Get rating
+      const { data: partnerUser } = await admin
+        .from('users')
+        .select('average_rating, is_pro')
+        .eq('id', partnerId)
+        .single();
+      
+      const rating = Number(partnerUser?.average_rating || 5.0);
+      const isAlreadyPro = !!partnerUser?.is_pro;
+
+      if (!isAlreadyPro && completedCount >= 5 && rating >= 4.8) {
+          // UPGRADE!
+          await admin.from('users').update({ is_pro: true }).eq('id', partnerId);
+          
+          // Notify Partner
+          await admin.from('notifications').insert({
+              user_id: partnerId,
+              type: 'system',
+              title: '🌟 Chúc mừng! Bạn đã lên Pro Partner',
+              message: 'Bạn đã hoàn thành 5 đơn xuất sắc. Tính năng Tự đặt giá & Booking theo ngày đã được mở khóa.',
+              read: false
+          });
+      }
 
       return new Response(JSON.stringify({ success: true, status: 'completed', message: 'Payment released' }), {
         status: 200, 

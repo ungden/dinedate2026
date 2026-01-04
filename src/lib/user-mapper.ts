@@ -45,6 +45,7 @@ export function mapDbUserToUser(row: DbUserRow): User {
     },
     services: services, // loaded via join or passed in
     isServiceProvider: row.role === 'partner' || !!row.is_partner_verified,
+    isPro: !!row.is_pro, // New field mapped
     role: row.role ?? 'user', 
     wallet: {
       balance: Number(row.wallet_balance ?? 0),

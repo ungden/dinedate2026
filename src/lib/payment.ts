@@ -38,19 +38,17 @@ function toError(err: unknown, fallback = 'Đã xảy ra lỗi') {
   return new Error(String(msg));
 }
 
-// Generate QR Code URL using VietQR API
+// Generate QR Code URL using SePay QR API (More reliable for SePay integration)
 export function generateVietQRUrl(config: PaymentConfig, amount: number, transferContent: string): string {
-  // Use BIN or Bank Name (e.g., 970422 or MB)
-  const bankId = config.bank_bin || config.bank_name || "MB";
+  // SePay QR prefers bank code (e.g., 'MB', 'VCB') over BIN
+  const bankCode = config.bank_name || "MB"; 
   const accountNo = config.bank_account;
-  
-  // Template 'compact2' is clean and standard
-  const template = "compact2";
   
   const content = encodeURIComponent(transferContent);
   const accountName = encodeURIComponent(config.bank_holder || "");
   
-  return `https://img.vietqr.io/image/${bankId}-${accountNo}-${template}.png?amount=${amount}&addInfo=${content}&accountName=${accountName}`;
+  // Using SePay's QR generator which mirrors tien-nhan-chi-lo-new implementation
+  return `https://qr.sepay.vn/img?acc=${encodeURIComponent(accountNo)}&bank=${encodeURIComponent(bankCode)}&amount=${amount}&des=${content}`;
 }
 
 export function getBankDisplayName(config: PaymentConfig): string {

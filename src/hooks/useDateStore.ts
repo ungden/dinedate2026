@@ -146,9 +146,42 @@ export const useDateStore = create<DateStore>()(
 
       setCurrentUserFromAuth: (user) => {
         set((state) => {
-          // keep existing local-only fields from Zustand user if needed, but prioritize Auth user
+          // Deep-merge wallet + vipStatus so numbers from DB overwrite persisted mock values.
+          const nextCurrentUser: User = {
+            ...state.currentUser,
+            ...user,
+            wallet: {
+              ...state.currentUser.wallet,
+              ...user.wallet,
+            },
+            vipStatus: {
+              ...state.currentUser.vipStatus,
+              ...user.vipStatus,
+            },
+            // Keep images if Auth user has it, else fallback to existing
+            images: user.images ?? state.currentUser.images,
+          };
+
+          const nextUsers = state.users.map((u) => {
+            if (u.id !== user.id) return u;
+            return {
+              ...u,
+              ...user,
+              wallet: {
+                ...u.wallet,
+                ...user.wallet,
+              },
+              vipStatus: {
+                ...u.vipStatus,
+                ...user.vipStatus,
+              },
+              images: user.images ?? u.images,
+            };
+          });
+
           return {
-            currentUser: { ...state.currentUser, ...user },
+            currentUser: nextCurrentUser,
+            users: nextUsers,
           };
         });
       },

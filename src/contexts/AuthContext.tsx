@@ -6,18 +6,20 @@ import {
   useEffect,
   useState,
   ReactNode,
+  useRef,
 } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { supabase } from '@/integrations/supabase/client';
 import { User } from '@/types';
 import { mapDbUserToUser } from '@/lib/user-mapper';
 import { mapUserUpdatesToDb } from '@/lib/db-users';
+import toast from 'react-hot-toast';
 
 interface AuthContextType {
   user: User | null;
   isLoading: boolean;
   isAuthenticated: boolean;
-  isAdmin: boolean; // Added
+  isAdmin: boolean;
   login: (email: string, password: string) => Promise<{ error?: string }>;
   register: (
     email: string,
@@ -31,14 +33,22 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-const publicRoutes = ['/login', '/register', '/', '/discover'];
+const publicRoutes = ['/login', '/register', '/', '/discover', '/search', '/about', '/safety'];
 const authRoutes = ['/login', '/register'];
 
 async function fetchUserProfile(userId: string): Promise<User | null> {
-  const { data, error } = await supabase.from('users').select('*').eq('id', userId).single();
-  if (error) return null;
-  if (!data) return null;
-  return mapDbUserToUser(data as any);
+  try {
+    const { data, error } = await supabase.from('users').select('*').eq('id', userId).single();
+    if (error) {
+      console.error('Error fetching profile:', error);
+      return null;
+    }
+    if (!data) return null;
+    return mapDbUserToUser(data as any);
+  } catch (error) {
+    console.error('Exception fetching profile:', error);
+    return null;
+  }
 }
 
 function defaultAvatarUrl() {
@@ -52,31 +62,36 @@ async function ensureUsersRow(params: {
 }) {
   const { id, name } = params;
 
-  const { data: existing, error: existErr } = await supabase
-    .from('users')
-    .select('id')
-    .eq('id', id)
-    .maybeSingle();
+  try {
+    const { data: existing, error: existErr } = await supabase
+      .from('users')
+      .select('id')
+      .eq('id', id)
+      .maybeSingle();
 
-  if (existErr) throw existErr;
-  if (existing?.id) return;
+    if (existErr) throw existErr;
+    if (existing?.id) return;
 
-  const payload: any = {
-    id,
-    name: name || 'Người dùng mới',
-    phone: null,
-    avatar: defaultAvatarUrl(),
-    bio: '',
-    location: 'Hà Nội',
-    role: 'user',
-    is_online: true,
-    last_seen: new Date().toISOString(),
-    wallet_balance: 0,
-    wallet_escrow: 0,
-  };
+    const payload: any = {
+      id,
+      name: name || 'Người dùng mới',
+      phone: null,
+      avatar: defaultAvatarUrl(),
+      bio: '',
+      location: 'Hà Nội',
+      role: 'user',
+      is_online: true,
+      last_seen: new Date().toISOString(),
+      wallet_balance: 0,
+      wallet_escrow: 0,
+    };
 
-  const { error: insertErr } = await supabase.from('users').insert(payload);
-  if (insertErr) throw insertErr;
+    const { error: insertErr } = await supabase.from('users').insert(payload);
+    if (insertErr) throw insertErr;
+  } catch (error) {
+    console.error('Error ensuring user row:', error);
+    // Don't throw here to avoid blocking init, profile fetch will likely fail/return null anyway if this failed critically
+  }
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -84,55 +99,74 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
   const router = useRouter();
   const pathname = usePathname();
+  const mountedRef = useRef(false);
 
   useEffect(() => {
-    let mounted = true;
+    mountedRef.current = true;
 
     const init = async () => {
-      const { data } = await supabase.auth.getSession();
-      const session = data.session;
+      try {
+        const { data: { session }, error } = await supabase.auth.getSession();
+        
+        if (error) throw error;
 
-      if (!mounted) return;
-
-      if (session?.user?.id) {
-        // Ensure profile exists first
-        await ensureUsersRow({
+        if (session?.user?.id) {
+          await ensureUsersRow({
             id: session.user.id,
             email: session.user.email,
             name: (session.user.user_metadata as any)?.name ?? null,
-        }).catch(console.error);
+          });
 
-        const profile = await fetchUserProfile(session.user.id);
-        setUser(profile);
-      } else {
-        setUser(null);
+          const profile = await fetchUserProfile(session.user.id);
+          if (mountedRef.current) {
+            setUser(profile);
+          }
+        } else {
+          if (mountedRef.current) {
+            setUser(null);
+          }
+        }
+      } catch (error) {
+        console.error('Auth initialization error:', error);
+        if (mountedRef.current) setUser(null);
+      } finally {
+        if (mountedRef.current) setIsLoading(false);
       }
-
-      setIsLoading(false);
     };
 
     init();
 
     const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
-      if (!mounted) return;
-
-      if (event === 'SIGNED_IN' && session?.user?.id) {
-        const profile = await fetchUserProfile(session.user.id);
-        setUser(profile);
-      }
+      if (!mountedRef.current) return;
 
       if (event === 'SIGNED_OUT') {
         setUser(null);
-      }
-
-      if (event === 'USER_UPDATED' && session?.user?.id) {
-        const profile = await fetchUserProfile(session.user.id);
-        setUser(profile);
+        setIsLoading(false);
+        // Only redirect if on a protected route
+        if (!publicRoutes.includes(location.pathname) && !authRoutes.includes(location.pathname)) {
+            router.push('/login');
+        }
+      } else if (event === 'SIGNED_IN' || event === 'USER_UPDATED') {
+        if (session?.user?.id) {
+          // If we already have a user and IDs match, don't show loading
+          // Just background update
+          if (!user || user.id !== session.user.id) {
+             // If different user (login), show loading or just fetch
+             // We can keep isLoading true if it was true, but usually here it's already false or we want to update UI
+          }
+          
+          const profile = await fetchUserProfile(session.user.id);
+          if (mountedRef.current) setUser(profile);
+        }
+        if (mountedRef.current) setIsLoading(false);
+      } else if (event === 'TOKEN_REFRESHED') {
+        // Do nothing on token refresh to avoid UI flicker
+        // The session is updated automatically by Supabase client
       }
     });
 
     return () => {
-      mounted = false;
+      mountedRef.current = false;
       authListener.subscription.unsubscribe();
     };
   }, []);
@@ -155,40 +189,45 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (user && isAuthRoute) {
       router.push('/');
     } else if (!user && !isPublicRoute && !isAuthRoute) {
+      // Save current path to redirect back after login? 
+      // For now just go to login
       router.push('/login');
-    }
-
-    // Basic client-side admin check (security is enforced by RLS/Layout)
-    if (isAdminRoute && user && !user.isServiceProvider && (user as any).role !== 'admin') {
-       // Optional: Redirect non-admins out, but AdminGate handles this better
     }
   }, [user, isLoading, pathname, router]);
 
   const login = async (email: string, password: string) => {
-    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-    if (error) return { error: 'Email hoặc mật khẩu không chính xác' };
-    if (data.user?.id) {
-      const profile = await fetchUserProfile(data.user.id);
-      setUser(profile);
-      router.push('/');
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+      if (error) return { error: 'Email hoặc mật khẩu không chính xác' };
+      if (data.user?.id) {
+        const profile = await fetchUserProfile(data.user.id);
+        setUser(profile);
+        router.push('/');
+      }
+      return {};
+    } catch (e) {
+      return { error: 'Đã xảy ra lỗi khi đăng nhập' };
     }
-    return {};
   };
 
   const register = async (email: string, password: string, name: string) => {
-    const { data, error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: { data: { name } },
-    });
-    if (error) return { error: error.message };
-    if (data.user?.id) {
-      await ensureUsersRow({ id: data.user.id, email: data.user.email, name });
-      const profile = await fetchUserProfile(data.user.id);
-      setUser(profile);
-      router.push('/');
+    try {
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: { data: { name } },
+      });
+      if (error) return { error: error.message };
+      if (data.user?.id) {
+        await ensureUsersRow({ id: data.user.id, email: data.user.email, name });
+        const profile = await fetchUserProfile(data.user.id);
+        setUser(profile);
+        router.push('/');
+      }
+      return {};
+    } catch (e) {
+      return { error: 'Đã xảy ra lỗi khi đăng ký' };
     }
-    return {};
   };
 
   const signInWithGoogle = async () => {
@@ -208,16 +247,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const updateUser = async (updates: Partial<User>) => {
     if (!user?.id) return;
-    const dbUpdates = mapUserUpdatesToDb(updates);
-    const { error } = await supabase.from('users').update(dbUpdates).eq('id', user.id);
-    if (error) throw error;
-    const refreshed = await fetchUserProfile(user.id);
-    setUser(refreshed);
+    try {
+        const dbUpdates = mapUserUpdatesToDb(updates);
+        const { error } = await supabase.from('users').update(dbUpdates).eq('id', user.id);
+        if (error) throw error;
+        const refreshed = await fetchUserProfile(user.id);
+        setUser(refreshed);
+    } catch (error: any) {
+        console.error('Update user error:', error);
+        toast.error('Cập nhật thất bại: ' + (error.message || 'Lỗi không xác định'));
+        throw error;
+    }
   };
 
-  // Check role from profile (mapped from DB)
-  // Note: user-mapper.ts needs to map 'role' correctly. 
-  // Assuming mapDbUserToUser maps row.role to user.role (needs verification in types/index.ts but typically extra props are passed)
   const isAdmin = (user as any)?.role === 'admin';
 
   return (

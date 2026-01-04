@@ -4,7 +4,7 @@ import Providers from '@/components/Providers';
 import ClientLayout from '@/components/ClientLayout';
 
 export const metadata: Metadata = {
-  metadataBase: new URL('https://dinedate.vn'),
+  metadataBase: new URL('https://www.dinedate.vn'),
   title: 'DineDate - Hẹn hò và Gặp gỡ',
   description: 'Ứng dụng hẹn hò và booking dịch vụ đồng hành',
   keywords: ['hẹn hò', 'dating', 'booking', 'gặp gỡ', 'dinedate'],
@@ -14,7 +14,7 @@ export const metadata: Metadata = {
     title: 'DineDate - Hẹn hò và Gặp gỡ',
     description: 'Ứng dụng hẹn hò và booking dịch vụ đồng hành',
     siteName: 'DineDate',
-    url: 'https://dinedate.vn',
+    url: 'https://www.dinedate.vn',
     images: [
       {
         url: '/opengraph-image.png',

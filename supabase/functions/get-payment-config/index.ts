@@ -1,7 +1,7 @@
 // @ts-nocheck
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 
-const allowedOrigins = (Deno.env.get('ALLOWED_ORIGINS') || 'http://localhost:3000').split(',');
+const allowedOrigins = (Deno.env.get('ALLOWED_ORIGINS') || 'https://www.dinedate.vn').split(',');
 
 function getCorsHeaders(req: Request) {
   const origin = req.headers.get('Origin') || '';

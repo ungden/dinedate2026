@@ -23,6 +23,7 @@ import {
   PaymentConfig,
 } from '@/lib/payment';
 import { formatCurrency, cn } from '@/lib/utils';
+import { QRCodeCanvas } from 'qrcode.react';
 
 interface TopupModalProps {
   isOpen: boolean;
@@ -57,7 +58,9 @@ export default function TopupModal({
   const [localRequestId, setLocalRequestId] = useState<string | null>(requestId || null);
   const [localCode, setLocalCode] = useState<string | null>(transferCode || null);
 
-  const [paymentStatus, setPaymentStatus] = useState<'pending' | 'confirmed' | 'cancelled' | 'expired' | null>('pending');
+  const [paymentStatus, setPaymentStatus] = useState<
+    'pending' | 'confirmed' | 'cancelled' | 'expired' | null
+  >('pending');
   const [cancelling, setCancelling] = useState(false);
   const [checking, setChecking] = useState(false);
   const [copied, setCopied] = useState<string | null>(null);
@@ -105,7 +108,9 @@ export default function TopupModal({
     if (error) {
       const msg = (error.message || '').toLowerCase();
       if (msg.includes('row-level security')) {
-        setFatalError('Không thể tạo yêu cầu nạp tiền do thiếu quyền (RLS). Vui lòng kiểm tra policy cho bảng topup_requests.');
+        setFatalError(
+          'Không thể tạo yêu cầu nạp tiền do thiếu quyền (RLS). Vui lòng kiểm tra policy cho bảng topup_requests.'
+        );
       } else {
         setFatalError(`Không thể tạo yêu cầu nạp tiền: ${error.message}`);
       }
@@ -339,9 +344,11 @@ export default function TopupModal({
             <>
               {/* QR */}
               <div className="flex flex-col items-center mb-6">
-                <div className="bg-white p-2 rounded-2xl border border-gray-200 shadow-sm">
+                <div className="bg-white p-3 rounded-2xl border border-gray-200 shadow-sm">
                   {qrUrl ? (
-                    <img src={qrUrl} alt="QR Code" className="w-52 h-52 object-contain" />
+                    <div className="w-52 h-52 flex items-center justify-center">
+                      <QRCodeCanvas value={qrUrl} size={208} level="M" includeMargin />
+                    </div>
                   ) : (
                     <div className="w-52 h-52 flex items-center justify-center text-gray-400">
                       Không tạo được QR
@@ -349,7 +356,18 @@ export default function TopupModal({
                   )}
                 </div>
 
-                <div className="mt-4 inline-flex items-center gap-2 text-amber-700 bg-amber-50 px-3 py-1.5 rounded-full text-sm font-bold">
+                {/* Fallback link */}
+                {qrUrl && (
+                  <button
+                    type="button"
+                    onClick={() => window.open(qrUrl, '_blank', 'noopener,noreferrer')}
+                    className="mt-3 text-xs font-bold text-primary-600 hover:underline"
+                  >
+                    Mở QR dạng ảnh (fallback)
+                  </button>
+                )}
+
+                <div className="mt-4 inline-flex items-center gap-2 text-amber-700 bg-amber-50 px-3 py-1.5 rounded-full text-sm font-bold border border-amber-100">
                   <Clock className="w-4 h-4" />
                   <span>Đang chờ thanh toán...</span>
                 </div>

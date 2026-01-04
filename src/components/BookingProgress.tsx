@@ -15,7 +15,8 @@ import {
     UserCheck,
     Shield,
     Info,
-    ShieldCheck
+    ShieldCheck,
+    EyeOff
 } from 'lucide-react';
 import { ServiceBooking } from '@/types';
 import { formatCurrency, cn, getActivityLabel } from '@/lib/utils';
@@ -82,7 +83,7 @@ export default function BookingProgress({
     };
 
     const checkReviewStatus = async () => {
-        if (!isUser || booking.status !== 'completed') return;
+        if (booking.status !== 'completed') return;
         
         const { data } = await supabase
             .from('reviews')
@@ -198,12 +199,15 @@ export default function BookingProgress({
         }
         setIsReviewing(true);
         try {
+            const revieweeId = isUser ? booking.providerId : booking.bookerId;
+
             const { error } = await supabase.from('reviews').insert({
                 booking_id: booking.id,
                 reviewer_id: user?.id,
-                reviewee_id: booking.providerId,
+                reviewee_id: revieweeId,
                 rating: rating,
-                comment: comment.trim()
+                comment: comment.trim(),
+                is_hidden: isPartner // If partner reviews, hide it from public (admin control/internal score)
             });
 
             if (error) throw error;
@@ -235,6 +239,7 @@ export default function BookingProgress({
 
     return (
         <div className={cn('bg-white rounded-2xl border border-gray-100 overflow-hidden shadow-sm', className)}>
+            {/* Progress Bar */}
             <div className="px-6 pt-6">
                 <div className="flex items-center justify-between mb-4 relative">
                     <div className="absolute top-5 left-0 right-0 h-1 bg-gray-100 -z-0 mx-4" />
@@ -262,6 +267,7 @@ export default function BookingProgress({
                 </div>
             </div>
 
+            {/* Info Section */}
             <div className="px-6 py-4 bg-gray-50 border-y border-gray-100">
                 <div className="flex items-center gap-4">
                     <div className="relative">
@@ -294,6 +300,7 @@ export default function BookingProgress({
             </div>
 
             <div className="p-6">
+                {/* Stages Logic (Accepted, Arrived, In Progress, Completed Pending) - SAME AS BEFORE */}
                 {stage === 'accepted' && (
                     <div className="space-y-4">
                         <div className="bg-blue-50 p-4 rounded-xl border border-blue-100 flex gap-3 items-start">
@@ -421,6 +428,7 @@ export default function BookingProgress({
                     </div>
                 )}
 
+                {/* 5. State: COMPLETED & PAID */}
                 {stage === 'completed' && (
                     <div className="space-y-6">
                         <div className="text-center">
@@ -440,8 +448,8 @@ export default function BookingProgress({
                             )}
                         </div>
 
-                        {/* Review Form for User */}
-                        {isUser && !hasReviewed && (
+                        {/* Review Form (For BOTH User and Partner) */}
+                        {!hasReviewed && (
                             <motion.div 
                                 initial={{ opacity: 0, y: 10 }}
                                 animate={{ opacity: 1, y: 0 }}
@@ -449,11 +457,21 @@ export default function BookingProgress({
                             >
                                 <div className="flex items-center gap-2 mb-3">
                                     <Star className="w-5 h-5 text-yellow-600 fill-yellow-600" />
-                                    <h4 className="font-bold text-yellow-900">Đánh giá {booking.provider.name}</h4>
+                                    <h4 className="font-bold text-yellow-900">
+                                        Đánh giá {booking.providerId === user?.id ? 'khách hàng' : 'Partner'}
+                                    </h4>
                                 </div>
-                                <p className="text-xs text-yellow-800 mb-4">
-                                    Đánh giá của bạn giúp cộng đồng an toàn hơn và giúp Partner uy tín có thêm cơ hội.
-                                </p>
+                                
+                                {isPartner ? (
+                                    <p className="text-xs text-yellow-800 mb-4 flex items-start gap-1.5">
+                                        <EyeOff className="w-4 h-4 flex-shrink-0" />
+                                        <span>Đánh giá này sẽ <b>ẩn với khách hàng</b> và chỉ dùng để xây dựng điểm tín nhiệm hệ thống.</span>
+                                    </p>
+                                ) : (
+                                    <p className="text-xs text-yellow-800 mb-4">
+                                        Đánh giá của bạn giúp cộng đồng an toàn hơn và giúp Partner uy tín có thêm cơ hội.
+                                    </p>
+                                )}
                                 
                                 <div className="flex justify-center gap-2 mb-4">
                                     {[1, 2, 3, 4, 5].map((star) => (
@@ -475,7 +493,7 @@ export default function BookingProgress({
                                 <textarea
                                     value={comment}
                                     onChange={(e) => setComment(e.target.value)}
-                                    placeholder="Bạn thấy buổi hẹn thế nào? (Partner có nhiệt tình, đúng giờ không?)"
+                                    placeholder={isPartner ? "Khách hàng có lịch sự và đúng giờ không?" : "Bạn thấy buổi hẹn thế nào?"}
                                     className="w-full p-3 rounded-xl border border-yellow-200 bg-white text-sm focus:ring-2 focus:ring-yellow-400 outline-none mb-3 resize-none"
                                     rows={3}
                                 />
@@ -491,7 +509,7 @@ export default function BookingProgress({
                             </motion.div>
                         )}
 
-                        {isUser && hasReviewed && (
+                        {hasReviewed && (
                             <div className="p-4 bg-gray-50 rounded-xl text-center text-sm text-gray-500 italic">
                                 Cảm ơn bạn đã gửi đánh giá!
                             </div>

@@ -7,7 +7,8 @@ import {
   Users, 
   CreditCard, 
   Calendar, 
-  LogOut 
+  LogOut,
+  Star
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
@@ -16,6 +17,7 @@ const NAV_ITEMS = [
   { href: '/admin', label: 'Tổng quan', icon: LayoutDashboard },
   { href: '/admin/users', label: 'Người dùng', icon: Users },
   { href: '/admin/bookings', label: 'Bookings', icon: Calendar },
+  { href: '/admin/reviews', label: 'Đánh giá', icon: Star },
   { href: '/admin/payment', label: 'Cấu hình & Ví', icon: CreditCard },
 ];
 

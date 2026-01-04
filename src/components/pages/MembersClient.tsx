@@ -36,7 +36,7 @@ const LOCATIONS = [
   'Quận Bình Thạnh, TP.HCM',
 ];
 
-type SortMode = 'recommended' | 'available' | 'price_low' | 'rating_high';
+type SortMode = 'recommended' | 'distance' | 'available' | 'price_low' | 'rating_high';
 
 function getBaseHourly(u: User) {
   if (u.hourlyRate && u.hourlyRate > 0) return u.hourlyRate;
@@ -68,6 +68,51 @@ export default function MembersClient() {
     coords: gpsCoords
   });
 
+  const handleGetLocation = () => {
+    if (!navigator.geolocation) {
+      toast.error('Trình duyệt không hỗ trợ định vị');
+      return;
+    }
+
+    setIsLocating(true);
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setGpsCoords({
+          lat: pos.coords.latitude,
+          lng: pos.coords.longitude
+        });
+        setSelectedLocation('Gần tôi (50km)');
+        setSortMode('distance'); // Tự động chuyển sang sắp xếp gần nhất
+        setIsLocating(false);
+        setShowLocationPicker(false);
+      },
+      (err) => {
+        console.error(err);
+        toast.error('Không thể lấy vị trí. Hãy kiểm tra quyền truy cập.');
+        setIsLocating(false);
+        // Nếu lỗi, quay về mặc định
+        if (sortMode === 'distance') setSortMode('recommended');
+      }
+    );
+  };
+
+  const handleSortChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const mode = e.target.value as SortMode;
+    setSortMode(mode);
+
+    if (mode === 'distance') {
+      if (!gpsCoords) {
+        handleGetLocation();
+      }
+    }
+  };
+
+  const clearGps = () => {
+    setGpsCoords(null);
+    setSelectedLocation('Tất cả');
+    if (sortMode === 'distance') setSortMode('recommended');
+  };
+
   const partners = useMemo(() => {
     const filtered = dbPartners.filter((user) => {
       if (selectedActivities.length > 0) {
@@ -82,9 +127,11 @@ export default function MembersClient() {
     });
 
     const sorted = [...filtered].sort((a, b) => {
-      // If using GPS, prioritize distance
-      if (gpsCoords && a.distance !== undefined && b.distance !== undefined) {
-        return a.distance - b.distance;
+      if (sortMode === 'distance') {
+        // Ưu tiên khoảng cách nếu có dữ liệu distance
+        const distA = a.distance ?? 999999;
+        const distB = b.distance ?? 999999;
+        if (distA !== distB) return distA - distB;
       }
 
       if (sortMode === 'available') {
@@ -115,41 +162,10 @@ export default function MembersClient() {
     selectedActivities,
     availableNow,
     availableTonight,
-    sortMode,
-    gpsCoords
+    sortMode
   ]);
 
   const activeFiltersCount = selectedActivities.length + (availableNow ? 1 : 0) + (availableTonight ? 1 : 0);
-
-  const handleGetLocation = () => {
-    if (!navigator.geolocation) {
-      toast.error('Trình duyệt không hỗ trợ định vị');
-      return;
-    }
-
-    setIsLocating(true);
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        setGpsCoords({
-          lat: pos.coords.latitude,
-          lng: pos.coords.longitude
-        });
-        setSelectedLocation('Gần tôi (50km)');
-        setIsLocating(false);
-        setShowLocationPicker(false);
-      },
-      (err) => {
-        console.error(err);
-        toast.error('Không thể lấy vị trí. Hãy kiểm tra quyền truy cập.');
-        setIsLocating(false);
-      }
-    );
-  };
-
-  const clearGps = () => {
-    setGpsCoords(null);
-    setSelectedLocation('Tất cả');
-  };
 
   return (
     <div className="space-y-6 pb-24 min-h-screen">
@@ -261,7 +277,7 @@ export default function MembersClient() {
         <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-2 text-[12px] font-black text-rose-900/50 uppercase tracking-wider">
             <Sparkles className="w-4 h-4 text-rose-500" />
-            {gpsCoords ? 'Kết quả gần bạn' : 'Partner nổi bật'}
+            {sortMode === 'distance' ? 'Gần bạn nhất' : 'Partner nổi bật'}
           </div>
 
           <div className="flex items-center gap-2">
@@ -272,10 +288,11 @@ export default function MembersClient() {
 
             <select
               value={sortMode}
-              onChange={(e) => setSortMode(e.target.value as SortMode)}
+              onChange={handleSortChange}
               className="h-9 px-3 rounded-xl bg-white/50 border border-rose-100 text-rose-900 text-xs font-bold outline-none focus:border-rose-300"
             >
               <option value="recommended">Gợi ý</option>
+              <option value="distance">📍 Gần nhất</option>
               <option value="available">Rảnh ngay</option>
               <option value="price_low">Giá thấp</option>
               <option value="rating_high">Rating cao</option>
@@ -328,7 +345,6 @@ export default function MembersClient() {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: idx * 0.03 }}
               >
-                {/* Pass calculated distance from DB if available, else random for demo if not GPS */}
                 <PartnerCard partner={partner} distance={partner.distance ?? undefined} />
               </motion.div>
             ))

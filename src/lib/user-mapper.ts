@@ -28,6 +28,7 @@ export function mapDbUserToUser(row: DbUserRow): User {
     },
     services: undefined, // loaded separately from services table (DB-backed)
     isServiceProvider: row.role === 'partner' || !!row.is_partner_verified,
+    role: row.role ?? 'user', // Map role correctly
     wallet: {
       balance: Number(row.wallet_balance ?? 0),
       escrowBalance: Number(row.wallet_escrow ?? 0),

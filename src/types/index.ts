@@ -169,6 +169,7 @@ export interface User {
   phone?: string;
   email?: string;
   isBanned?: boolean;
+  role?: 'user' | 'partner' | 'admin'; // Added role
   occupation?: string;
   interests?: string[];
   rating?: number;

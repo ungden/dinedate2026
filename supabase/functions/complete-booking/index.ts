@@ -49,7 +49,7 @@ serve(async (req: Request) => {
     return new Response(JSON.stringify({ error: 'Missing bookingId' }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
   }
 
-  // 3. Admin Client for Transaction
+  // 3. Admin Client
   const admin = createClient(supabaseUrl, supabaseServiceKey)
 
   // 4. Fetch Booking
@@ -63,67 +63,92 @@ serve(async (req: Request) => {
     return new Response(JSON.stringify({ error: 'Booking not found' }), { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
   }
 
-  // Only Provider or Booker can complete (Logic: usually Provider finishes the job)
-  if (booking.partner_id !== callerId && booking.user_id !== callerId) {
+  // Permission Logic
+  const isPartner = booking.partner_id === callerId;
+  const isBooker = booking.user_id === callerId;
+
+  if (!isPartner && !isBooker) {
     return new Response(JSON.stringify({ error: 'Permission denied' }), { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
   }
 
+  // --- LOGIC FLOW ---
+
+  // A. If already paid
   if (booking.status === 'completed') {
     return new Response(JSON.stringify({ message: 'Already completed' }), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
   }
 
-  // 5. Calculate amounts
-  const totalAmount = Number(booking.total_amount)
-  const partnerEarning = Number(booking.partner_earning)
-  const platformFee = Number(booking.platform_fee)
-  const bookerId = booking.user_id
-  const partnerId = booking.partner_id
+  // B. Partner marks as finished -> Move to 'completed_pending'
+  // Only if status is currently in_progress or accepted
+  if (isPartner && (booking.status === 'in_progress' || booking.status === 'accepted')) {
+      await admin.from('bookings').update({ 
+          status: 'completed_pending',
+          updated_at: new Date().toISOString()
+      }).eq('id', bookingId);
 
-  // 6. Execute Transaction (Manual Two-Phase Commit simulation since Supabase JS doesn't support full SQL Transactions easily in simple calls, but sequential is "safe enough" for MVP if detailed logs exist)
-  
-  // A. Deduct Escrow from Booker
-  const { data: bookerWallet } = await admin.from('users').select('wallet_escrow').eq('id', bookerId).single()
-  const currentEscrow = Number(bookerWallet?.wallet_escrow || 0)
-  
-  // Safety check: Don't deduct if escrow is negative (shouldn't happen)
-  const newEscrow = currentEscrow - totalAmount
-  
-  await admin.from('users').update({ wallet_escrow: newEscrow }).eq('id', bookerId)
+      return new Response(JSON.stringify({ success: true, status: 'completed_pending', message: 'Waiting for user confirmation' }), {
+        status: 200, 
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      })
+  }
 
-  // B. Add Balance to Partner
-  const { data: partnerWallet } = await admin.from('users').select('wallet_balance').eq('id', partnerId).single()
-  const currentBalance = Number(partnerWallet?.wallet_balance || 0)
-  const newBalance = currentBalance + partnerEarning
-  
-  await admin.from('users').update({ wallet_balance: newBalance }).eq('id', partnerId)
+  // C. User Confirms (Release Money)
+  // This happens if:
+  // 1. Status is 'completed_pending' AND User calls it.
+  // 2. OR Status is 'in_progress' AND User calls it (User can force finish).
+  if (isBooker && (booking.status === 'completed_pending' || booking.status === 'in_progress')) {
+      // 5. Calculate amounts
+      const totalAmount = Number(booking.total_amount)
+      const partnerEarning = Number(booking.partner_earning)
+      const bookerId = booking.user_id
+      const partnerId = booking.partner_id
 
-  // C. Update Booking Status
-  await admin.from('bookings').update({ status: 'completed', completed_at: new Date().toISOString() }).eq('id', bookingId)
+      // 6. Execute Transaction
+      
+      // Deduct Escrow from Booker
+      const { data: bookerWallet } = await admin.from('users').select('wallet_escrow').eq('id', bookerId).single()
+      const currentEscrow = Number(bookerWallet?.wallet_escrow || 0)
+      const newEscrow = currentEscrow - totalAmount
+      await admin.from('users').update({ wallet_escrow: newEscrow }).eq('id', bookerId)
 
-  // D. Log Transactions
-  // Log for Booker (Release Escrow -> Payment)
-  await admin.from('transactions').insert({
-    user_id: bookerId,
-    type: 'booking_payment',
-    amount: totalAmount,
-    status: 'completed',
-    description: `Thanh toán dịch vụ: ${booking.activity}`,
-    related_id: bookingId,
-    payment_method: 'escrow'
-  })
+      // Add Balance to Partner
+      const { data: partnerWallet } = await admin.from('users').select('wallet_balance').eq('id', partnerId).single()
+      const currentBalance = Number(partnerWallet?.wallet_balance || 0)
+      const newBalance = currentBalance + partnerEarning
+      await admin.from('users').update({ wallet_balance: newBalance }).eq('id', partnerId)
 
-  // Log for Partner (Income)
-  await admin.from('transactions').insert({
-    user_id: partnerId,
-    type: 'booking_earning',
-    amount: partnerEarning,
-    status: 'completed',
-    description: `Thu nhập từ dịch vụ: ${booking.activity}`,
-    related_id: bookingId
-  })
+      // Update Booking Status
+      await admin.from('bookings').update({ 
+          status: 'completed', 
+          completed_at: new Date().toISOString(),
+          payout_status: 'paid'
+      }).eq('id', bookingId)
 
-  return new Response(JSON.stringify({ success: true }), {
-    status: 200, 
-    headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-  })
+      // Log Transactions
+      await admin.from('transactions').insert({
+        user_id: bookerId,
+        type: 'booking_payment',
+        amount: totalAmount,
+        status: 'completed',
+        description: `Thanh toán dịch vụ: ${booking.activity}`,
+        related_id: bookingId,
+        payment_method: 'escrow'
+      })
+
+      await admin.from('transactions').insert({
+        user_id: partnerId,
+        type: 'booking_earning',
+        amount: partnerEarning,
+        status: 'completed',
+        description: `Thu nhập từ dịch vụ: ${booking.activity}`,
+        related_id: bookingId
+      })
+
+      return new Response(JSON.stringify({ success: true, status: 'completed', message: 'Payment released' }), {
+        status: 200, 
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      })
+  }
+
+  return new Response(JSON.stringify({ error: 'Invalid state transition' }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
 })

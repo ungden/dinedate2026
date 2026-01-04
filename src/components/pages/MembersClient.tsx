@@ -10,6 +10,9 @@ import {
   Wallet,
   Sparkles,
   ArrowUpDown,
+  Navigation,
+  Loader2,
+  X
 } from 'lucide-react';
 import { ActivityType, User } from '@/types';
 import { cn, formatCurrency } from '@/lib/utils';
@@ -17,15 +20,20 @@ import PartnerCard from '@/components/PartnerCard';
 import SmartFilter from '@/components/SmartFilter';
 import { useDbPartners } from '@/hooks/useDbPartners';
 import { useAuth } from '@/contexts/AuthContext';
+import toast from 'react-hot-toast';
 
 const LOCATIONS = [
   'Tất cả',
+  'Hà Nội',
+  'TP. Hồ Chí Minh',
+  'Đà Nẵng',
+  'Cần Thơ',
+  'Hải Phòng',
   'Quận 1, TP.HCM',
   'Quận 3, TP.HCM',
   'Quận 7, TP.HCM',
   'Quận 2, TP.HCM',
   'Quận Bình Thạnh, TP.HCM',
-  'Quận Phú Nhuận, TP.HCM',
 ];
 
 type SortMode = 'recommended' | 'available' | 'price_low' | 'rating_high';
@@ -44,6 +52,9 @@ export default function MembersClient() {
 
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedLocation, setSelectedLocation] = useState('Tất cả');
+  const [gpsCoords, setGpsCoords] = useState<{ lat: number; lng: number } | null>(null);
+  const [isLocating, setIsLocating] = useState(false);
+
   const [showLocationPicker, setShowLocationPicker] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
   const [selectedActivities, setSelectedActivities] = useState<ActivityType[]>([]);
@@ -54,6 +65,7 @@ export default function MembersClient() {
   const { users: dbPartners, loading } = useDbPartners({
     search: searchQuery,
     location: selectedLocation,
+    coords: gpsCoords
   });
 
   const partners = useMemo(() => {
@@ -70,6 +82,11 @@ export default function MembersClient() {
     });
 
     const sorted = [...filtered].sort((a, b) => {
+      // If using GPS, prioritize distance
+      if (gpsCoords && a.distance !== undefined && b.distance !== undefined) {
+        return a.distance - b.distance;
+      }
+
       if (sortMode === 'available') {
         const aScore = (a.availableNow || a.onlineStatus?.isOnline) ? 1 : 0;
         const bScore = (b.availableNow || b.onlineStatus?.isOnline) ? 1 : 0;
@@ -99,9 +116,40 @@ export default function MembersClient() {
     availableNow,
     availableTonight,
     sortMode,
+    gpsCoords
   ]);
 
   const activeFiltersCount = selectedActivities.length + (availableNow ? 1 : 0) + (availableTonight ? 1 : 0);
+
+  const handleGetLocation = () => {
+    if (!navigator.geolocation) {
+      toast.error('Trình duyệt không hỗ trợ định vị');
+      return;
+    }
+
+    setIsLocating(true);
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setGpsCoords({
+          lat: pos.coords.latitude,
+          lng: pos.coords.longitude
+        });
+        setSelectedLocation('Gần tôi (50km)');
+        setIsLocating(false);
+        setShowLocationPicker(false);
+      },
+      (err) => {
+        console.error(err);
+        toast.error('Không thể lấy vị trí. Hãy kiểm tra quyền truy cập.');
+        setIsLocating(false);
+      }
+    );
+  };
+
+  const clearGps = () => {
+    setGpsCoords(null);
+    setSelectedLocation('Tất cả');
+  };
 
   return (
     <div className="space-y-6 pb-24 min-h-screen">
@@ -111,10 +159,15 @@ export default function MembersClient() {
           <div className="relative">
             <button
               onClick={() => setShowLocationPicker(!showLocationPicker)}
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-white/60 hover:bg-white border border-rose-100 rounded-full text-gray-900 text-[13px] font-black tap-highlight transition-colors"
+              className={cn(
+                "flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[13px] font-black tap-highlight transition-colors border",
+                gpsCoords 
+                  ? "bg-blue-50 border-blue-200 text-blue-600" 
+                  : "bg-white/60 border-rose-100 text-gray-900 hover:bg-white"
+              )}
             >
-              <MapPin className="w-4 h-4 text-rose-500" />
-              <span>{selectedLocation}</span>
+              {gpsCoords ? <Navigation className="w-3.5 h-3.5 fill-blue-600" /> : <MapPin className="w-4 h-4 text-rose-500" />}
+              <span className="max-w-[120px] truncate">{selectedLocation}</span>
               <ChevronDown className={cn('w-3.5 h-3.5 transition-transform text-rose-400', showLocationPicker && 'rotate-180')} />
             </button>
 
@@ -124,23 +177,44 @@ export default function MembersClient() {
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: 10 }}
-                  className="absolute top-full left-0 mt-2 w-56 bg-white rounded-3xl shadow-xl shadow-rose-500/10 border border-rose-100 py-3 z-50"
+                  className="absolute top-full left-0 mt-2 w-64 bg-white rounded-3xl shadow-xl shadow-rose-500/10 border border-rose-100 py-2 z-50 overflow-hidden"
                 >
-                  {LOCATIONS.map((loc) => (
-                    <button
-                      key={loc}
-                      onClick={() => {
-                        setSelectedLocation(loc);
-                        setShowLocationPicker(false);
-                      }}
-                      className={cn(
-                        'w-full px-5 py-2.5 text-left text-sm hover:bg-rose-50 transition-colors',
-                        selectedLocation === loc ? 'text-rose-600 font-black bg-rose-50' : 'text-gray-600 font-medium'
-                      )}
-                    >
-                      {loc}
-                    </button>
-                  ))}
+                  <button
+                    onClick={handleGetLocation}
+                    disabled={isLocating}
+                    className="w-full px-5 py-3 text-left text-sm font-bold text-blue-600 bg-blue-50 hover:bg-blue-100 flex items-center gap-2 transition-colors border-b border-rose-50"
+                  >
+                    {isLocating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Navigation className="w-4 h-4" />}
+                    Tìm quanh đây
+                  </button>
+
+                  <div className="max-h-[300px] overflow-y-auto">
+                    {gpsCoords && (
+                      <button
+                        onClick={clearGps}
+                        className="w-full px-5 py-2.5 text-left text-sm font-medium text-red-500 hover:bg-red-50 flex items-center gap-2"
+                      >
+                        <X className="w-4 h-4" /> Bỏ định vị GPS
+                      </button>
+                    )}
+                    
+                    {LOCATIONS.map((loc) => (
+                      <button
+                        key={loc}
+                        onClick={() => {
+                          setSelectedLocation(loc);
+                          setGpsCoords(null);
+                          setShowLocationPicker(false);
+                        }}
+                        className={cn(
+                          'w-full px-5 py-2.5 text-left text-sm hover:bg-rose-50 transition-colors',
+                          selectedLocation === loc && !gpsCoords ? 'text-rose-600 font-black bg-rose-50' : 'text-gray-600 font-medium'
+                        )}
+                      >
+                        {loc}
+                      </button>
+                    ))}
+                  </div>
                 </motion.div>
               )}
             </AnimatePresence>
@@ -187,7 +261,7 @@ export default function MembersClient() {
         <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-2 text-[12px] font-black text-rose-900/50 uppercase tracking-wider">
             <Sparkles className="w-4 h-4 text-rose-500" />
-            Partner
+            {gpsCoords ? 'Kết quả gần bạn' : 'Partner nổi bật'}
           </div>
 
           <div className="flex items-center gap-2">
@@ -242,7 +316,10 @@ export default function MembersClient() {
       <div className="px-1 space-y-4">
         <div className="flex flex-col gap-4">
           {loading ? (
-            <div className="py-20 text-center text-gray-500 font-medium">Đang tải Partner...</div>
+            <div className="py-20 text-center text-gray-500 font-medium flex flex-col items-center">
+              <Loader2 className="w-8 h-8 animate-spin text-primary-500 mb-2" />
+              Đang tải Partner...
+            </div>
           ) : partners.length > 0 ? (
             partners.map((partner, idx) => (
               <motion.div
@@ -251,14 +328,25 @@ export default function MembersClient() {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: idx * 0.03 }}
               >
-                <PartnerCard partner={partner} distance={Math.random() * 5} />
+                {/* Pass calculated distance from DB if available, else random for demo if not GPS */}
+                <PartnerCard partner={partner} distance={partner.distance ?? undefined} />
               </motion.div>
             ))
           ) : (
             <div className="py-20 text-center">
               <div className="text-6xl mb-4">🔍</div>
               <h3 className="text-lg font-black text-rose-900">Không có kết quả</h3>
-              <p className="text-rose-400 text-sm mt-1">Thử bỏ bớt bộ lọc xem sao nhé!</p>
+              <p className="text-rose-400 text-sm mt-1">
+                {gpsCoords ? 'Không tìm thấy ai trong bán kính 50km.' : 'Thử bỏ bớt bộ lọc xem sao nhé!'}
+              </p>
+              {gpsCoords && (
+                <button 
+                  onClick={clearGps}
+                  className="mt-4 px-4 py-2 bg-white border border-rose-200 text-rose-600 rounded-xl font-bold text-sm shadow-sm"
+                >
+                  Xem tất cả khu vực
+                </button>
+              )}
             </div>
           )}
         </div>

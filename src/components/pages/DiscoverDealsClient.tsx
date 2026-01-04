@@ -3,7 +3,7 @@
 import { useMemo, useState } from 'react';
 import Link from 'next/link';
 import { motion, AnimatePresence } from '@/lib/motion';
-import { Search, Filter, X, Clock, MapPin, Calendar, Loader2 } from 'lucide-react';
+import { Search, Filter, X, Clock, MapPin, Calendar, Loader2, Plus } from 'lucide-react';
 import { ActivityType, DateRequest } from '@/types';
 import { cn, formatCurrency, formatDate, getActivityIcon, getActivityLabel } from '@/lib/utils';
 import RequestCountdown from '@/components/RequestCountdown';
@@ -74,6 +74,29 @@ function DealRowCard({ request }: { request: DateRequest }) {
   );
 }
 
+function DiscoverEmptyState({ title, description }: { title: string; description: string }) {
+  return (
+    <div className="py-16 text-center bg-white rounded-[28px] border border-dashed border-rose-200">
+      <div className="text-6xl mb-4">🌸</div>
+      <h3 className="text-lg font-black text-rose-900">{title}</h3>
+      <p className="text-rose-400 text-sm mt-2 max-w-md mx-auto px-6">{description}</p>
+
+      <div className="mt-6 flex justify-center">
+        <Link href="/create-request">
+          <button className="inline-flex items-center gap-2 px-6 py-3 rounded-2xl bg-gradient-primary text-white font-black shadow-primary hover:opacity-90 transition">
+            <Plus className="w-5 h-5" />
+            Đăng lời mời ngay
+          </button>
+        </Link>
+      </div>
+
+      <p className="mt-4 text-xs text-gray-500">
+        Mẹo: Bạn có thể vào tab “Partner” để tìm người, hoặc đăng lời mời để người khác chủ động ứng tuyển.
+      </p>
+    </div>
+  );
+}
+
 export default function DiscoverDealsClient() {
   const [selectedActivity, setSelectedActivity] = useState<ActivityType | 'all'>('all');
   const { requests, loading } = useDbDateRequests(selectedActivity === 'all' ? undefined : selectedActivity);
@@ -84,7 +107,7 @@ export default function DiscoverDealsClient() {
   const filtered = useMemo(() => {
     // Client-side text filter only, DB already filtered by activity
     if (!query.trim()) return requests;
-    
+
     const q = query.trim().toLowerCase();
     return requests.filter((r) => {
       const hay = `${r.title} ${r.description} ${r.location} ${r.user?.name || ''}`.toLowerCase();
@@ -95,13 +118,11 @@ export default function DiscoverDealsClient() {
   const activeFiltersCount = (selectedActivity !== 'all' ? 1 : 0) + (query.trim() ? 1 : 0);
 
   return (
-    <div className="space-y-6 pb-24 min-h-screen">
+    <div className="space-y-6 pb-24 min-h-screen relative">
       {/* Sticky controls */}
       <div className="sticky top-[60px] z-30 -mx-4 px-4 bg-rose-50/80 backdrop-blur-xl border-b border-rose-200/50 py-4 space-y-4 shadow-sm">
         <div className="flex items-center justify-between">
-          <div className="text-[12px] font-black text-rose-900/50 uppercase tracking-wider">
-            Khám phá deal
-          </div>
+          <div className="text-[12px] font-black text-rose-900/50 uppercase tracking-wider">Khám phá deal</div>
 
           {!loading && (
             <div className="text-[12px] font-black text-rose-600 bg-white/60 border border-rose-100 px-3 py-1.5 rounded-full">
@@ -226,12 +247,30 @@ export default function DiscoverDealsClient() {
             </motion.div>
           ))
         ) : (
-          <div className="py-20 text-center">
-            <div className="text-6xl mb-4">🔎</div>
-            <h3 className="text-lg font-black text-rose-900">Không có deal phù hợp</h3>
-            <p className="text-rose-400 text-sm mt-1">Thử đổi từ khóa hoặc bỏ bớt bộ lọc nhé!</p>
-          </div>
+          <DiscoverEmptyState
+            title={query.trim() ? 'Không có deal phù hợp' : 'Chưa có deal nào'}
+            description={
+              query.trim()
+                ? 'Thử đổi từ khóa hoặc bỏ bớt bộ lọc nhé! Nếu bạn muốn chủ động, hãy đăng một lời mời để người khác ứng tuyển.'
+                : 'Hiện chưa có lời mời nào được đăng. Hãy là người đầu tiên tạo deal để kết nối nhanh với người phù hợp.'
+            }
+          />
         )}
+      </div>
+
+      {/* Floating CTA */}
+      <div className="fixed right-4 bottom-28 md:bottom-10 z-40">
+        <Link href="/create-request">
+          <motion.button
+            whileHover={{ y: -3 }}
+            whileTap={{ scale: 0.98 }}
+            className="inline-flex items-center gap-2 px-5 py-3 rounded-full bg-gradient-primary text-white font-black shadow-[0_12px_30px_rgba(244,63,94,0.35)] border border-white/30 backdrop-blur"
+          >
+            <Plus className="w-5 h-5" />
+            <span className="hidden sm:inline">Đăng lời mời</span>
+            <span className="sm:hidden">Đăng</span>
+          </motion.button>
+        </Link>
       </div>
     </div>
   );

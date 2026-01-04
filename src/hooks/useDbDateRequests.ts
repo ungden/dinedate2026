@@ -16,7 +16,7 @@ export function useDbDateRequests(activity?: ActivityType) {
         .from('date_requests')
         .select(`
           *,
-          user:users!date_requests_user_id_fkey(*)
+          user:users(*)
         `)
         .eq('status', 'active')
         .order('created_at', { ascending: false });
@@ -28,7 +28,7 @@ export function useDbDateRequests(activity?: ActivityType) {
       const { data, error } = await query;
 
       if (error) {
-        console.error('Error fetching date requests:', error);
+        console.error('Error fetching date requests:', JSON.stringify(error, null, 2));
         return;
       }
 
@@ -54,7 +54,7 @@ export function useDbDateRequests(activity?: ActivityType) {
 
       setRequests(mapped);
     } catch (err) {
-      console.error(err);
+      console.error('Exception fetching date requests:', err);
     } finally {
       setLoading(false);
     }
@@ -93,7 +93,7 @@ export function useDbRequestDetail(requestId: string) {
       // 1. Fetch request info
       const { data: reqData, error: reqError } = await supabase
         .from('date_requests')
-        .select(`*, user:users!date_requests_user_id_fkey(*)`)
+        .select(`*, user:users(*)`)
         .eq('id', requestId)
         .single();
 

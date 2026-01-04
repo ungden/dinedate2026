@@ -21,10 +21,12 @@ import {
 import { useDateStore } from '@/hooks/useDateStore';
 import { useAuth } from '@/contexts/AuthContext';
 import { formatCurrency, getVIPBadgeColor, cn } from '@/lib/utils';
+import { useDbChat } from '@/hooks/useDbChat';
 
 export default function ProfileClient() {
   const { logout, user: authUser } = useAuth();
-  const { getMyRequests, getMyApplications, getMyNotifications, getMyConversations } = useDateStore();
+  const { getMyRequests, getMyApplications, getMyNotifications } = useDateStore();
+  const { conversations } = useDbChat();
 
   if (!authUser) {
     return (
@@ -41,9 +43,8 @@ export default function ProfileClient() {
   const notifications = getMyNotifications();
   const unreadNotifications = notifications.filter((n) => !n.read).length;
 
-  const conversations = getMyConversations();
   const unreadMessages = conversations.filter((c) =>
-    c.lastMessage && !c.lastMessage.read && c.lastMessage.senderId !== authUser.id
+    c.lastMessage && !c.lastMessage.is_read && c.lastMessage.sender_id !== authUser.id
   ).length;
 
   return (

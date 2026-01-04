@@ -4,9 +4,10 @@ import { useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { motion, AnimatePresence } from '@/lib/motion';
-import { Search, MessageCircle, X, ChevronRight, Sparkles } from 'lucide-react';
-import { useDateStore } from '@/hooks/useDateStore';
+import { Search, MessageCircle, X, ChevronRight, Sparkles, Loader2 } from 'lucide-react';
+import { useAuth } from '@/contexts/AuthContext';
 import { formatRelativeTime, cn } from '@/lib/utils';
+import { useDbChat } from '@/hooks/useDbChat';
 
 const containerVariants = {
   hidden: { opacity: 0 },
@@ -29,18 +30,27 @@ const itemVariants = {
 
 export default function MessagesClient() {
   const [searchQuery, setSearchQuery] = useState('');
-  const { getMyConversations, currentUser } = useDateStore();
-  const conversations = getMyConversations();
+  const { user } = useAuth();
+  const { conversations, loading } = useDbChat();
+
+  if (!user) {
+    return (
+      <div className="flex items-center justify-center min-h-[60vh] flex-col gap-4">
+        <MessageCircle className="w-16 h-16 text-gray-300" />
+        <p className="text-gray-500">Vui lòng đăng nhập để xem tin nhắn</p>
+        <Link href="/login" className="btn-primary">Đăng nhập ngay</Link>
+      </div>
+    );
+  }
 
   const filteredConversations = searchQuery
-    ? conversations.filter((c) => {
-      const otherUser = c.participants.find((p) => p.id !== currentUser.id);
-      return otherUser?.name.toLowerCase().includes(searchQuery.toLowerCase());
-    })
+    ? conversations.filter((c) =>
+        c.partner.name.toLowerCase().includes(searchQuery.toLowerCase())
+      )
     : conversations;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 pb-24">
       {/* Header */}
       <motion.div
         initial={{ opacity: 0, y: -10 }}
@@ -51,7 +61,7 @@ export default function MessagesClient() {
           <h1 className="text-2xl font-bold text-gray-900">Tin nhắn</h1>
           <p className="text-gray-600">Quản lý các cuộc hội thoại của bạn</p>
         </div>
-        {conversations.length > 0 && (
+        {!loading && conversations.length > 0 && (
           <span className="px-3 py-1 bg-primary-100 text-primary-600 text-sm font-semibold rounded-full">
             {conversations.length} cuộc trò chuyện
           </span>
@@ -68,7 +78,7 @@ export default function MessagesClient() {
         <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
         <input
           type="text"
-          placeholder="Tìm kiếm cuộc hội thoại..."
+          placeholder="Tìm kiếm người dùng..."
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
           className="input-primary pl-12"
@@ -83,8 +93,15 @@ export default function MessagesClient() {
         )}
       </motion.div>
 
+      {/* Loading State */}
+      {loading && (
+        <div className="flex justify-center py-12">
+          <Loader2 className="w-8 h-8 animate-spin text-primary-500" />
+        </div>
+      )}
+
       {/* Conversations List */}
-      {filteredConversations.length > 0 ? (
+      {!loading && filteredConversations.length > 0 ? (
         <motion.div
           className="bg-white rounded-2xl border border-gray-100 overflow-hidden divide-y divide-gray-100"
           variants={containerVariants}
@@ -92,14 +109,10 @@ export default function MessagesClient() {
           animate="visible"
         >
           {filteredConversations.map((conversation) => {
-            const otherUser = conversation.participants.find(
-              (p) => p.id !== currentUser.id
-            );
-            if (!otherUser) return null;
-
-            const isUnread = conversation.lastMessage &&
-              !conversation.lastMessage.read &&
-              conversation.lastMessage.senderId !== currentUser.id;
+            const { partner, lastMessage } = conversation;
+            
+            // Check unread: exists, not read, and I am NOT the sender
+            const isUnread = lastMessage && !lastMessage.is_read && lastMessage.sender_id !== user.id;
 
             return (
               <motion.div key={conversation.id} variants={itemVariants}>
@@ -114,13 +127,13 @@ export default function MessagesClient() {
                   >
                     <div className="relative flex-shrink-0">
                       <Image
-                        src={otherUser.avatar}
-                        alt={otherUser.name}
+                        src={partner.avatar}
+                        alt={partner.name}
                         width={56}
                         height={56}
                         className="rounded-2xl object-cover ring-2 ring-gray-100"
                       />
-                      {otherUser.onlineStatus?.isOnline && (
+                      {partner.onlineStatus?.isOnline && (
                         <span className="absolute bottom-0 right-0 w-4 h-4 bg-green-500 border-2 border-white rounded-full" />
                       )}
                     </div>
@@ -132,18 +145,18 @@ export default function MessagesClient() {
                             'font-semibold truncate',
                             isUnread ? 'text-gray-900' : 'text-gray-700'
                           )}>
-                            {otherUser.name}
+                            {partner.name}
                           </h3>
-                          {otherUser.vipStatus.tier !== 'free' && (
+                          {partner.vipStatus.tier !== 'free' && (
                             <Sparkles className="w-4 h-4 text-yellow-500" />
                           )}
                         </div>
-                        {conversation.lastMessage && (
+                        {lastMessage && (
                           <span className={cn(
                             'text-xs flex-shrink-0',
                             isUnread ? 'text-primary-600 font-semibold' : 'text-gray-400'
                           )}>
-                            {formatRelativeTime(conversation.lastMessage.createdAt)}
+                            {formatRelativeTime(lastMessage.created_at)}
                           </span>
                         )}
                       </div>
@@ -153,11 +166,8 @@ export default function MessagesClient() {
                           'text-sm truncate flex-1',
                           isUnread ? 'text-gray-900 font-medium' : 'text-gray-500'
                         )}>
-                          {conversation.lastMessage
-                            ? `${conversation.lastMessage.senderId === currentUser.id
-                              ? 'Bạn: '
-                              : ''
-                            }${conversation.lastMessage.text}`
+                          {lastMessage
+                            ? `${lastMessage.sender_id === user.id ? 'Bạn: ' : ''}${lastMessage.content}`
                             : 'Bắt đầu cuộc trò chuyện'}
                         </p>
 
@@ -175,49 +185,51 @@ export default function MessagesClient() {
           })}
         </motion.div>
       ) : (
-        <motion.div
-          className="text-center py-16"
-          initial={{ opacity: 0, scale: 0.95 }}
-          animate={{ opacity: 1, scale: 1 }}
-        >
+        !loading && (
           <motion.div
-            className="w-20 h-20 bg-gradient-primary rounded-3xl flex items-center justify-center mx-auto mb-6 shadow-primary"
-            animate={{ y: [0, -8, 0] }}
-            transition={{ duration: 2, repeat: Infinity }}
+            className="text-center py-16"
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
           >
-            <MessageCircle className="w-10 h-10 text-white" />
+            <motion.div
+              className="w-20 h-20 bg-gradient-primary rounded-3xl flex items-center justify-center mx-auto mb-6 shadow-primary"
+              animate={{ y: [0, -8, 0] }}
+              transition={{ duration: 2, repeat: Infinity }}
+            >
+              <MessageCircle className="w-10 h-10 text-white" />
+            </motion.div>
+
+            <h3 className="text-xl font-semibold text-gray-900 mb-2">
+              {searchQuery ? 'Không tìm thấy kết quả' : 'Chưa có tin nhắn nào'}
+            </h3>
+            <p className="text-gray-600 mb-6 max-w-sm mx-auto">
+              {searchQuery
+                ? 'Thử tìm kiếm với từ khóa khác'
+                : 'Bắt đầu kết nối với mọi người qua các lời mời hẹn hò hoặc dịch vụ'}
+            </p>
+
+            <div className="flex flex-col sm:flex-row gap-3 justify-center">
+              <Link href="/discover">
+                <motion.button
+                  className="btn-primary"
+                  whileHover={{ scale: 1.03 }}
+                  whileTap={{ scale: 0.97 }}
+                >
+                  Khám phá lời mời
+                </motion.button>
+              </Link>
+              <Link href="/">
+                <motion.button
+                  className="btn-secondary"
+                  whileHover={{ scale: 1.03 }}
+                  whileTap={{ scale: 0.97 }}
+                >
+                  Tìm thành viên
+                </motion.button>
+              </Link>
+            </div>
           </motion.div>
-
-          <h3 className="text-xl font-semibold text-gray-900 mb-2">
-            {searchQuery ? 'Không tìm thấy kết quả' : 'Chưa có tin nhắn nào'}
-          </h3>
-          <p className="text-gray-600 mb-6 max-w-sm mx-auto">
-            {searchQuery
-              ? 'Thử tìm kiếm với từ khóa khác'
-              : 'Bắt đầu kết nối với mọi người qua các lời mời hẹn hò hoặc dịch vụ'}
-          </p>
-
-          <div className="flex flex-col sm:flex-row gap-3 justify-center">
-            <Link href="/discover">
-              <motion.button
-                className="btn-primary"
-                whileHover={{ scale: 1.03 }}
-                whileTap={{ scale: 0.97 }}
-              >
-                Khám phá lời mời
-              </motion.button>
-            </Link>
-            <Link href="/">
-              <motion.button
-                className="btn-secondary"
-                whileHover={{ scale: 1.03 }}
-                whileTap={{ scale: 0.97 }}
-              >
-                Tìm thành viên
-              </motion.button>
-            </Link>
-          </div>
-        </motion.div>
+        )
       )}
     </div>
   );

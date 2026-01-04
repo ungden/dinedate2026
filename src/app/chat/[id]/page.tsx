@@ -14,34 +14,42 @@ import {
   Smile,
   Check,
   CheckCheck,
-  Crown
+  Loader2
 } from 'lucide-react';
-import { useDateStore } from '@/hooks/useDateStore';
+import { useAuth } from '@/contexts/AuthContext';
+import { useConversation } from '@/hooks/useDbChat';
 import { formatRelativeTime, cn, getVIPBadgeColor } from '@/lib/utils';
 
 export default function ChatPage() {
   const params = useParams();
   const router = useRouter();
   const conversationId = params.id as string;
-  const [message, setMessage] = useState('');
+  const { user } = useAuth();
+  
+  const [newMessage, setNewMessage] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const { conversations, currentUser, getMessages, sendMessage } = useDateStore();
+  const { messages, partner, loading, sendMessage } = useConversation(conversationId);
 
-  const conversation = conversations.find((c) => c.id === conversationId);
-  const messages = getMessages(conversationId);
-  const otherUser = conversation?.participants.find((p) => p.id !== currentUser.id);
-
+  // Auto scroll to bottom
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  const handleSend = () => {
-    if (!message.trim()) return;
-    sendMessage(conversationId, message.trim());
-    setMessage('');
-    inputRef.current?.focus();
+  const handleSend = async () => {
+    if (!newMessage.trim()) return;
+    const text = newMessage.trim();
+    setNewMessage('');
+    
+    try {
+      await sendMessage(text);
+      inputRef.current?.focus();
+    } catch (err) {
+      console.error(err);
+      alert('Gửi tin nhắn thất bại');
+      setNewMessage(text); // revert
+    }
   };
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
@@ -51,7 +59,15 @@ export default function ChatPage() {
     }
   };
 
-  if (!conversation || !otherUser) {
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <Loader2 className="w-8 h-8 animate-spin text-primary-500" />
+      </div>
+    );
+  }
+
+  if (!partner || !user) {
     return (
       <div className="text-center py-16 animate-fadeIn">
         <div className="text-6xl mb-4">💬</div>
@@ -76,33 +92,33 @@ export default function ChatPage() {
           <ArrowLeft className="w-5 h-5" />
         </button>
 
-        <Link href={`/user/${otherUser.id}`} className="flex items-center gap-3 flex-1">
+        <Link href={`/user/${partner.id}`} className="flex items-center gap-3 flex-1">
           <div className="relative">
             <Image
-              src={otherUser.avatar}
-              alt={otherUser.name}
+              src={partner.avatar}
+              alt={partner.name}
               width={48}
               height={48}
               className="rounded-2xl object-cover ring-2 ring-gray-100"
             />
-            {otherUser.onlineStatus?.isOnline && (
+            {partner.onlineStatus?.isOnline && (
               <span className="absolute bottom-0 right-0 w-3.5 h-3.5 bg-green-500 border-2 border-white rounded-full" />
             )}
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <h2 className="font-semibold text-gray-900">{otherUser.name}</h2>
-              {otherUser.vipStatus.tier !== 'free' && (
+              <h2 className="font-semibold text-gray-900">{partner.name}</h2>
+              {partner.vipStatus.tier !== 'free' && (
                 <span className={cn(
                   'px-1.5 py-0.5 text-[10px] font-bold text-white rounded uppercase',
-                  getVIPBadgeColor(otherUser.vipStatus.tier)
+                  getVIPBadgeColor(partner.vipStatus.tier)
                 )}>
                   VIP
                 </span>
               )}
             </div>
             <p className="text-sm text-gray-500">
-              {otherUser.onlineStatus?.isOnline ? (
+              {partner.onlineStatus?.isOnline ? (
                 <span className="text-green-600">Đang hoạt động</span>
               ) : (
                 'Không hoạt động'
@@ -130,21 +146,21 @@ export default function ChatPage() {
           <div className="text-center py-12">
             <div className="w-20 h-20 mx-auto mb-4 relative">
               <Image
-                src={otherUser.avatar}
-                alt={otherUser.name}
+                src={partner.avatar}
+                alt={partner.name}
                 fill
                 className="rounded-3xl object-cover shadow-lg"
               />
             </div>
-            <h3 className="font-semibold text-gray-900 mb-1">{otherUser.name}</h3>
+            <h3 className="font-semibold text-gray-900 mb-1">{partner.name}</h3>
             <p className="text-gray-500 text-sm">
               Bắt đầu cuộc trò chuyện ngay!
             </p>
           </div>
         ) : (
           messages.map((msg, index) => {
-            const isOwn = msg.senderId === currentUser.id;
-            const showAvatar = !isOwn && (index === 0 || messages[index - 1]?.senderId !== msg.senderId);
+            const isOwn = msg.sender_id === user.id;
+            const showAvatar = !isOwn && (index === 0 || messages[index - 1]?.sender_id !== msg.sender_id);
 
             return (
               <div
@@ -153,19 +169,18 @@ export default function ChatPage() {
                   'flex gap-2 animate-slideUp',
                   isOwn ? 'justify-end' : 'justify-start'
                 )}
-                style={{ animationDelay: `${index * 50}ms` }}
               >
                 {!isOwn && (
                   <div className="w-8 flex-shrink-0">
-                    {showAvatar && (
+                    {showAvatar ? (
                       <Image
-                        src={otherUser.avatar}
-                        alt={otherUser.name}
+                        src={partner.avatar}
+                        alt={partner.name}
                         width={32}
                         height={32}
                         className="rounded-xl"
                       />
-                    )}
+                    ) : <div className="w-8" />}
                   </div>
                 )}
 
@@ -177,16 +192,16 @@ export default function ChatPage() {
                       : 'bg-white text-gray-900 rounded-bl-md border border-gray-100'
                   )}
                 >
-                  <p className="leading-relaxed">{msg.text}</p>
+                  <p className="leading-relaxed">{msg.content}</p>
                   <div className={cn(
                     'flex items-center gap-1 justify-end mt-1',
                     isOwn ? 'text-primary-100' : 'text-gray-400'
                   )}>
                     <span className="text-[10px]">
-                      {formatRelativeTime(msg.createdAt)}
+                      {formatRelativeTime(msg.created_at)}
                     </span>
                     {isOwn && (
-                      msg.read
+                      msg.is_read
                         ? <CheckCheck className="w-3 h-3" />
                         : <Check className="w-3 h-3" />
                     )}
@@ -210,8 +225,8 @@ export default function ChatPage() {
             <input
               ref={inputRef}
               type="text"
-              value={message}
-              onChange={(e) => setMessage(e.target.value)}
+              value={newMessage}
+              onChange={(e) => setNewMessage(e.target.value)}
               onKeyPress={handleKeyPress}
               placeholder="Nhập tin nhắn..."
               className="w-full px-4 py-3 bg-gray-100 rounded-2xl focus:ring-2 focus:ring-primary-500 focus:bg-white outline-none transition pr-12"
@@ -223,10 +238,10 @@ export default function ChatPage() {
 
           <button
             onClick={handleSend}
-            disabled={!message.trim()}
+            disabled={!newMessage.trim()}
             className={cn(
               'p-3 rounded-2xl transition-all',
-              message.trim()
+              newMessage.trim()
                 ? 'bg-gradient-primary text-white shadow-primary hover:shadow-lg'
                 : 'bg-gray-200 text-gray-400'
             )}

@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, Plus, Edit2, Trash2, ToggleLeft, ToggleRight, Sparkles, Check, Clock, Lock, Info, ShieldCheck, TrendingUp, Users } from 'lucide-react';
+import { ArrowLeft, Plus, Edit2, Trash2, ToggleLeft, ToggleRight, Sparkles, Check, Clock, Lock, Info, ShieldCheck, TrendingUp, Users, CheckCircle2 } from 'lucide-react';
 import {
   formatCurrency,
   getActivityIcon,
@@ -16,8 +16,6 @@ import { useAuth } from '@/contexts/AuthContext';
 
 const activityOptions: ActivityType[] = ['dining', 'drinking', 'movies', 'travel', 'cafe', 'karaoke', 'tour_guide'];
 
-const PRICE_PRESETS_SESSION = [300000, 500000, 700000, 1000000];
-
 const DEFAULT_CONTENT: Record<ActivityType, { title: string; description: string }> = {
   dining: { title: 'Đi ăn cùng bạn', description: 'Cùng thưởng thức món ngon và trò chuyện.' },
   drinking: { title: 'Cafe / Bar chill', description: 'Ngồi cafe hoặc đi pub nhẹ nhàng.' },
@@ -28,6 +26,8 @@ const DEFAULT_CONTENT: Record<ActivityType, { title: string; description: string
   tour_guide: { title: 'Hướng dẫn viên', description: 'Dẫn bạn đi thăm thú thành phố.' },
 };
 
+const LOCKED_PRICE = 500000;
+
 export default function ManageServicesClient() {
   const { user } = useAuth();
   const isPro = !!user?.isPro;
@@ -35,74 +35,98 @@ export default function ManageServicesClient() {
   const [showForm, setShowForm] = useState(false);
   const [editingService, setEditingService] = useState<ServiceOffering | null>(null);
   
+  // For Bulk Create
+  const [selectedActivities, setSelectedActivities] = useState<ActivityType[]>([]);
+
+  // Single Form Data (used for Edit or Single Create)
   const [formData, setFormData] = useState({
-    activity: 'dining' as ActivityType,
     title: '',
     description: '',
-    price: 0,
+    price: LOCKED_PRICE,
     duration: 'session' as ServiceDuration,
   });
 
   const { services, loading, addService, updateService, removeService } = useDbMyServices();
 
+  // Reset form when opening/closing
   useEffect(() => {
-    if (!editingService && formData.activity && (!formData.title || Object.values(DEFAULT_CONTENT).some(c => c.title === formData.title))) {
-      const def = DEFAULT_CONTENT[formData.activity];
+    if (!showForm) {
+      setSelectedActivities([]);
+      setFormData({
+        title: '',
+        description: '',
+        price: isPro ? LOCKED_PRICE : LOCKED_PRICE, // Default
+        duration: 'session'
+      });
+    }
+  }, [showForm, isPro]);
+
+  // Auto-fill content if single activity selected in CREATE mode
+  useEffect(() => {
+    if (!editingService && selectedActivities.length === 1) {
+      const act = selectedActivities[0];
+      const def = DEFAULT_CONTENT[act];
       setFormData(prev => ({
         ...prev,
         title: def.title,
         description: def.description
       }));
     }
-  }, [formData.activity, editingService]);
+  }, [selectedActivities, editingService]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.title || !formData.price) return;
 
-    // Security & Logic Enforcement
+    // 1. Logic giá & thời lượng
     let finalDuration: ServiceDuration = 'session';
     let finalPrice = formData.price;
 
-    if (isPro) {
-        finalDuration = formData.duration;
-    } else {
-        // Non-Pro restriction: Always session, Price must be in presets
+    if (!isPro) {
+        // Non-Pro: Lock to 500k / session
         finalDuration = 'session';
-        
-        // If the submitted price isn't in presets (e.g. via devtools or bug), snap to nearest or default
-        if (!PRICE_PRESETS_SESSION.includes(finalPrice)) {
-            finalPrice = PRICE_PRESETS_SESSION[0]; // Default to 300k if invalid
-        }
+        finalPrice = LOCKED_PRICE; 
+    } else {
+        // Pro: Use form values
+        finalDuration = formData.duration;
     }
 
-    const payload = {
-      activity: formData.activity,
-      title: formData.title,
-      description: formData.description,
-      price: finalPrice,
-      duration: finalDuration,
-    };
-
     if (editingService) {
-      await updateService(editingService.id, payload);
+      // --- EDIT MODE ---
+      await updateService(editingService.id, {
+        title: formData.title,
+        description: formData.description,
+        price: finalPrice,
+        duration: finalDuration
+      });
     } else {
-      await addService({ ...payload, available: true });
+      // --- CREATE MODE (Bulk or Single) ---
+      if (selectedActivities.length === 0) return;
+
+      for (const act of selectedActivities) {
+        // If multiple selected, use default content. If single, use form content.
+        const content = selectedActivities.length === 1 
+          ? { title: formData.title, description: formData.description }
+          : DEFAULT_CONTENT[act];
+
+        await addService({
+          activity: act,
+          title: content.title,
+          description: content.description,
+          price: finalPrice,
+          duration: finalDuration,
+          available: true,
+        });
+      }
     }
 
     setShowForm(false);
     setEditingService(null);
-    resetForm();
-  };
-
-  const resetForm = () => {
-    setFormData({ activity: 'dining', title: '', description: '', price: 0, duration: 'session' });
   };
 
   const handleEdit = (service: ServiceOffering) => {
     setEditingService(service);
+    setSelectedActivities([service.activity]); // Lock activity visually
     setFormData({
-      activity: service.activity,
       title: service.title,
       description: service.description,
       price: service.price,
@@ -116,15 +140,18 @@ export default function ManageServicesClient() {
   };
 
   const handleAddNew = () => {
-    setShowForm(true);
     setEditingService(null);
-    const def = DEFAULT_CONTENT['dining'];
-    setFormData({
-      activity: 'dining',
-      title: def.title,
-      description: def.description,
-      price: 500000,
-      duration: 'session'
+    setSelectedActivities([]); // Reset
+    setFormData(prev => ({ ...prev, price: isPro ? 500000 : LOCKED_PRICE }));
+    setShowForm(true);
+  };
+
+  const toggleActivitySelection = (act: ActivityType) => {
+    if (editingService) return; // Cannot change activity in edit mode
+    
+    setSelectedActivities(prev => {
+      if (prev.includes(act)) return prev.filter(x => x !== act);
+      return [...prev, act];
     });
   };
 
@@ -151,7 +178,10 @@ export default function ManageServicesClient() {
           <Lock className="w-5 h-5 flex-shrink-0 text-yellow-400" />
           <div>
             <p className="font-bold">Chế độ Pro chưa kích hoạt</p>
-            <p className="text-gray-400 text-xs mt-1">Hoàn thành 5 đơn + 4.8★ để mở khóa tự nhập giá và gói theo ngày.</p>
+            <p className="text-gray-400 text-xs mt-1">
+              Bạn chỉ có thể tạo dịch vụ với giá cố định <b>{formatCurrency(LOCKED_PRICE)}/buổi</b>. 
+              Hoàn thành 5 đơn + 4.8★ để mở khóa tự nhập giá.
+            </p>
           </div>
         </div>
       )}
@@ -163,147 +193,161 @@ export default function ManageServicesClient() {
             <div className="p-6">
               <h2 className="text-xl font-bold text-gray-900 mb-6 flex items-center gap-2">
                 {editingService ? <Edit2 className="w-5 h-5 text-primary-500" /> : <Sparkles className="w-5 h-5 text-primary-500" />}
-                {editingService ? 'Chỉnh sửa dịch vụ' : 'Thiết lập dịch vụ mới'}
+                {editingService ? 'Chỉnh sửa dịch vụ' : 'Thêm dịch vụ mới'}
               </h2>
 
               <form onSubmit={handleSubmit} className="space-y-6">
-                {/* Activity */}
+                
+                {/* Activity Selection Grid */}
                 <div>
-                  <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Loại hoạt động</label>
-                  <div className="flex gap-3 overflow-x-auto pb-2 hide-scrollbar">
-                    {activityOptions.map((activity) => (
-                      <button
-                        key={activity}
-                        type="button"
-                        onClick={() => setFormData({ ...formData, activity })}
-                        className={cn(
-                          'flex flex-col items-center gap-2 p-3 min-w-[80px] rounded-xl border-2 transition-all',
-                          formData.activity === activity
-                            ? 'border-primary-500 bg-primary-50 text-primary-700'
-                            : 'border-gray-100 bg-gray-50 text-gray-500 hover:bg-gray-100'
-                        )}
-                      >
-                        <span className="text-2xl">{getActivityIcon(activity)}</span>
-                        <span className="text-xs font-bold whitespace-nowrap">{getActivityLabel(activity)}</span>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Duration Toggle */}
-                <div>
-                  <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Cách tính giá</label>
-                  <div className="flex bg-gray-100 p-1 rounded-xl">
-                    <button
-                      type="button"
-                      onClick={() => setFormData({...formData, duration: 'session'})}
-                      className={cn(
-                        "flex-1 py-2 text-sm font-bold rounded-lg transition flex items-center justify-center gap-2",
-                        formData.duration === 'session' ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700"
-                      )}
-                    >
-                      <Clock className="w-4 h-4" /> Theo buổi (3h)
-                    </button>
-                    <button
-                      type="button"
-                      disabled={!isPro}
-                      onClick={() => isPro && setFormData({...formData, duration: 'day'})}
-                      className={cn(
-                        "flex-1 py-2 text-sm font-bold rounded-lg transition flex items-center justify-center gap-2",
-                        formData.duration === 'day' 
-                          ? "bg-white text-gray-900 shadow-sm" 
-                          : isPro ? "text-gray-500 hover:text-gray-700" : "text-gray-300 cursor-not-allowed"
-                      )}
-                    >
-                      {isPro ? <Sparkles className="w-4 h-4" /> : <Lock className="w-3 h-3" />}
-                      Theo ngày
-                    </button>
-                  </div>
-                </div>
-
-                {/* Price */}
-                <div>
-                  <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">
-                    Mức giá ({formData.duration === 'session' ? '/buổi' : '/ngày'})
+                  <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-3">
+                    {editingService ? 'Loại dịch vụ' : 'Chọn dịch vụ (Có thể chọn nhiều)'}
                   </label>
-                  
-                  {!isPro ? (
-                    <div className="grid grid-cols-2 gap-3 mb-3">
-                      {PRICE_PRESETS_SESSION.map((val) => (
+                  <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
+                    {activityOptions.map((activity) => {
+                      const isSelected = selectedActivities.includes(activity);
+                      return (
                         <button
-                          key={val}
+                          key={activity}
                           type="button"
-                          onClick={() => setFormData({ ...formData, price: val })}
+                          onClick={() => toggleActivitySelection(activity)}
+                          disabled={!!editingService && !isSelected}
                           className={cn(
-                            'py-2 px-2 rounded-xl border-2 font-bold text-sm transition-all',
-                            formData.price === val
-                              ? 'border-primary-500 bg-primary-50 text-primary-600'
-                              : 'border-gray-200 text-gray-600 hover:border-gray-300'
+                            'flex flex-col items-center gap-2 p-3 rounded-xl border-2 transition-all relative',
+                            isSelected
+                              ? 'border-primary-500 bg-primary-50 text-primary-700'
+                              : 'border-gray-100 bg-gray-50 text-gray-500 hover:bg-gray-100',
+                            (!!editingService && !isSelected) && 'opacity-40 cursor-not-allowed'
                           )}
                         >
-                          {formatCurrency(val)}
+                          {isSelected && (
+                            <div className="absolute top-1 right-1 bg-primary-500 text-white rounded-full w-4 h-4 flex items-center justify-center">
+                                <Check className="w-2.5 h-2.5" />
+                            </div>
+                          )}
+                          <span className="text-2xl">{getActivityIcon(activity)}</span>
+                          <span className="text-[10px] font-bold text-center leading-tight">{getActivityLabel(activity)}</span>
                         </button>
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="relative">
-                      <input
-                          type="number"
-                          value={formData.price || ''}
-                          onChange={(e) => setFormData({ ...formData, price: Number(e.target.value) })}
-                          className="w-full pl-4 pr-12 py-3 border border-gray-200 rounded-xl font-bold text-lg text-gray-900 focus:ring-2 focus:ring-primary-500 outline-none"
-                          placeholder="Nhập giá..."
-                          step={50000}
-                      />
-                      <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm text-gray-400 font-medium">VNĐ</span>
-                    </div>
-                  )}
-                  
-                  {formData.price > 0 && (
-                    <div className="mt-3 bg-blue-50 border border-blue-100 rounded-xl p-3 text-xs text-blue-800 space-y-1">
-                        <div className="flex justify-between items-center font-bold">
-                            <span>Thực nhận (70%):</span>
-                            <span className="text-green-600 text-sm">{formatCurrency(formData.price * PARTNER_EARNING_RATE)}</span>
-                        </div>
-                        <div className="flex justify-between items-center text-blue-600/80">
-                            <span>Phí nền tảng (30%):</span>
-                            <span>{formatCurrency(formData.price * (1 - PARTNER_EARNING_RATE))}</span>
-                        </div>
-                        <p className="pt-2 mt-2 border-t border-blue-200 text-[10px] leading-relaxed opacity-80">
-                            30% phí được dùng để: Xây dựng & bảo trì hệ thống, Bảo vệ quyền lợi 2 bên, Marketing tìm khách mới, CSKH 24/7.
-                        </p>
-                    </div>
-                  )}
+                      );
+                    })}
+                  </div>
                 </div>
 
-                {/* Info */}
-                <div className="space-y-3">
-                  <div>
-                    <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Tiêu đề</label>
-                    <input
-                      type="text"
-                      value={formData.title}
-                      onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                      className="w-full border-b border-gray-200 py-2 font-bold text-gray-900 focus:border-primary-500 outline-none"
-                      placeholder="VD: Đi cafe cùng bạn"
-                    />
+                {/* Single Service Details (Only if 1 selected or editing) */}
+                {(selectedActivities.length === 1 || editingService) && (
+                  <div className="space-y-3 bg-gray-50 p-4 rounded-2xl border border-gray-100">
+                    <div>
+                      <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Tiêu đề</label>
+                      <input
+                        type="text"
+                        value={formData.title}
+                        onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                        className="w-full bg-white border border-gray-200 rounded-xl px-3 py-2 font-bold text-gray-900 focus:border-primary-500 outline-none"
+                        placeholder="VD: Đi cafe cùng bạn"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Mô tả</label>
+                      <textarea
+                        value={formData.description}
+                        onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                        rows={2}
+                        className="w-full bg-white border border-gray-200 rounded-xl px-3 py-2 text-sm text-gray-600 focus:border-primary-500 outline-none resize-none"
+                        placeholder="Mô tả chi tiết..."
+                      />
+                    </div>
                   </div>
-                  <div>
-                    <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Mô tả</label>
-                    <textarea
-                      value={formData.description}
-                      onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                      rows={2}
-                      className="w-full border-b border-gray-200 py-2 text-sm text-gray-600 focus:border-primary-500 outline-none resize-none"
-                      placeholder="Mô tả chi tiết..."
-                    />
+                )}
+
+                {/* Bulk Mode Notice */}
+                {!editingService && selectedActivities.length > 1 && (
+                  <div className="bg-blue-50 text-blue-800 p-4 rounded-2xl flex items-center gap-3">
+                    <Info className="w-5 h-5 flex-shrink-0" />
+                    <p className="text-sm">
+                      Bạn đang chọn <b>{selectedActivities.length} dịch vụ</b>. Hệ thống sẽ tạo tự động với tiêu đề và mô tả mặc định. Bạn có thể chỉnh sửa lại sau.
+                    </p>
+                  </div>
+                )}
+
+                {/* Duration & Price */}
+                <div>
+                  <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Cấu hình giá</label>
+                  
+                  {isPro ? (
+                    // PRO MODE: Full Control
+                    <div className="space-y-3">
+                        <div className="flex bg-gray-100 p-1 rounded-xl">
+                            <button
+                            type="button"
+                            onClick={() => setFormData({...formData, duration: 'session'})}
+                            className={cn(
+                                "flex-1 py-2 text-sm font-bold rounded-lg transition flex items-center justify-center gap-2",
+                                formData.duration === 'session' ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700"
+                            )}
+                            >
+                            <Clock className="w-4 h-4" /> Theo buổi (3h)
+                            </button>
+                            <button
+                            type="button"
+                            onClick={() => setFormData({...formData, duration: 'day'})}
+                            className={cn(
+                                "flex-1 py-2 text-sm font-bold rounded-lg transition flex items-center justify-center gap-2",
+                                formData.duration === 'day' ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700"
+                            )}
+                            >
+                            <Sparkles className="w-4 h-4" /> Theo ngày
+                            </button>
+                        </div>
+                        <div className="relative">
+                            <input
+                                type="number"
+                                value={formData.price}
+                                onChange={(e) => setFormData({ ...formData, price: Number(e.target.value) })}
+                                className="w-full pl-4 pr-12 py-3 border border-gray-200 rounded-xl font-bold text-lg text-gray-900 focus:ring-2 focus:ring-primary-500 outline-none"
+                                placeholder="Nhập giá..."
+                                step={50000}
+                            />
+                            <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm text-gray-400 font-medium">VNĐ</span>
+                        </div>
+                    </div>
+                  ) : (
+                    // NON-PRO: Locked
+                    <div className="bg-gray-100 rounded-2xl p-4 border border-gray-200 opacity-80 cursor-not-allowed">
+                        <div className="flex items-center justify-between mb-2">
+                            <span className="text-sm font-bold text-gray-600 flex items-center gap-2">
+                                <Clock className="w-4 h-4" /> Theo buổi (3h)
+                            </span>
+                            <Lock className="w-4 h-4 text-gray-400" />
+                        </div>
+                        <div className="text-xl font-black text-gray-800">
+                            {formatCurrency(LOCKED_PRICE)}
+                        </div>
+                    </div>
+                  )}
+
+                  {/* Revenue Calculation */}
+                  <div className="mt-3 bg-white border border-gray-200 rounded-xl p-3 text-xs space-y-1 shadow-sm">
+                      <div className="flex justify-between items-center font-bold text-gray-700">
+                          <span>Thực nhận (70%):</span>
+                          <span className="text-green-600 text-sm">
+                              {formatCurrency((isPro ? formData.price : LOCKED_PRICE) * PARTNER_EARNING_RATE)}
+                          </span>
+                      </div>
+                      <div className="flex justify-between items-center text-gray-500">
+                          <span>Phí nền tảng (30%):</span>
+                          <span>{formatCurrency((isPro ? formData.price : LOCKED_PRICE) * (1 - PARTNER_EARNING_RATE))}</span>
+                      </div>
                   </div>
                 </div>
 
                 <div className="flex gap-3 pt-4">
                   <button type="button" onClick={() => setShowForm(false)} className="flex-1 py-3.5 bg-gray-100 text-gray-600 rounded-xl font-bold">Hủy</button>
-                  <button type="submit" disabled={!formData.title || !formData.price} className="flex-1 py-3.5 bg-gradient-primary text-white rounded-xl font-bold shadow-lg disabled:opacity-50">
-                    {editingService ? 'Lưu' : 'Tạo'}
+                  <button 
+                    type="submit" 
+                    disabled={selectedActivities.length === 0} 
+                    className="flex-1 py-3.5 bg-gradient-primary text-white rounded-xl font-bold shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {editingService ? 'Lưu thay đổi' : `Tạo ${selectedActivities.length} dịch vụ`}
                   </button>
                 </div>
               </form>
@@ -321,23 +365,23 @@ export default function ManageServicesClient() {
             <div key={service.id} className="bg-white rounded-2xl border border-gray-100 p-4 shadow-sm">
               <div className="flex justify-between items-start">
                 <div className="flex gap-4">
-                  <div className="w-14 h-14 bg-gray-50 rounded-2xl flex items-center justify-center text-3xl">
+                  <div className="w-14 h-14 bg-gray-50 rounded-2xl flex items-center justify-center text-3xl flex-shrink-0">
                     {getActivityIcon(service.activity)}
                   </div>
-                  <div>
-                    <h3 className="font-bold text-gray-900 text-lg">{service.title}</h3>
-                    <div className="flex items-center gap-2 mt-1">
+                  <div className="min-w-0">
+                    <h3 className="font-bold text-gray-900 text-lg truncate pr-2">{service.title}</h3>
+                    <div className="flex items-center gap-2 mt-1 flex-wrap">
                       <span className={cn(
-                        "text-[10px] font-bold px-2 py-0.5 rounded uppercase",
+                        "text-[10px] font-bold px-2 py-0.5 rounded uppercase flex-shrink-0",
                         service.duration === 'day' ? "bg-purple-100 text-purple-700" : "bg-blue-100 text-blue-700"
                       )}>
                         {service.duration === 'day' ? 'Theo ngày' : 'Theo buổi'}
                       </span>
-                      <span className="font-bold text-primary-600">{formatCurrency(service.price)}</span>
+                      <span className="font-bold text-primary-600 whitespace-nowrap">{formatCurrency(service.price)}</span>
                     </div>
                   </div>
                 </div>
-                <div className="flex flex-col gap-2">
+                <div className="flex flex-col gap-2 flex-shrink-0">
                   <button onClick={() => handleToggleAvailable(service)} className={cn("p-2 rounded-xl transition", service.available ? "bg-green-50 text-green-600" : "bg-gray-100 text-gray-400")}>
                     {service.available ? <ToggleRight className="w-6 h-6" /> : <ToggleLeft className="w-6 h-6" />}
                   </button>

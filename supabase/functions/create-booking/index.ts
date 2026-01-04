@@ -1,8 +1,3 @@
-/**
- * Session-based booking:
- * - service.price is the price for 1 session (default 3 hours)
- * - durationHours is accepted but only allowed = 3 for now (simple MVP)
- */
 // @ts-nocheck
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0'
@@ -20,7 +15,8 @@ function getCorsHeaders(req: Request) {
 }
 
 const PLATFORM_FEE_RATE = 0.3
-const SESSION_HOURS = 3;
+const DEFAULT_SESSION_HOURS = 3;
+const DEFAULT_DAY_HOURS = 8;
 
 type CreateBookingBody = {
   providerId: string
@@ -29,7 +25,7 @@ type CreateBookingBody = {
   time: string // HH:mm
   location: string
   message?: string
-  durationHours: number // must be 3 for session bookings
+  durationHours?: number
 }
 
 function toIso(date: string, time: string) {
@@ -58,7 +54,7 @@ serve(async (req: Request) => {
   const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY')!
   const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
 
-  // Use service role for privileged operations (wallet updates), but validate the user token manually.
+  // Use service role for privileged operations (wallet updates)
   const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey, {
     auth: { persistSession: false },
   })
@@ -85,15 +81,10 @@ serve(async (req: Request) => {
     return new Response(JSON.stringify({ error: 'Missing required fields' }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
   }
 
-  const durationHours = Number(body.durationHours ?? SESSION_HOURS)
-  if (durationHours !== SESSION_HOURS) {
-    return new Response(JSON.stringify({ error: 'Invalid durationHours (session booking must be 3 hours)' }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
-  }
-
   // 1) Fetch service
   const { data: serviceRow, error: serviceErr } = await supabaseAdmin
     .from('services')
-    .select('id, user_id, activity, title, price, available')
+    .select('id, user_id, activity, title, price, available, duration')
     .eq('id', body.serviceId)
     .single()
 
@@ -109,16 +100,30 @@ serve(async (req: Request) => {
     return new Response(JSON.stringify({ error: 'Service does not belong to provider' }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
   }
 
-  // IMPORTANT: service.price is price per session (3 hours)
-  const sessionPrice = Number(serviceRow.price || 0)
-  if (sessionPrice <= 0) {
-    return new Response(JSON.stringify({ error: 'Invalid service session price' }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+  // Determine duration
+  let durationHours = Number(body.durationHours || 0);
+  
+  if (serviceRow.duration === 'day') {
+      // If service is per day, default to 8 hours if not specified
+      if (durationHours <= 0) durationHours = DEFAULT_DAY_HOURS;
+  } else {
+      // If service is per session, enforce 3 hours (or allow override if logic changes later)
+      durationHours = DEFAULT_SESSION_HOURS;
   }
 
-  const subTotal = Math.round(sessionPrice)
+  // Price Calculation
+  // service.price is the unit price (per session or per day)
+  const unitPrice = Number(serviceRow.price || 0)
+  if (unitPrice <= 0) {
+    return new Response(JSON.stringify({ error: 'Invalid service price' }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+  }
+
+  // For now, 1 booking = 1 unit (1 session or 1 day). 
+  // If we want to support multiple days/sessions later, we'd multiply here.
+  const subTotal = Math.round(unitPrice)
   const platformFee = Math.round(subTotal * PLATFORM_FEE_RATE)
   const partnerEarning = Math.round(subTotal - platformFee)
-  const totalCharge = subTotal // escrow holds subtotal; fee is internal accounting (simple MVP)
+  const totalCharge = subTotal 
 
   // 2) Fetch booker wallet
   const { data: bookerRow, error: bookerErr } = await supabaseAdmin
@@ -147,12 +152,12 @@ serve(async (req: Request) => {
       user_id: userId,
       partner_id: body.providerId,
       activity: serviceRow.activity,
-      duration_hours: SESSION_HOURS,
+      duration_hours: durationHours,
       start_time: startTimeIso,
       meeting_location: body.location,
       meeting_lat: null,
       meeting_lng: null,
-      hourly_rate: null, // session-based, not hourly
+      hourly_rate: null, 
       total_amount: subTotal,
       platform_fee: platformFee,
       partner_earning: partnerEarning,
@@ -162,7 +167,7 @@ serve(async (req: Request) => {
     .single()
 
   if (bookingErr || !bookingRow) {
-    return new Response(JSON.stringify({ error: 'Failed to create booking' }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+    return new Response(JSON.stringify({ error: 'Failed to create booking: ' + bookingErr.message }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
   }
 
   // 4) Update wallets (hold escrow)
@@ -192,7 +197,8 @@ serve(async (req: Request) => {
     })
 
   if (txErr) {
-    return new Response(JSON.stringify({ error: 'Transaction create failed' }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+    // Log only, don't fail the request since money is already moved
+    console.error("Tx log failed", txErr);
   }
 
   return new Response(JSON.stringify({ bookingId: bookingRow.id }), {

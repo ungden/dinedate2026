@@ -20,23 +20,25 @@ import {
   FileText,
   DollarSign,
   Trash2,
+  Clock,
+  Sparkles,
 } from 'lucide-react';
 import { useDateStore } from '@/hooks/useDateStore';
-import { ActivityType, ServiceDuration } from '@/types';
+import { ActivityType } from '@/types';
 import { cn } from '@/lib/utils';
 import { useDbMyServices } from '@/hooks/useDbMyServices';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import toast from 'react-hot-toast';
 
-const ACTIVITY_OPTIONS: { value: ActivityType; label: string; Icon: React.ElementType; defaultDuration: ServiceDuration }[] = [
-  { value: 'cafe', label: 'Cafe', Icon: Coffee, defaultDuration: 'session' },
-  { value: 'dining', label: 'Ăn uống', Icon: Utensils, defaultDuration: 'session' },
-  { value: 'movies', label: 'Xem phim', Icon: Clapperboard, defaultDuration: 'session' },
-  { value: 'drinking', label: 'Cafe/Bar', Icon: Wine, defaultDuration: 'session' },
-  { value: 'karaoke', label: 'Karaoke', Icon: Mic2, defaultDuration: 'session' },
-  { value: 'tour_guide', label: 'Tour guide', Icon: Map, defaultDuration: 'day' },
-  { value: 'travel', label: 'Du lịch', Icon: Plane, defaultDuration: 'day' },
+const ACTIVITY_OPTIONS: { value: ActivityType; label: string; Icon: React.ElementType }[] = [
+  { value: 'cafe', label: 'Cafe', Icon: Coffee },
+  { value: 'dining', label: 'Ăn uống', Icon: Utensils },
+  { value: 'movies', label: 'Xem phim', Icon: Clapperboard },
+  { value: 'drinking', label: 'Cafe/Bar', Icon: Wine },
+  { value: 'karaoke', label: 'Karaoke', Icon: Mic2 },
+  { value: 'tour_guide', label: 'Tour guide', Icon: Map },
+  { value: 'travel', label: 'Du lịch', Icon: Plane },
 ];
 
 const DEFAULT_TITLES: Partial<Record<ActivityType, string>> = {
@@ -62,11 +64,51 @@ const DEFAULT_DESCRIPTIONS: Partial<Record<ActivityType, string>> = {
 const MIN_BIO_LEN = 30;
 const MIN_PHOTOS = 3;
 
-// Interface for the detailed configuration step
-interface ServiceConfig {
+type ServiceConfig = {
   activity: ActivityType;
-  price: number;
-  duration: ServiceDuration;
+
+  sessionEnabled: boolean;
+  sessionPrice: number;
+
+  dayEnabled: boolean;
+  dayPrice: number;
+};
+
+function defaultConfigForActivity(activity: ActivityType): ServiceConfig {
+  // sensible defaults:
+  // - most activities default session ON
+  // - travel/tour default day ON (but still allow session too)
+  const defaultSession =
+    activity === 'tour_guide' || activity === 'travel' ? false : true;
+  const defaultDay = activity === 'tour_guide' || activity === 'travel';
+
+  const sessionPriceMap: Partial<Record<ActivityType, number>> = {
+    cafe: 300000,
+    dining: 500000,
+    movies: 400000,
+    drinking: 700000,
+    karaoke: 600000,
+    tour_guide: 700000, // optional session for tour guide
+    travel: 900000, // optional session for travel
+  };
+
+  const dayPriceMap: Partial<Record<ActivityType, number>> = {
+    cafe: 1000000,
+    dining: 1200000,
+    movies: 1000000,
+    drinking: 1500000,
+    karaoke: 1500000,
+    tour_guide: 1500000,
+    travel: 2000000,
+  };
+
+  return {
+    activity,
+    sessionEnabled: defaultSession,
+    sessionPrice: sessionPriceMap[activity] ?? 500000,
+    dayEnabled: defaultDay,
+    dayPrice: dayPriceMap[activity] ?? 1500000,
+  };
 }
 
 export default function BecomePartnerClient() {
@@ -75,17 +117,19 @@ export default function BecomePartnerClient() {
   const { user: authUser, refreshProfile } = useAuth();
 
   const [step, setStep] = useState<1 | 2>(1);
-  const [selectedActivities, setSelectedActivities] = useState<ActivityType[]>(['cafe', 'dining']);
+  const [selectedActivities, setSelectedActivities] = useState<ActivityType[]>([
+    'cafe',
+    'dining',
+  ]);
 
-  // Store config per activity
   const [configs, setConfigs] = useState<Record<ActivityType, ServiceConfig>>({
-    cafe: { activity: 'cafe', price: 300000, duration: 'session' },
-    dining: { activity: 'dining', price: 500000, duration: 'session' },
-    movies: { activity: 'movies', price: 400000, duration: 'session' },
-    drinking: { activity: 'drinking', price: 700000, duration: 'session' },
-    karaoke: { activity: 'karaoke', price: 600000, duration: 'session' },
-    tour_guide: { activity: 'tour_guide', price: 1500000, duration: 'day' },
-    travel: { activity: 'travel', price: 2000000, duration: 'day' },
+    cafe: defaultConfigForActivity('cafe'),
+    dining: defaultConfigForActivity('dining'),
+    movies: defaultConfigForActivity('movies'),
+    drinking: defaultConfigForActivity('drinking'),
+    karaoke: defaultConfigForActivity('karaoke'),
+    tour_guide: defaultConfigForActivity('tour_guide'),
+    travel: defaultConfigForActivity('travel'),
   });
 
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -124,7 +168,11 @@ export default function BecomePartnerClient() {
     });
   };
 
-  const updateConfig = (activity: ActivityType, key: keyof ServiceConfig, value: any) => {
+  const updateConfig = <K extends keyof ServiceConfig>(
+    activity: ActivityType,
+    key: K,
+    value: ServiceConfig[K]
+  ) => {
     setConfigs((prev) => ({
       ...prev,
       [activity]: { ...prev[activity], [key]: value },
@@ -148,6 +196,21 @@ export default function BecomePartnerClient() {
     await refreshProfile();
   };
 
+  const validateStep2 = () => {
+    // each selected activity must have at least one option enabled
+    for (const a of selectedActivities) {
+      const cfg = configs[a];
+      const hasOne =
+        (cfg.sessionEnabled && cfg.sessionPrice > 0) ||
+        (cfg.dayEnabled && cfg.dayPrice > 0);
+
+      if (!hasOne) {
+        return { ok: false, activity: a };
+      }
+    }
+    return { ok: true as const };
+  };
+
   const handleCreate = async () => {
     if (!authUser?.id) {
       toast.error('Vui lòng đăng nhập');
@@ -160,27 +223,51 @@ export default function BecomePartnerClient() {
       return;
     }
 
+    const v = validateStep2();
+    if (!v.ok) {
+      toast.error('Mỗi hoạt động cần chọn ít nhất 1 gói (theo buổi hoặc theo ngày).');
+      return;
+    }
+
     setIsSubmitting(true);
 
     // 1) Mark partner in DB FIRST so you appear in Partner list immediately
     await markPartnerActive();
 
-    // 2) Create services
+    // 2) Create services: one row per enabled option
     for (const activity of selectedActivities) {
-      const config = configs[activity];
-      await addService({
-        activity,
-        title: DEFAULT_TITLES[activity] || 'Dịch vụ đồng hành',
-        description: DEFAULT_DESCRIPTIONS[activity] || 'Dịch vụ đồng hành theo yêu cầu.',
-        price: config.price,
-        duration: config.duration,
-        available: true,
-      });
+      const cfg = configs[activity];
+
+      const baseTitle = DEFAULT_TITLES[activity] || 'Dịch vụ đồng hành';
+      const baseDesc =
+        DEFAULT_DESCRIPTIONS[activity] || 'Dịch vụ đồng hành theo yêu cầu.';
+
+      if (cfg.sessionEnabled) {
+        await addService({
+          activity,
+          title: `${baseTitle} (theo buổi)`,
+          description: baseDesc,
+          price: cfg.sessionPrice,
+          duration: 'session',
+          available: true,
+        });
+      }
+
+      if (cfg.dayEnabled) {
+        await addService({
+          activity,
+          title: `${baseTitle} (theo ngày)`,
+          description: baseDesc,
+          price: cfg.dayPrice,
+          duration: 'day',
+          available: true,
+        });
+      }
     }
 
     toast.success('Đã kích hoạt Partner!');
 
-    // 3) Go to Partner dashboard (not forcing manage-services)
+    // 3) Go to Partner dashboard
     window.location.href = '/partner-dashboard';
   };
 
@@ -278,10 +365,18 @@ export default function BecomePartnerClient() {
           <ArrowLeft className="w-5 h-5" />
         </button>
         <div className="flex-1">
-          <h1 className="text-2xl font-bold text-gray-900">{step === 1 ? 'Chọn dịch vụ' : 'Thiết lập giá'}</h1>
-          <p className="text-sm text-gray-500">{step === 1 ? 'Bước 1: Chọn những gì bạn muốn làm' : 'Bước 2: Định giá cho từng dịch vụ'}</p>
+          <h1 className="text-2xl font-bold text-gray-900">
+            {step === 1 ? 'Chọn hoạt động' : 'Thiết lập gói giá'}
+          </h1>
+          <p className="text-sm text-gray-500">
+            {step === 1
+              ? 'Bước 1: Chọn những gì bạn muốn cung cấp'
+              : 'Bước 2: Bạn có thể bật cả theo buổi và theo ngày cho mỗi hoạt động'}
+          </p>
         </div>
-        <div className="text-xs font-bold bg-gray-100 px-3 py-1 rounded-full text-gray-500">{step}/2</div>
+        <div className="text-xs font-bold bg-gray-100 px-3 py-1 rounded-full text-gray-500">
+          {step}/2
+        </div>
       </div>
 
       {/* STEP 1: SELECT ACTIVITIES */}
@@ -311,8 +406,10 @@ export default function BecomePartnerClient() {
                       </div>
                     )}
                   </div>
-                  <p className={cn('font-bold text-lg', isSelected ? 'text-primary-900' : 'text-gray-700')}>{opt.label}</p>
-                  <p className="text-xs text-gray-500 mt-1">{opt.defaultDuration === 'day' ? 'Thường đi theo ngày' : 'Thường đi theo buổi'}</p>
+                  <p className={cn('font-bold text-lg', isSelected ? 'text-primary-900' : 'text-gray-700')}>
+                    {opt.label}
+                  </p>
+                  <p className="text-xs text-gray-500 mt-1">Có thể bật theo buổi / theo ngày</p>
                 </button>
               );
             })}
@@ -341,22 +438,17 @@ export default function BecomePartnerClient() {
               <DollarSign className="w-4 h-4" />
             </div>
             <div>
-              <p className="font-bold text-blue-900 text-sm">Gợi ý định giá</p>
-              <ul className="text-xs text-blue-700 mt-1 space-y-1 list-disc pl-4">
-                <li>
-                  <strong>Theo buổi (3h):</strong> Phù hợp Cafe, Ăn uống, Xem phim.
-                </li>
-                <li>
-                  <strong>Theo ngày:</strong> Phù hợp Du lịch, Tour guide.
-                </li>
-              </ul>
+              <p className="font-bold text-blue-900 text-sm">Bạn có thể bật 1 hoặc 2 gói</p>
+              <p className="text-xs text-blue-700 mt-1">
+                Ví dụ Tour guide: bật cả <b>theo buổi</b> và <b>theo ngày</b> nếu bạn muốn.
+              </p>
             </div>
           </div>
 
           <div className="space-y-4">
             {selectedActivities.map((activity) => {
               const option = ACTIVITY_OPTIONS.find((o) => o.value === activity)!;
-              const config = configs[activity];
+              const cfg = configs[activity];
               const Icon = option.Icon;
 
               return (
@@ -367,48 +459,118 @@ export default function BecomePartnerClient() {
                     </div>
                     <div className="flex-1">
                       <h3 className="font-bold text-gray-900 text-lg">{option.label}</h3>
+                      <p className="text-xs text-gray-500">Chọn gói & giá</p>
                     </div>
-                    <button onClick={() => toggleActivity(activity)} className="p-2 hover:bg-red-50 text-gray-400 hover:text-red-500 rounded-lg transition">
+                    <button
+                      onClick={() => toggleActivity(activity)}
+                      className="p-2 hover:bg-red-50 text-gray-400 hover:text-red-500 rounded-lg transition"
+                      aria-label="Bỏ hoạt động"
+                    >
                       <Trash2 className="w-4 h-4" />
                     </button>
                   </div>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    {/* Duration Toggle */}
-                    <div>
-                      <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Cách tính giá</label>
-                      <div className="flex bg-gray-100 p-1 rounded-xl">
+                  <div className="space-y-3">
+                    {/* Session option */}
+                    <div className="bg-gray-50 rounded-2xl p-4 border border-gray-100">
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="flex items-center gap-2">
+                          <div className="w-9 h-9 bg-white rounded-xl border border-gray-200 flex items-center justify-center text-gray-700">
+                            <Clock className="w-4 h-4" />
+                          </div>
+                          <div>
+                            <p className="font-bold text-gray-900 text-sm">Theo buổi</p>
+                            <p className="text-xs text-gray-500">Một buổi (3h)</p>
+                          </div>
+                        </div>
+
                         <button
-                          onClick={() => updateConfig(activity, 'duration', 'session')}
                           type="button"
-                          className={cn('flex-1 py-2 text-sm font-bold rounded-lg transition', config.duration === 'session' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700')}
+                          onClick={() => updateConfig(activity, 'sessionEnabled', !cfg.sessionEnabled)}
+                          className={cn(
+                            'px-3 py-1.5 rounded-full text-xs font-black border transition',
+                            cfg.sessionEnabled
+                              ? 'bg-green-50 text-green-700 border-green-200'
+                              : 'bg-white text-gray-600 border-gray-200'
+                          )}
                         >
-                          Theo buổi
-                        </button>
-                        <button
-                          onClick={() => updateConfig(activity, 'duration', 'day')}
-                          type="button"
-                          className={cn('flex-1 py-2 text-sm font-bold rounded-lg transition', config.duration === 'day' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700')}
-                        >
-                          Theo ngày
+                          {cfg.sessionEnabled ? 'Đang bật' : 'Tắt'}
                         </button>
                       </div>
+
+                      {cfg.sessionEnabled && (
+                        <div className="mt-3">
+                          <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">
+                            Giá theo buổi (VNĐ)
+                          </label>
+                          <div className="relative">
+                            <input
+                              type="number"
+                              value={cfg.sessionPrice}
+                              onChange={(e) => updateConfig(activity, 'sessionPrice', Number(e.target.value))}
+                              className="w-full pl-4 pr-12 py-2.5 border border-gray-200 rounded-xl font-bold text-gray-900 focus:ring-2 focus:ring-primary-500 outline-none bg-white"
+                              step={50000}
+                              min={0}
+                            />
+                            <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm text-gray-400 font-medium">đ</span>
+                          </div>
+                        </div>
+                      )}
                     </div>
 
-                    {/* Price Input */}
-                    <div>
-                      <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Giá (VNĐ)</label>
-                      <div className="relative">
-                        <input
-                          type="number"
-                          value={config.price}
-                          onChange={(e) => updateConfig(activity, 'price', Number(e.target.value))}
-                          className="w-full pl-4 pr-12 py-2.5 border border-gray-200 rounded-xl font-bold text-gray-900 focus:ring-2 focus:ring-primary-500 outline-none"
-                          step={50000}
-                        />
-                        <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm text-gray-400 font-medium">đ</span>
+                    {/* Day option */}
+                    <div className="bg-gray-50 rounded-2xl p-4 border border-gray-100">
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="flex items-center gap-2">
+                          <div className="w-9 h-9 bg-white rounded-xl border border-gray-200 flex items-center justify-center text-gray-700">
+                            <Sparkles className="w-4 h-4" />
+                          </div>
+                          <div>
+                            <p className="font-bold text-gray-900 text-sm">Theo ngày</p>
+                            <p className="text-xs text-gray-500">Một ngày</p>
+                          </div>
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={() => updateConfig(activity, 'dayEnabled', !cfg.dayEnabled)}
+                          className={cn(
+                            'px-3 py-1.5 rounded-full text-xs font-black border transition',
+                            cfg.dayEnabled
+                              ? 'bg-green-50 text-green-700 border-green-200'
+                              : 'bg-white text-gray-600 border-gray-200'
+                          )}
+                        >
+                          {cfg.dayEnabled ? 'Đang bật' : 'Tắt'}
+                        </button>
                       </div>
+
+                      {cfg.dayEnabled && (
+                        <div className="mt-3">
+                          <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">
+                            Giá theo ngày (VNĐ)
+                          </label>
+                          <div className="relative">
+                            <input
+                              type="number"
+                              value={cfg.dayPrice}
+                              onChange={(e) => updateConfig(activity, 'dayPrice', Number(e.target.value))}
+                              className="w-full pl-4 pr-12 py-2.5 border border-gray-200 rounded-xl font-bold text-gray-900 focus:ring-2 focus:ring-primary-500 outline-none bg-white"
+                              step={50000}
+                              min={0}
+                            />
+                            <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm text-gray-400 font-medium">đ</span>
+                          </div>
+                        </div>
+                      )}
                     </div>
+
+                    {/* Validation note */}
+                    {!cfg.sessionEnabled && !cfg.dayEnabled && (
+                      <div className="text-xs font-bold text-rose-600 bg-rose-50 border border-rose-100 rounded-xl p-3">
+                        Cần bật ít nhất 1 gói (theo buổi hoặc theo ngày) cho hoạt động này.
+                      </div>
+                    )}
                   </div>
                 </div>
               );

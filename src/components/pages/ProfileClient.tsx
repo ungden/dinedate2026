@@ -39,6 +39,26 @@ export default function ProfileClient() {
   const myRequests = getMyRequests();
   const myApplications = getMyApplications();
   const isPartner = authUser.isServiceProvider;
+  const hasAgreedToTerms = !!authUser.partner_agreed_at;
+
+  // Determine Partner Link destination and text
+  const partnerLink = isPartner 
+    ? "/partner-dashboard" 
+    : hasAgreedToTerms 
+      ? "/become-partner" 
+      : "/become-partner/terms";
+  
+  const partnerTitle = isPartner 
+    ? "Partner Dashboard" 
+    : hasAgreedToTerms 
+      ? "Hoàn tất đăng ký Partner" 
+      : "Đăng ký Partner";
+
+  const partnerDesc = isPartner 
+    ? "Quản lý thu nhập & đơn hàng" 
+    : hasAgreedToTerms 
+      ? "Thiết lập dịch vụ & giá" 
+      : "Đọc & đồng ý điều khoản trước";
 
   const notifications = getMyNotifications();
   const unreadNotifications = notifications.filter((n) => !n.read).length;
@@ -147,33 +167,21 @@ export default function ProfileClient() {
         <div className="space-y-3">
           <h3 className="px-2 text-[14px] font-black text-gray-400 uppercase tracking-[0.2em]">Dành cho Partner</h3>
           <div className="ios-card bg-white divide-y divide-gray-50">
-            {isPartner ? (
-              <Link href="/partner-dashboard" className="flex items-center justify-between p-4 hover:bg-gray-50 transition tap-highlight">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center">
-                    <Briefcase className="w-5 h-5" />
-                  </div>
-                  <div>
-                    <p className="font-medium text-gray-900">Partner Dashboard</p>
-                    <p className="text-[11px] text-gray-400 font-medium">Quản lý thu nhập & đơn hàng</p>
-                  </div>
+            <Link href={partnerLink} className="flex items-center justify-between p-4 hover:bg-gray-50 transition tap-highlight">
+              <div className="flex items-center gap-3">
+                <div className={cn(
+                  "w-10 h-10 rounded-xl flex items-center justify-center shadow-md",
+                  isPartner ? "bg-blue-50 text-blue-600" : "bg-gradient-to-br from-blue-500 to-indigo-600 text-white"
+                )}>
+                  <Briefcase className="w-5 h-5" />
                 </div>
-                <ChevronRight className="w-4 h-4 text-gray-300" />
-              </Link>
-            ) : (
-              <Link href="/become-partner/terms" className="flex items-center justify-between p-4 hover:bg-gray-50 transition tap-highlight">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-indigo-600 text-white rounded-xl flex items-center justify-center shadow-md">
-                    <Briefcase className="w-5 h-5" />
-                  </div>
-                  <div>
-                    <p className="font-medium text-gray-900">Đăng ký Partner</p>
-                    <p className="text-[11px] text-gray-400 font-medium">Đọc & đồng ý điều khoản trước</p>
-                  </div>
+                <div>
+                  <p className="font-medium text-gray-900">{partnerTitle}</p>
+                  <p className="text-[11px] text-gray-400 font-medium">{partnerDesc}</p>
                 </div>
-                <ChevronRight className="w-4 h-4 text-gray-300" />
-              </Link>
-            )}
+              </div>
+              <ChevronRight className="w-4 h-4 text-gray-300" />
+            </Link>
           </div>
         </div>
 

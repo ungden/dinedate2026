@@ -14,7 +14,7 @@ const SCROLL_UNLOCK_OFFSET_PX = 120;
 
 export default function BecomePartnerTermsClient() {
   const router = useRouter();
-  const { user, updateUser } = useAuth();
+  const { user, updateUser, isLoading } = useAuth();
 
   const scrollRef = useRef<HTMLDivElement | null>(null);
 
@@ -26,6 +26,13 @@ export default function BecomePartnerTermsClient() {
   const isReady = useMemo(() => {
     return hasReachedBottom && agreeMain && agreeNoSensitive && !!user?.id;
   }, [hasReachedBottom, agreeMain, agreeNoSensitive, user?.id]);
+
+  // Auto redirect if already agreed
+  useEffect(() => {
+    if (!isLoading && user?.partner_agreed_at) {
+      router.replace('/become-partner');
+    }
+  }, [user, isLoading, router]);
 
   useEffect(() => {
     const el = scrollRef.current;
@@ -84,6 +91,14 @@ export default function BecomePartnerTermsClient() {
       setIsSaving(false); // Reset trạng thái để user có thể thử lại
     }
   };
+
+  if (isLoading || user?.partner_agreed_at) {
+    return (
+      <div className="min-h-[50vh] flex items-center justify-center">
+        <Loader2 className="w-8 h-8 animate-spin text-primary-500" />
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-3xl mx-auto space-y-4">

@@ -6,6 +6,7 @@ import Header from './Header';
 import BottomNavigation from './BottomNavigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { useEffect } from 'react';
+import toast from 'react-hot-toast';
 
 export default function ClientLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -19,21 +20,23 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
     let timer: NodeJS.Timeout;
     
     if (isLoading) {
-      // Nếu loading quá 4 giây, tự động reset và đá về login
+      // Nếu loading quá 5 giây, báo lỗi và reset
       timer = setTimeout(async () => {
-        console.warn("Loading timeout - Auto resetting session...");
+        console.error("[ClientLayout] Loading timeout exceeded (5s). Force resetting session.");
+        toast.error("Phiên đăng nhập quá hạn hoặc lỗi mạng. Đang tải lại...", { id: 'auth-timeout' });
         
-        // Xóa sạch local storage để loại bỏ session bị lỗi (nếu có)
         if (typeof window !== 'undefined') {
             localStorage.clear();
         }
         
-        // Thử gọi logout nhẹ nhàng (không await để tránh treo tiếp nếu mạng lỗi)
-        logout().catch(() => {});
+        try {
+            await logout();
+        } catch (e) {
+            console.error("Logout failed during timeout handling:", e);
+        }
 
-        // Force reload trang về login
         window.location.href = '/login';
-      }, 4000);
+      }, 5000);
     }
 
     return () => clearTimeout(timer);
@@ -48,7 +51,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
           animate={{ opacity: 1, scale: 1 }}
         >
           <div className="w-12 h-12 border-4 border-primary-500 border-t-transparent rounded-full animate-spin mb-4" />
-          {/* Không hiển thị text lỗi, tự động xử lý ngầm */}
+          <p className="text-gray-500 text-sm font-medium animate-pulse">Đang kết nối...</p>
         </motion.div>
       </div>
     );

@@ -63,13 +63,17 @@ async function fetchUserProfile(userId: string): Promise<User | null> {
   try {
     const { data, error } = await supabase.from('users').select('*').eq('id', userId).single();
     if (error) {
-      console.warn('Error fetching profile from DB:', error.message);
+      console.error('[Auth] Error fetching profile DB:', error);
+      // Không throw để tránh crash app, nhưng log rõ ràng
       return null;
     }
-    if (!data) return null;
+    if (!data) {
+        console.warn('[Auth] No user data returned for ID:', userId);
+        return null;
+    }
     return mapDbUserToUser(data as any);
   } catch (error) {
-    console.error('Exception fetching profile:', error);
+    console.error('[Auth] Exception fetching profile:', error);
     return null;
   }
 }
@@ -83,7 +87,6 @@ async function ensureUsersRow(params: {
   const { id, name, avatar_url } = params;
 
   try {
-    // Dùng maybeSingle để không throw error nếu không tìm thấy
     const { data: existing, error: existErr } = await supabase
       .from('users')
       .select('id')
@@ -91,11 +94,12 @@ async function ensureUsersRow(params: {
       .maybeSingle();
 
     if (existErr) {
-        console.error("Check user exist error:", existErr);
-        // Không return, cố gắng insert/upsert
+        console.error("[Auth] Check user exist error:", existErr);
     }
     
     if (existing?.id) return;
+
+    console.log("[Auth] Creating new user row for:", id);
 
     const payload: any = {
       id,
@@ -111,13 +115,13 @@ async function ensureUsersRow(params: {
       wallet_escrow: 0,
     };
 
-    // Upsert để an toàn hơn
     const { error: insertErr } = await supabase.from('users').upsert(payload, { onConflict: 'id' });
     if (insertErr) {
-        console.error("Insert user error:", insertErr);
+        console.error("[Auth] Insert user error:", insertErr);
+        toast.error(`Lỗi tạo hồ sơ: ${insertErr.message}`);
     }
   } catch (error) {
-    console.error('Error ensuring user row:', error);
+    console.error('[Auth] Error ensuring user row:', error);
   }
 }
 
@@ -143,23 +147,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const initAuth = async () => {
       try {
+        console.log("[Auth] Initializing...");
+        
         // 1. Lấy session hiện tại
         const { data: { session: currentSession }, error } = await supabase.auth.getSession();
         
         if (error) {
-            console.error("Supabase getSession error:", error);
+            console.error("[Auth] Get Session Error:", error);
             throw error;
         }
 
         setSession(currentSession);
 
         if (currentSession?.user) {
-          // 2. Set user tạm thời từ session để UI hiển thị ngay lập tức
+          console.log("[Auth] Session found for:", currentSession.user.email);
+          
+          // 2. Set user tạm thời
           const tempUser = createTempUserFromSession(currentSession);
           setUser(tempUser);
 
-          // 3. Đảm bảo row tồn tại & fetch profile đầy đủ (chạy ngầm, không block loading quá lâu)
-          // Chúng ta không await cái này để block isLoading, mà xử lý song song hoặc ngay sau đó
+          // 3. Fetch profile song song, không await blocking để UI render
           ensureUsersRow({
             id: currentSession.user.id,
             email: currentSession.user.email,
@@ -169,30 +176,36 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               return fetchUserProfile(currentSession.user.id);
           }).then((profile) => {
               if (profile && mountedRef.current) {
+                  console.log("[Auth] Profile loaded successfully");
                   setUser(profile);
               }
-          }).catch(err => console.error("Async profile fetch failed:", err));
+          }).catch(err => {
+              console.error("[Auth] Async profile fetch failed:", err);
+              // Không throw ở đây để tránh block app, chỉ log
+          });
+        } else {
+            console.log("[Auth] No session found");
         }
-      } catch (error) {
-        console.error('Auth initialization failed completely:', error);
-        // Nếu lỗi nặng, clear hết để tránh kẹt
+      } catch (error: any) {
+        console.error('[Auth] Initialization FAILED:', error);
+        toast.error(`Lỗi khởi động: ${error.message || 'Unknown error'}`);
+        
+        // Clear state nếu lỗi nghiêm trọng
         if (mountedRef.current) {
             setUser(null);
             setSession(null);
         }
       } finally {
-        // 4. QUAN TRỌNG: Luôn tắt loading
         if (mountedRef.current) setIsLoading(false);
       }
     };
 
     initAuth();
 
-    // Listener thay đổi auth state
     const { data: authListener } = supabase.auth.onAuthStateChange(async (event, newSession) => {
       if (!mountedRef.current) return;
       
-      console.log("Auth Event:", event);
+      console.log(`[Auth] State Change: ${event}`);
       setSession(newSession);
 
       if (event === 'SIGNED_OUT') {
@@ -201,15 +214,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         router.push('/login');
       } else if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED' || event === 'USER_UPDATED') {
         if (newSession?.user) {
-           // Cập nhật ngay user từ session nếu user đang null (để tránh flash)
            if (!user) {
                setUser(createTempUserFromSession(newSession));
            }
-           // Fetch DB profile mới nhất
-           const profile = await fetchUserProfile(newSession.user.id);
-           if (mountedRef.current && profile) {
-               setUser(profile);
-           }
+           // Background fetch
+           fetchUserProfile(newSession.user.id).then(profile => {
+               if (mountedRef.current && profile) setUser(profile);
+           });
         }
         setIsLoading(false);
       }
@@ -221,7 +232,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
-  // Điều hướng bảo vệ routes
+  // Điều hướng
   useEffect(() => {
     if (isLoading) return;
 
@@ -230,7 +241,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const isPublicReview = pathname.startsWith('/reviews/');
     const isPublicRequest = pathname.startsWith('/request/');
     
-    // Các route công khai không cần login
     const isPublicRoute =
       publicRoutes.includes(pathname) ||
       isPublicProfile ||
@@ -240,7 +250,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (user && isAuthRoute) {
       router.push('/');
     } else if (!user && !isPublicRoute && !isAuthRoute) {
-      // Lưu lại url để redirect sau khi login (nếu muốn mở rộng sau này)
+      console.warn("[Auth] Redirecting to login because page is protected:", pathname);
       router.push('/login');
     }
   }, [user, isLoading, pathname, router]);
@@ -248,12 +258,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const login = async (email: string, password: string) => {
     try {
       const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-      if (error) return { error: 'Email hoặc mật khẩu không chính xác' };
-      
-      // Không cần fetch profile ở đây, onAuthStateChange sẽ lo việc đó
+      if (error) {
+          console.error("[Auth] Login error:", error);
+          return { error: error.message };
+      }
       return {};
-    } catch (e) {
-      return { error: 'Đã xảy ra lỗi khi đăng nhập' };
+    } catch (e: any) {
+      console.error("[Auth] Login exception:", e);
+      return { error: e.message || 'Đã xảy ra lỗi khi đăng nhập' };
     }
   };
 
@@ -269,11 +281,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             } 
         },
       });
-      if (error) return { error: error.message };
-      // User row sẽ được tạo bởi ensureUsersRow trong onAuthStateChange hoặc trigger DB
+      if (error) {
+          console.error("[Auth] Register error:", error);
+          return { error: error.message };
+      }
       return {};
-    } catch (e) {
-      return { error: 'Đã xảy ra lỗi khi đăng ký' };
+    } catch (e: any) {
+      console.error("[Auth] Register exception:", e);
+      return { error: e.message || 'Đã xảy ra lỗi khi đăng ký' };
     }
   };
 
@@ -288,10 +303,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const logout = async () => {
     setIsLoading(true);
-    await supabase.auth.signOut();
+    const { error } = await supabase.auth.signOut();
+    if (error) console.error("[Auth] Logout error:", error);
+    
     setUser(null);
     setSession(null);
-    localStorage.clear(); // Clear local storage để đảm bảo sạch sẽ
+    localStorage.clear();
     setIsLoading(false);
     router.push('/login');
   };
@@ -302,11 +319,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const dbUpdates = mapUserUpdatesToDb(updates);
         const { error } = await supabase.from('users').update(dbUpdates).eq('id', user.id);
         if (error) throw error;
-        
-        // Refresh local state
         await refreshProfile();
     } catch (error: any) {
-        console.error('Update user error:', error);
+        console.error('[Auth] Update user error:', error);
         toast.error('Cập nhật thất bại: ' + (error.message || 'Lỗi không xác định'));
         throw error;
     }

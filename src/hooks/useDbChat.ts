@@ -14,6 +14,7 @@ export interface DbConversation {
     created_at: string;
     is_read: boolean;
     sender_id: string;
+    message_type: string;
   } | null;
   updated_at: string;
 }
@@ -23,6 +24,8 @@ export interface DbMessage {
   conversation_id: string;
   sender_id: string;
   content: string;
+  message_type: 'text' | 'location' | 'image';
+  metadata?: any;
   created_at: string;
   is_read: boolean;
 }
@@ -44,7 +47,7 @@ export function useDbChat() {
         updated_at,
         user:users!conversations_user_id_fkey(*),
         partner:users!conversations_partner_id_fkey(*),
-        messages:messages(content, created_at, is_read, sender_id)
+        messages:messages(content, created_at, is_read, sender_id, message_type)
       `)
       .or(`user_id.eq.${user.id},partner_id.eq.${user.id}`)
       .order('updated_at', { ascending: false });
@@ -60,8 +63,7 @@ export function useDbChat() {
       const partnerRaw = isMeUser ? c.partner : c.user;
       const partner = mapDbUserToUser(partnerRaw);
 
-      // Get last message (assuming order by created_at desc in fetch or sort here)
-      // Note: Supabase nested sort limit is tricky, usually better to fetch messages separately or sort in JS
+      // Get last message
       const sortedMsgs = (c.messages || []).sort(
         (a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
       );
@@ -83,7 +85,6 @@ export function useDbChat() {
     if (user?.id) {
       reloadConversations();
 
-      // Subscribe to new messages to update conversation list order/preview
       const channel = supabase
         .channel('chat_list')
         .on(
@@ -120,8 +121,8 @@ export function useConversation(conversationId: string) {
     const fetchDetails = async () => {
       setLoading(true);
       
-      // 1. Get Conversation Info (to find partner)
-      const { data: conv, error: convErr } = await supabase
+      // 1. Get Conversation Info
+      const { data: conv } = await supabase
         .from('conversations')
         .select(`*, u:users!conversations_user_id_fkey(*), p:users!conversations_partner_id_fkey(*)`)
         .eq('id', conversationId)
@@ -134,7 +135,7 @@ export function useConversation(conversationId: string) {
       }
 
       // 2. Get Messages
-      const { data: msgs, error: msgErr } = await supabase
+      const { data: msgs } = await supabase
         .from('messages')
         .select('*')
         .eq('conversation_id', conversationId)
@@ -164,7 +165,6 @@ export function useConversation(conversationId: string) {
           const newMsg = payload.new as DbMessage;
           setMessages((prev) => [...prev, newMsg]);
           
-          // If message is from other, mark read instantly (optional UX)
           if (newMsg.sender_id !== user.id) {
              markRead([newMsg.id]);
           }
@@ -177,14 +177,15 @@ export function useConversation(conversationId: string) {
     };
   }, [conversationId, user?.id]);
 
-  const sendMessage = async (text: string) => {
+  const sendMessage = async (content: string, type: 'text' | 'location' | 'image' = 'text', metadata: any = {}) => {
     if (!user?.id || !conversationId) return;
 
     const { error } = await supabase.from('messages').insert({
       conversation_id: conversationId,
       sender_id: user.id,
-      content: text,
-      message_type: 'text',
+      content: content,
+      message_type: type,
+      metadata: metadata
     });
 
     if (error) {
@@ -211,7 +212,6 @@ export function useConversation(conversationId: string) {
 }
 
 export async function getOrCreateConversation(myId: string, otherId: string): Promise<string | null> {
-  // 1. Check existing
   const { data: existing } = await supabase
     .from('conversations')
     .select('id')
@@ -220,7 +220,6 @@ export async function getOrCreateConversation(myId: string, otherId: string): Pr
 
   if (existing) return existing.id;
 
-  // 2. Create new
   const { data: created, error } = await supabase
     .from('conversations')
     .insert({

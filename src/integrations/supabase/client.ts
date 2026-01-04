@@ -10,7 +10,10 @@ const SUPABASE_PUBLISHABLE_KEY = (
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || FALLBACK_SUPABASE_ANON_KEY
 ).trim();
 
-// Import the supabase client like this:
-// import { supabase } from "@/integrations/supabase/client";
-
-export const supabase = createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
+export const supabase = createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
+  auth: {
+    persistSession: true, // Lưu session vào localStorage
+    autoRefreshToken: true, // Tự động làm mới token khi hết hạn
+    detectSessionInUrl: true,
+  },
+});

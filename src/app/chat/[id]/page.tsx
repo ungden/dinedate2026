@@ -11,14 +11,16 @@ import {
   Phone,
   Video,
   Image as ImageIcon,
-  Smile,
+  MapPin,
   Check,
   CheckCheck,
-  Loader2
+  Loader2,
+  Navigation
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useConversation } from '@/hooks/useDbChat';
 import { formatRelativeTime, cn, getVIPBadgeColor } from '@/lib/utils';
+import toast from 'react-hot-toast';
 
 export default function ChatPage() {
   const params = useParams();
@@ -27,6 +29,7 @@ export default function ChatPage() {
   const { user } = useAuth();
   
   const [newMessage, setNewMessage] = useState('');
+  const [isSendingLocation, setIsSendingLocation] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -37,25 +40,56 @@ export default function ChatPage() {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  const handleSend = async () => {
+  const handleSendText = async () => {
     if (!newMessage.trim()) return;
     const text = newMessage.trim();
     setNewMessage('');
     
     try {
-      await sendMessage(text);
+      await sendMessage(text, 'text');
       inputRef.current?.focus();
     } catch (err) {
       console.error(err);
-      alert('Gửi tin nhắn thất bại');
-      setNewMessage(text); // revert
+      toast.error('Gửi tin nhắn thất bại');
+      setNewMessage(text);
     }
+  };
+
+  const handleSendLocation = () => {
+    if (!navigator.geolocation) {
+      toast.error('Trình duyệt không hỗ trợ định vị');
+      return;
+    }
+
+    setIsSendingLocation(true);
+    navigator.geolocation.getCurrentPosition(
+      async (pos) => {
+        const { latitude, longitude } = pos.coords;
+        try {
+          await sendMessage(
+            '📍 Đã chia sẻ vị trí hiện tại', 
+            'location', 
+            { lat: latitude, lng: longitude }
+          );
+          toast.success('Đã gửi vị trí');
+        } catch (err) {
+          toast.error('Gửi vị trí thất bại');
+        } finally {
+          setIsSendingLocation(false);
+        }
+      },
+      (err) => {
+        console.error(err);
+        toast.error('Không thể lấy vị trí. Hãy kiểm tra quyền truy cập.');
+        setIsSendingLocation(false);
+      }
+    );
   };
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
-      handleSend();
+      handleSendText();
     }
   };
 
@@ -161,6 +195,7 @@ export default function ChatPage() {
           messages.map((msg, index) => {
             const isOwn = msg.sender_id === user.id;
             const showAvatar = !isOwn && (index === 0 || messages[index - 1]?.sender_id !== msg.sender_id);
+            const isLocation = msg.message_type === 'location';
 
             return (
               <div
@@ -186,15 +221,43 @@ export default function ChatPage() {
 
                 <div
                   className={cn(
-                    'max-w-[75%] px-4 py-2.5 rounded-2xl shadow-sm',
+                    'max-w-[80%] rounded-2xl shadow-sm',
                     isOwn
                       ? 'bg-gradient-primary text-white rounded-br-md'
                       : 'bg-white text-gray-900 rounded-bl-md border border-gray-100'
                   )}
                 >
-                  <p className="leading-relaxed">{msg.content}</p>
+                  {isLocation && msg.metadata ? (
+                    <div className="overflow-hidden">
+                      <div className="p-3 pb-2">
+                        <div className="flex items-center gap-2 font-semibold">
+                          <MapPin className="w-4 h-4" />
+                          <span>Vị trí hiện tại</span>
+                        </div>
+                      </div>
+                      <a 
+                        href={`https://www.google.com/maps/search/?api=1&query=${msg.metadata.lat},${msg.metadata.lng}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="block relative w-64 h-32 bg-gray-200 hover:opacity-90 transition"
+                      >
+                        {/* Static map placeholder or map iframe could go here */}
+                        <div className="absolute inset-0 flex items-center justify-center bg-gray-100">
+                           <MapPin className="w-8 h-8 text-red-500 animate-bounce" />
+                        </div>
+                        <div className="absolute bottom-2 left-2 right-2 bg-white/90 backdrop-blur px-3 py-1.5 rounded-lg text-xs font-medium text-gray-700 flex items-center justify-center gap-1">
+                           <Navigation className="w-3 h-3" /> Mở Google Maps
+                        </div>
+                      </a>
+                    </div>
+                  ) : (
+                    <div className="px-4 py-2.5">
+                      <p className="leading-relaxed whitespace-pre-wrap">{msg.content}</p>
+                    </div>
+                  )}
+
                   <div className={cn(
-                    'flex items-center gap-1 justify-end mt-1',
+                    'flex items-center gap-1 justify-end px-3 pb-1.5',
                     isOwn ? 'text-primary-100' : 'text-gray-400'
                   )}>
                     <span className="text-[10px]">
@@ -217,8 +280,22 @@ export default function ChatPage() {
       {/* Input */}
       <div className="p-4 border-t border-gray-100 bg-white">
         <div className="flex items-center gap-2">
-          <button className="p-2.5 hover:bg-gray-100 rounded-xl transition-colors">
-            <ImageIcon className="w-5 h-5 text-gray-500" />
+          {isSendingLocation ? (
+             <div className="p-2.5 bg-gray-100 rounded-xl">
+               <Loader2 className="w-5 h-5 text-primary-500 animate-spin" />
+             </div>
+          ) : (
+             <button 
+               onClick={handleSendLocation}
+               className="p-2.5 hover:bg-gray-100 text-gray-500 hover:text-primary-600 rounded-xl transition-colors"
+               title="Gửi vị trí"
+             >
+               <MapPin className="w-5 h-5" />
+             </button>
+          )}
+          
+          <button className="p-2.5 hover:bg-gray-100 text-gray-500 hover:text-primary-600 rounded-xl transition-colors">
+            <ImageIcon className="w-5 h-5" />
           </button>
 
           <div className="flex-1 relative">
@@ -229,15 +306,12 @@ export default function ChatPage() {
               onChange={(e) => setNewMessage(e.target.value)}
               onKeyPress={handleKeyPress}
               placeholder="Nhập tin nhắn..."
-              className="w-full px-4 py-3 bg-gray-100 rounded-2xl focus:ring-2 focus:ring-primary-500 focus:bg-white outline-none transition pr-12"
+              className="w-full px-4 py-3 bg-gray-100 rounded-2xl focus:ring-2 focus:ring-primary-500 focus:bg-white outline-none transition"
             />
-            <button className="absolute right-2 top-1/2 -translate-y-1/2 p-2 hover:bg-gray-200 rounded-xl transition-colors">
-              <Smile className="w-5 h-5 text-gray-500" />
-            </button>
           </div>
 
           <button
-            onClick={handleSend}
+            onClick={handleSendText}
             disabled={!newMessage.trim()}
             className={cn(
               'p-3 rounded-2xl transition-all',

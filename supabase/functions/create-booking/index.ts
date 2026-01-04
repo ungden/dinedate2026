@@ -1,3 +1,8 @@
+/**
+ * Session-based booking:
+ * - service.price is the price for 1 session (default 3 hours)
+ * - durationHours is accepted but only allowed = 3 for now (simple MVP)
+ */
 // @ts-nocheck
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0'
@@ -15,6 +20,7 @@ function getCorsHeaders(req: Request) {
 }
 
 const PLATFORM_FEE_RATE = 0.3
+const SESSION_HOURS = 3;
 
 type CreateBookingBody = {
   providerId: string
@@ -23,7 +29,7 @@ type CreateBookingBody = {
   time: string // HH:mm
   location: string
   message?: string
-  durationHours: number // 3 | 5 | 10
+  durationHours: number // must be 3 for session bookings
 }
 
 function toIso(date: string, time: string) {
@@ -75,13 +81,13 @@ serve(async (req: Request) => {
 
   const body = (await req.json()) as CreateBookingBody
 
-  if (!body?.providerId || !body?.serviceId || !body?.date || !body?.time || !body?.location || !body?.durationHours) {
+  if (!body?.providerId || !body?.serviceId || !body?.date || !body?.time || !body?.location) {
     return new Response(JSON.stringify({ error: 'Missing required fields' }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
   }
 
-  const durationHours = Number(body.durationHours)
-  if (![3, 5, 10].includes(durationHours)) {
-    return new Response(JSON.stringify({ error: 'Invalid durationHours' }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+  const durationHours = Number(body.durationHours ?? SESSION_HOURS)
+  if (durationHours !== SESSION_HOURS) {
+    return new Response(JSON.stringify({ error: 'Invalid durationHours (session booking must be 3 hours)' }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
   }
 
   // 1) Fetch service
@@ -103,12 +109,13 @@ serve(async (req: Request) => {
     return new Response(JSON.stringify({ error: 'Service does not belong to provider' }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
   }
 
-  const hourlyRate = Number(serviceRow.price || 0)
-  if (hourlyRate <= 0) {
-    return new Response(JSON.stringify({ error: 'Invalid service price' }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+  // IMPORTANT: service.price is price per session (3 hours)
+  const sessionPrice = Number(serviceRow.price || 0)
+  if (sessionPrice <= 0) {
+    return new Response(JSON.stringify({ error: 'Invalid service session price' }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
   }
 
-  const subTotal = Math.round(hourlyRate * durationHours)
+  const subTotal = Math.round(sessionPrice)
   const platformFee = Math.round(subTotal * PLATFORM_FEE_RATE)
   const partnerEarning = Math.round(subTotal - platformFee)
   const totalCharge = subTotal // escrow holds subtotal; fee is internal accounting (simple MVP)
@@ -140,12 +147,12 @@ serve(async (req: Request) => {
       user_id: userId,
       partner_id: body.providerId,
       activity: serviceRow.activity,
-      duration_hours: durationHours,
+      duration_hours: SESSION_HOURS,
       start_time: startTimeIso,
       meeting_location: body.location,
       meeting_lat: null,
       meeting_lng: null,
-      hourly_rate: hourlyRate,
+      hourly_rate: null, // session-based, not hourly
       total_amount: subTotal,
       platform_fee: platformFee,
       partner_earning: partnerEarning,

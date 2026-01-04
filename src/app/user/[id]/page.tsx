@@ -15,7 +15,6 @@ import {
   Wallet,
   Calendar,
   Clock,
-  MessageCircle
 } from 'lucide-react';
 import { cn, formatCurrency, formatRelativeTime, getVIPBadgeColor, getActivityIcon, getActivityLabel } from '@/lib/utils';
 import { ServiceOffering } from '@/types';
@@ -25,20 +24,10 @@ import { PLATFORM_FEE_RATE } from '@/lib/platform';
 import { useDbUserProfile } from '@/hooks/useDbUserProfile';
 import { createBookingViaEdge } from '@/lib/booking';
 
-type PackageKey = '3h' | '5h' | '1d';
+const SESSION_HOURS = 3;
 
-const PACKAGES: { key: PackageKey; label: string; hours: number }[] = [
-  { key: '3h', label: '3 giờ', hours: 3 },
-  { key: '5h', label: '5 giờ', hours: 5 },
-  { key: '1d', label: '1 ngày', hours: 10 },
-];
-
-function getBaseHourlyPrice(userHourlyRate?: number, servicePrice?: number) {
-  return userHourlyRate && userHourlyRate > 0 ? userHourlyRate : servicePrice || 0;
-}
-
-function calcTotal(baseHourly: number, hours: number) {
-  const subTotal = baseHourly * hours;
+function calcSessionTotals(sessionPrice: number) {
+  const subTotal = sessionPrice;
   const platformFee = Math.round(subTotal * PLATFORM_FEE_RATE);
   return { subTotal, platformFee, total: subTotal + platformFee };
 }
@@ -59,14 +48,12 @@ export default function UserProfilePage() {
   const isCurrentUser = !!authUser && !!user && authUser.id === user.id;
 
   const [selectedServiceId, setSelectedServiceId] = useState<string | null>(null);
-  const [selectedPackage, setSelectedPackage] = useState<PackageKey>('3h');
 
   const selectedService: ServiceOffering | null =
     services.find((s) => s.id === selectedServiceId) || null;
 
-  const baseHourly = getBaseHourlyPrice(user?.hourlyRate, selectedService?.price);
-  const packageHours = PACKAGES.find((p) => p.key === selectedPackage)?.hours || 3;
-  const pricing = calcTotal(baseHourly, packageHours);
+  const sessionPrice = selectedService?.price || 0;
+  const pricing = calcSessionTotals(sessionPrice);
 
   const [bookingForm, setBookingForm] = useState({
     date: '',
@@ -106,7 +93,6 @@ export default function UserProfilePage() {
   const openBookingForService = (serviceId: string) => {
     if (isCurrentUser) return;
     setSelectedServiceId(serviceId);
-    setSelectedPackage('3h');
     setBookingForm({ date: '', time: '19:00', location: '', message: '' });
   };
 
@@ -119,7 +105,6 @@ export default function UserProfilePage() {
     if (!bookingForm.date || !bookingForm.location) return;
 
     setIsBooking(true);
-    const durationHours = packageHours;
 
     const providerId = user.id;
 
@@ -130,7 +115,7 @@ export default function UserProfilePage() {
       time: bookingForm.time,
       location: bookingForm.location,
       message: bookingForm.message,
-      durationHours,
+      durationHours: SESSION_HOURS,
     }).catch((err: any) => {
       const msg = (err?.context?.body?.message || err?.message || '').toString();
       if (msg.includes('INSUFFICIENT_FUNDS')) {
@@ -250,9 +235,9 @@ export default function UserProfilePage() {
                     <BadgeCheck className="w-5 h-5 text-green-700" />
                   </div>
                   <div>
-                    <p className="font-bold text-green-900">Rõ ràng gói cước</p>
+                    <p className="font-bold text-green-900">Giá theo buổi</p>
                     <p className="text-green-800/80 text-[13px] leading-snug">
-                      Chọn combo 3 giờ, 5 giờ, 1 ngày kèm giá
+                      Mỗi booking là 1 buổi ({SESSION_HOURS} giờ), không tính theo giờ
                     </p>
                   </div>
                 </div>
@@ -271,13 +256,6 @@ export default function UserProfilePage() {
                   Hoạt động {user.onlineStatus?.lastSeen ? formatRelativeTime(user.onlineStatus.lastSeen) : 'gần đây'}
                 </span>
               )}
-
-              {user.hourlyRate ? (
-                <span className="inline-flex items-center gap-2 px-3 py-1.5 bg-primary-50 text-primary-700 rounded-full font-black">
-                  <Wallet className="w-4 h-4" />
-                  {formatCurrency(user.hourlyRate)}/giờ
-                </span>
-              ) : null}
             </div>
           </div>
         </div>
@@ -301,12 +279,8 @@ export default function UserProfilePage() {
         ) : (
           <div className="space-y-4">
             {services.map((service) => {
-              const base = getBaseHourlyPrice(user.hourlyRate, service.price);
               const selectedForThis = selectedServiceId === service.id;
-
-              const price3h = calcTotal(base, 3).total;
-              const price5h = calcTotal(base, 5).total;
-              const price1d = calcTotal(base, 10).total;
+              const totalForThis = calcSessionTotals(service.price || 0).total;
 
               return (
                 <div key={service.id} className="bg-white rounded-[28px] border border-gray-100 shadow-soft overflow-hidden">
@@ -325,9 +299,12 @@ export default function UserProfilePage() {
                             </p>
                           </div>
                           <div className="text-right flex-shrink-0">
-                            <p className="text-[12px] text-gray-400 font-bold">Từ</p>
+                            <p className="text-[12px] text-gray-400 font-bold">Giá</p>
                             <p className="text-[18px] font-black text-gray-900 leading-none">
-                              {formatCurrency(base)}/giờ
+                              {formatCurrency(service.price || 0)}/buổi
+                            </p>
+                            <p className="text-[11px] text-gray-400 font-bold mt-1">
+                              ({SESSION_HOURS} giờ)
                             </p>
                           </div>
                         </div>
@@ -336,44 +313,12 @@ export default function UserProfilePage() {
                           <p className="text-[13px] text-gray-600 mt-2 line-clamp-2">{service.description}</p>
                         ) : null}
 
-                        {/* Package pills */}
-                        <div className="mt-4 flex flex-wrap gap-2">
-                          {[
-                            { key: '3h' as const, label: '3 giờ', price: price3h },
-                            { key: '5h' as const, label: '5 giờ', price: price5h },
-                            { key: '1d' as const, label: '1 ngày', price: price1d },
-                          ].map((p) => {
-                            const active = selectedForThis && selectedPackage === p.key;
-                            return (
-                              <button
-                                key={p.key}
-                                onClick={() => {
-                                  openBookingForService(service.id);
-                                  setSelectedPackage(p.key);
-                                }}
-                                className={cn(
-                                  'px-4 py-2 rounded-full border text-sm font-bold transition',
-                                  active
-                                    ? 'border-primary-500 bg-primary-50 text-primary-700'
-                                    : 'border-gray-200 bg-white text-gray-700 hover:bg-gray-50'
-                                )}
-                              >
-                                <span>{p.label}</span>
-                                <span className="text-gray-300 mx-2">•</span>
-                                <span className={cn(active ? 'text-primary-700' : 'text-gray-700')}>
-                                  {formatCurrency(p.price)}
-                                </span>
-                              </button>
-                            );
-                          })}
-                        </div>
-
                         {/* Primary action */}
                         <div className="mt-4 flex items-center justify-between gap-3">
                           <div className="min-w-0">
                             <p className="text-[12px] text-gray-400 font-bold">Tổng (đã gồm phí)</p>
                             <p className="text-[20px] font-black text-primary-600 leading-none">
-                              {formatCurrency(selectedForThis ? pricing.total : price3h)}
+                              {formatCurrency(totalForThis)}
                             </p>
                           </div>
 
@@ -381,7 +326,7 @@ export default function UserProfilePage() {
                             onClick={() => openBookingForService(service.id)}
                             className="px-5 py-3 rounded-2xl bg-gradient-primary text-white font-black shadow-primary hover:opacity-90 transition flex items-center justify-center gap-2"
                           >
-                            Đặt
+                            Đặt buổi
                           </button>
                         </div>
                       </div>
@@ -453,7 +398,7 @@ export default function UserProfilePage() {
                         <div className="mt-4 bg-white rounded-xl border border-gray-100 p-3">
                           <div className="flex items-center justify-between text-sm">
                             <span className="text-gray-600 font-medium">
-                              Tạm tính ({formatCurrency(baseHourly)}/giờ × {packageHours} giờ)
+                              Tạm tính (1 buổi / {SESSION_HOURS} giờ)
                             </span>
                             <span className="font-black text-gray-900">{formatCurrency(pricing.subTotal)}</span>
                           </div>
@@ -499,60 +444,6 @@ export default function UserProfilePage() {
             })}
           </div>
         )}
-
-        {/* Reviews */}
-        <div className="pt-2">
-          <div className="flex items-center justify-between mb-3">
-            <h3 className="text-[16px] font-black text-gray-900">Đánh giá</h3>
-            <span className="text-[12px] text-gray-400 font-bold">{reviews.length} lượt</span>
-          </div>
-
-          {reviews.length === 0 ? (
-            <div className="bg-white rounded-[28px] border border-gray-100 p-6 text-center text-gray-500">
-              Chưa có đánh giá.
-            </div>
-          ) : (
-            <div className="bg-white rounded-[28px] border border-gray-100 overflow-hidden">
-              <div className="divide-y divide-gray-100">
-                {reviews.slice(0, 3).map((r) => (
-                  <div key={r.id} className="p-4 flex gap-3">
-                    <Image
-                      src={r.reviewer.avatar}
-                      alt={r.reviewer.name}
-                      width={40}
-                      height={40}
-                      className="rounded-full object-cover"
-                    />
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between gap-3">
-                        <p className="font-bold text-gray-900 truncate">{r.reviewer.name}</p>
-                        <span className="text-xs text-gray-400 font-bold">{formatRelativeTime(r.createdAt)}</span>
-                      </div>
-                      <div className="flex items-center gap-1 mt-1">
-                        {Array.from({ length: 5 }).map((_, i) => (
-                          <Star
-                            key={i}
-                            className={cn(
-                              'w-3.5 h-3.5',
-                              i < r.rating ? 'text-yellow-500 fill-yellow-500' : 'text-gray-300'
-                            )}
-                          />
-                        ))}
-                      </div>
-                      <p className="text-sm text-gray-600 mt-2 line-clamp-2">{r.comment}</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-
-              <div className="p-4 bg-gray-50 border-t border-gray-100">
-                <Link href="/reviews" className="text-primary-600 font-black text-sm hover:underline">
-                  Xem tất cả đánh giá
-                </Link>
-              </div>
-            </div>
-          )}
-        </div>
       </div>
 
       {/* Auth modal */}

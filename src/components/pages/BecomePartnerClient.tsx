@@ -25,6 +25,9 @@ import {
 import { useDateStore } from '@/hooks/useDateStore';
 import { ActivityType } from '@/types';
 import { cn, formatCurrency } from '@/lib/utils';
+import { PARTNER_EARNING_RATE } from '@/lib/platform';
+
+const SESSION_HOURS = 3;
 
 const ACTIVITY_OPTIONS: { value: ActivityType; label: string; Icon: React.ElementType }[] = [
   { value: 'cafe', label: 'Cafe', Icon: Coffee },
@@ -37,16 +40,16 @@ const ACTIVITY_OPTIONS: { value: ActivityType; label: string; Icon: React.Elemen
 ];
 
 const PRICE_PRESETS = [
-  { value: 100000, label: '100k/giờ' },
-  { value: 200000, label: '200k/giờ' },
-  { value: 300000, label: '300k/giờ' },
-  { value: 500000, label: '500k/giờ' },
-  { value: 1000000, label: '1 triệu/giờ' },
+  { value: 300000, label: '300k/buổi' },
+  { value: 500000, label: '500k/buổi' },
+  { value: 700000, label: '700k/buổi' },
+  { value: 1000000, label: '1 triệu/buổi' },
+  { value: 1500000, label: '1.5 triệu/buổi' },
 ];
 
 const DEFAULT_SUGGESTION: { activities: ActivityType[]; price: number } = {
   activities: ['cafe', 'dining', 'movies'],
-  price: 200000,
+  price: 500000,
 };
 
 const DEFAULT_TITLES: Partial<Record<ActivityType, string>> = {
@@ -113,14 +116,8 @@ export default function BecomePartnerClient() {
   const canSubmit =
     !isAlreadyPartner && isProfileReady && selectedActivities.length > 0 && selectedPrice > 0;
 
-  const earningsPreview = useMemo(() => {
-    const feeRate = 0.1;
-    const afterFee = (hours: number) => Math.round(selectedPrice * hours * (1 - feeRate));
-    return {
-      h3: afterFee(3),
-      h5: afterFee(5),
-      h10: afterFee(10),
-    };
+  const earningPerSession = useMemo(() => {
+    return Math.round(selectedPrice * PARTNER_EARNING_RATE);
   }, [selectedPrice]);
 
   const toggleActivity = (a: ActivityType) => {
@@ -146,7 +143,7 @@ export default function BecomePartnerClient() {
         activity,
         title: DEFAULT_TITLES[activity] || 'Dịch vụ đồng hành',
         description: DEFAULT_DESCRIPTIONS[activity] || 'Dịch vụ đồng hành theo yêu cầu.',
-        price: selectedPrice,
+        price: selectedPrice, // price per session (3h)
         available: true,
       });
     });
@@ -165,7 +162,7 @@ export default function BecomePartnerClient() {
         <div className="flex-1">
           <h1 className="text-2xl font-bold text-gray-900">Trở thành Partner</h1>
           <p className="text-sm text-gray-500">
-            Mặc định đã chọn Cafe + Ăn uống + Xem phim — bấm tạo ngay hoặc chỉnh nếu muốn.
+            Mặc định đã chọn Cafe + Ăn uống + Xem phim — giá {formatCurrency(DEFAULT_SUGGESTION.price)}/buổi ({SESSION_HOURS}h).
           </p>
         </div>
       </div>
@@ -257,7 +254,7 @@ export default function BecomePartnerClient() {
               </div>
               <div>
                 <h2 className="text-lg font-bold text-gray-900">Thiết lập mặc định</h2>
-                <p className="text-sm text-gray-500">3 hoạt động cơ bản + giá chung</p>
+                <p className="text-sm text-gray-500">3 hoạt động cơ bản + giá theo buổi</p>
               </div>
             </div>
             <button
@@ -290,9 +287,10 @@ export default function BecomePartnerClient() {
 
             <div className="bg-gray-50 border border-gray-200 rounded-2xl p-4">
               <p className="text-xs font-black text-gray-500 uppercase tracking-wider mb-2">Giá chung</p>
-              <p className="text-2xl font-black text-gray-900">{formatCurrency(selectedPrice)}/giờ</p>
+              <p className="text-2xl font-black text-gray-900">{formatCurrency(selectedPrice)}/buổi</p>
               <p className="text-xs text-gray-500 mt-1">
-                (Sau phí 10%) 3h: <span className="font-bold text-green-700">{formatCurrency(earningsPreview.h3)}</span>
+                1 buổi = {SESSION_HOURS} giờ • Thu nhập (sau phí 30%):{' '}
+                <span className="font-bold text-green-700">{formatCurrency(earningPerSession)}</span>
               </p>
             </div>
           </div>
@@ -390,7 +388,7 @@ export default function BecomePartnerClient() {
 
                   {/* Price */}
                   <div>
-                    <p className="text-sm font-bold text-gray-700 mb-3">Chọn mức giá chung</p>
+                    <p className="text-sm font-bold text-gray-700 mb-3">Chọn mức giá chung (theo buổi)</p>
                     <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                       {PRICE_PRESETS.map((p) => {
                         const active = selectedPrice === p.value;
@@ -420,21 +418,11 @@ export default function BecomePartnerClient() {
                     <div className="mt-4 bg-green-50 border border-green-100 rounded-2xl p-4">
                       <div className="flex items-center gap-2 mb-2">
                         <Zap className="w-4 h-4 text-green-600" />
-                        <p className="text-sm font-black text-green-800">Thu nhập dự kiến (sau phí 10%)</p>
+                        <p className="text-sm font-black text-green-800">Thu nhập dự kiến (sau phí 30%)</p>
                       </div>
-                      <div className="grid grid-cols-3 gap-3 text-sm">
-                        <div className="bg-white rounded-xl border border-green-100 p-3">
-                          <p className="text-xs text-gray-500 font-semibold">Gói 3 giờ</p>
-                          <p className="font-black text-green-700">{formatCurrency(earningsPreview.h3)}</p>
-                        </div>
-                        <div className="bg-white rounded-xl border border-green-100 p-3">
-                          <p className="text-xs text-gray-500 font-semibold">Gói 5 giờ</p>
-                          <p className="font-black text-green-700">{formatCurrency(earningsPreview.h5)}</p>
-                        </div>
-                        <div className="bg-white rounded-xl border border-green-100 p-3">
-                          <p className="text-xs text-gray-500 font-semibold">Gói 1 ngày</p>
-                          <p className="font-black text-green-700">{formatCurrency(earningsPreview.h10)}</p>
-                        </div>
+                      <div className="bg-white rounded-xl border border-green-100 p-3">
+                        <p className="text-xs text-gray-500 font-semibold">1 buổi ({SESSION_HOURS} giờ)</p>
+                        <p className="font-black text-green-700">{formatCurrency(earningPerSession)}</p>
                       </div>
                     </div>
                   </div>
@@ -484,7 +472,7 @@ export default function BecomePartnerClient() {
 
       {!isAlreadyPartner && (
         <p className="text-center text-[11px] font-medium text-gray-400">
-          Hệ thống sẽ tạo {selectedActivities.length} dịch vụ theo hoạt động đã chọn, cùng mức giá chung.
+          Hệ thống sẽ tạo {selectedActivities.length} dịch vụ theo hoạt động đã chọn, giá {formatCurrency(selectedPrice)}/buổi ({SESSION_HOURS} giờ).
         </p>
       )}
     </div>

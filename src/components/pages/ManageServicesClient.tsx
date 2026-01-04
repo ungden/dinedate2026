@@ -13,14 +13,17 @@ import { ActivityType, ServiceOffering } from '@/types';
 import { PARTNER_EARNING_RATE } from '@/lib/platform';
 import { useDbMyServices } from '@/hooks/useDbMyServices';
 
+const SESSION_HOURS = 3;
+
 const activityOptions: ActivityType[] = ['dining', 'drinking', 'movies', 'travel', 'cafe', 'karaoke', 'tour_guide'];
 
 const PRICE_PRESETS = [
-  { value: 100000, label: '100k' },
-  { value: 200000, label: '200k' },
   { value: 300000, label: '300k' },
   { value: 500000, label: '500k' },
+  { value: 700000, label: '700k' },
   { value: 1000000, label: '1 triệu' },
+  { value: 1500000, label: '1.5 triệu' },
+  { value: 2000000, label: '2 triệu' },
 ];
 
 const DEFAULT_CONTENT: Record<ActivityType, { title: string; description: string }> = {
@@ -122,13 +125,12 @@ export default function ManageServicesClient() {
   const handleAddNew = () => {
     setShowForm(true);
     setEditingService(null);
-    // Set default for 'dining' immediately
     const def = DEFAULT_CONTENT['dining'];
     setFormData({
       activity: 'dining',
       title: def.title,
       description: def.description,
-      price: 200000
+      price: 500000
     });
   };
 
@@ -199,7 +201,7 @@ export default function ManageServicesClient() {
                 {/* Price Selection */}
                 <div>
                   <label className="block text-sm font-bold text-gray-700 mb-3 uppercase tracking-wider">
-                    Mức giá (theo giờ)
+                    Mức giá (theo buổi)
                   </label>
                   <div className="grid grid-cols-3 gap-3">
                     {PRICE_PRESETS.map((preset) => (
@@ -214,7 +216,7 @@ export default function ManageServicesClient() {
                             : 'border-gray-200 text-gray-600 hover:border-gray-300'
                         )}
                       >
-                        {preset.label}/h
+                        {preset.label}/buổi
                         {formData.price === preset.value && (
                           <div className="absolute -top-2 -right-2 w-5 h-5 bg-primary-500 text-white rounded-full flex items-center justify-center">
                             <Check className="w-3 h-3 stroke-[3px]" />
@@ -227,10 +229,12 @@ export default function ManageServicesClient() {
                   {/* Price Projection */}
                   {formData.price > 0 && (
                     <div className="mt-3 p-3 bg-green-50 rounded-xl border border-green-100">
-                      <p className="text-xs text-green-700 font-medium mb-1">Thu nhập dự kiến (sau phí 30%):</p>
+                      <p className="text-xs text-green-700 font-medium mb-1">
+                        Thu nhập dự kiến (sau phí 30%) • 1 buổi ({SESSION_HOURS} giờ):
+                      </p>
                       <div className="flex justify-between items-center text-sm">
-                        <span>Gói 3 giờ:</span>
-                        <span className="font-bold text-green-700">{formatCurrency(formData.price * 3 * PARTNER_EARNING_RATE)}</span>
+                        <span>Nhận về:</span>
+                        <span className="font-bold text-green-700">{formatCurrency(formData.price * PARTNER_EARNING_RATE)}</span>
                       </div>
                     </div>
                   )}
@@ -315,8 +319,10 @@ export default function ManageServicesClient() {
                       {service.title}
                     </h3>
                     <p className="text-sm text-gray-500 mb-1 line-clamp-1">{service.description}</p>
-                    <p className="inline-flex items-center gap-1 px-2 py-0.5 bg-green-50 text-green-700 rounded-lg text-xs font-bold">
-                      {formatCurrency(service.price)}/giờ
+                    <p className="inline-flex items-center gap-2 px-2 py-0.5 bg-green-50 text-green-700 rounded-lg text-xs font-bold">
+                      {formatCurrency(service.price)}/buổi
+                      <span className="text-green-700/60 font-black">•</span>
+                      <span className="text-green-700/80 font-black">{SESSION_HOURS} giờ</span>
                     </p>
                   </div>
                 </div>
@@ -365,7 +371,7 @@ export default function ManageServicesClient() {
             Bắt đầu kiếm tiền ngay
           </h3>
           <p className="text-gray-500 mb-6 max-w-xs mx-auto">
-            Tạo dịch vụ đầu tiên của bạn chỉ trong 30 giây. Chọn hoạt động và mức giá mong muốn.
+            Tạo dịch vụ theo buổi (3 giờ). Chọn hoạt động và giá mong muốn.
           </p>
           <button
             onClick={handleAddNew}

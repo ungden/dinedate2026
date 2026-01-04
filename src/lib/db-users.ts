@@ -30,5 +30,12 @@ export function mapUserUpdatesToDb(updates: Partial<User>) {
   if (updates.partner_agreed_at !== undefined) db.partner_agreed_at = updates.partner_agreed_at;
   if (updates.partner_agreed_version !== undefined) db.partner_agreed_version = updates.partner_agreed_version;
 
+  // Partner visibility / presence
+  if ((updates as any).onlineStatus?.isOnline !== undefined) {
+    db.is_online = !!(updates as any).onlineStatus.isOnline;
+  }
+  if ((updates as any).availableNow !== undefined) db.available_now = !!(updates as any).availableNow;
+  if ((updates as any).availableTonight !== undefined) db.available_tonight = !!(updates as any).availableTonight;
+
   return db;
 }

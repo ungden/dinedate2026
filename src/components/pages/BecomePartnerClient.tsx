@@ -2,13 +2,11 @@
 
 import { useMemo, useState } from 'react';
 import Link from 'next/link';
-import { motion, AnimatePresence } from '@/lib/motion';
+import { motion } from '@/lib/motion';
 import {
   ArrowLeft,
   Briefcase,
   Check,
-  CheckCircle,
-  Clock,
   ChevronRight,
   Coffee,
   Utensils,
@@ -25,8 +23,11 @@ import {
 } from 'lucide-react';
 import { useDateStore } from '@/hooks/useDateStore';
 import { ActivityType, ServiceDuration } from '@/types';
-import { cn, formatCurrency } from '@/lib/utils';
+import { cn } from '@/lib/utils';
 import { useDbMyServices } from '@/hooks/useDbMyServices';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
+import toast from 'react-hot-toast';
 
 const ACTIVITY_OPTIONS: { value: ActivityType; label: string; Icon: React.ElementType; defaultDuration: ServiceDuration }[] = [
   { value: 'cafe', label: 'Cafe', Icon: Coffee, defaultDuration: 'session' },
@@ -71,10 +72,11 @@ interface ServiceConfig {
 export default function BecomePartnerClient() {
   const { currentUser } = useDateStore();
   const { addService } = useDbMyServices();
+  const { user: authUser, refreshProfile } = useAuth();
 
   const [step, setStep] = useState<1 | 2>(1);
   const [selectedActivities, setSelectedActivities] = useState<ActivityType[]>(['cafe', 'dining']);
-  
+
   // Store config per activity
   const [configs, setConfigs] = useState<Record<ActivityType, ServiceConfig>>({
     cafe: { activity: 'cafe', price: 300000, duration: 'session' },
@@ -88,11 +90,10 @@ export default function BecomePartnerClient() {
 
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const isAlreadyPartner =
-    !!currentUser.isServiceProvider && (currentUser.services?.length || 0) > 0;
+  const isAlreadyPartner = !!authUser?.isServiceProvider;
 
-  const photoCount = (currentUser.images || []).filter(Boolean).length;
-  const isBioOk = (currentUser.bio || '').trim().length >= MIN_BIO_LEN;
+  const photoCount = (authUser?.images || []).filter(Boolean).length;
+  const isBioOk = (authUser?.bio || '').trim().length >= MIN_BIO_LEN;
   const isPhotosOk = photoCount >= MIN_PHOTOS;
 
   const profileBlockReasons = useMemo(() => {
@@ -124,36 +125,63 @@ export default function BecomePartnerClient() {
   };
 
   const updateConfig = (activity: ActivityType, key: keyof ServiceConfig, value: any) => {
-    setConfigs(prev => ({
+    setConfigs((prev) => ({
       ...prev,
-      [activity]: { ...prev[activity], [key]: value }
+      [activity]: { ...prev[activity], [key]: value },
     }));
   };
 
+  const markPartnerActive = async () => {
+    if (!authUser?.id) return;
+
+    const { error } = await supabase
+      .from('users')
+      .update({
+        role: 'partner',
+        is_online: true,
+        available_now: true,
+      })
+      .eq('id', authUser.id);
+
+    if (error) throw error;
+
+    await refreshProfile();
+  };
+
   const handleCreate = async () => {
+    if (!authUser?.id) {
+      toast.error('Vui lòng đăng nhập');
+      window.location.href = '/login';
+      return;
+    }
+
+    if (selectedActivities.length === 0) {
+      toast.error('Bạn cần chọn ít nhất 1 dịch vụ');
+      return;
+    }
+
     setIsSubmitting(true);
 
-    try {
-      // Loop through selected and create
-      for (const activity of selectedActivities) {
-        const config = configs[activity];
-        await addService({
-          activity,
-          title: DEFAULT_TITLES[activity] || 'Dịch vụ đồng hành',
-          description: DEFAULT_DESCRIPTIONS[activity] || 'Dịch vụ đồng hành theo yêu cầu.',
-          price: config.price,
-          duration: config.duration,
-          available: true,
-        });
-      }
-      
-      // Redirect
-      window.location.href = '/manage-services';
-    } catch (err) {
-      console.error(err);
-      alert('Có lỗi xảy ra, vui lòng thử lại');
-      setIsSubmitting(false);
+    // 1) Mark partner in DB FIRST so you appear in Partner list immediately
+    await markPartnerActive();
+
+    // 2) Create services
+    for (const activity of selectedActivities) {
+      const config = configs[activity];
+      await addService({
+        activity,
+        title: DEFAULT_TITLES[activity] || 'Dịch vụ đồng hành',
+        description: DEFAULT_DESCRIPTIONS[activity] || 'Dịch vụ đồng hành theo yêu cầu.',
+        price: config.price,
+        duration: config.duration,
+        available: true,
+      });
     }
+
+    toast.success('Đã kích hoạt Partner!');
+
+    // 3) Go to Partner dashboard (not forcing manage-services)
+    window.location.href = '/partner-dashboard';
   };
 
   if (isAlreadyPartner) {
@@ -169,11 +197,18 @@ export default function BecomePartnerClient() {
               <p className="text-sm text-green-700 mt-1">
                 Bạn có thể quản lý dịch vụ tại trang Quản lý dịch vụ.
               </p>
-              <Link href="/manage-services" className="inline-block mt-3">
-                <button className="px-4 py-2 bg-green-600 text-white rounded-xl font-bold hover:bg-green-700 transition">
-                  Đi tới Quản lý dịch vụ
-                </button>
-              </Link>
+              <div className="mt-3 flex flex-wrap gap-2">
+                <Link href="/partner-dashboard">
+                  <button className="px-4 py-2 bg-green-600 text-white rounded-xl font-bold hover:bg-green-700 transition">
+                    Đi tới Partner Dashboard
+                  </button>
+                </Link>
+                <Link href="/manage-services">
+                  <button className="px-4 py-2 bg-white text-green-700 border border-green-200 rounded-xl font-bold hover:bg-green-50 transition">
+                    Quản lý dịch vụ
+                  </button>
+                </Link>
+              </div>
             </div>
           </div>
         </div>
@@ -204,7 +239,11 @@ export default function BecomePartnerClient() {
                   <div key={r.key} className="bg-white rounded-2xl border border-rose-100 p-4">
                     <div className="flex items-start gap-3">
                       <div className="w-10 h-10 bg-rose-50 rounded-xl flex items-center justify-center">
-                        {r.key === 'bio' ? <FileText className="w-5 h-5 text-rose-600" /> : <ImageIcon className="w-5 h-5 text-rose-600" />}
+                        {r.key === 'bio' ? (
+                          <FileText className="w-5 h-5 text-rose-600" />
+                        ) : (
+                          <ImageIcon className="w-5 h-5 text-rose-600" />
+                        )}
                       </div>
                       <div>
                         <p className="font-bold text-gray-900">{r.title}</p>
@@ -216,7 +255,9 @@ export default function BecomePartnerClient() {
               </div>
               <div className="mt-5 flex gap-3">
                 <Link href="/profile/edit" className="flex-1">
-                  <button className="w-full py-3 bg-gradient-primary text-white rounded-xl font-bold shadow-primary">Cập nhật ngay</button>
+                  <button className="w-full py-3 bg-gradient-primary text-white rounded-xl font-bold shadow-primary">
+                    Cập nhật ngay
+                  </button>
                 </Link>
               </div>
             </div>
@@ -230,20 +271,17 @@ export default function BecomePartnerClient() {
     <div className="max-w-2xl mx-auto space-y-6 p-4">
       {/* Header */}
       <div className="flex items-center gap-4">
-        <button onClick={() => step === 2 ? setStep(1) : window.history.back()} className="p-2 hover:bg-gray-100 rounded-lg transition">
+        <button
+          onClick={() => (step === 2 ? setStep(1) : window.history.back())}
+          className="p-2 hover:bg-gray-100 rounded-lg transition"
+        >
           <ArrowLeft className="w-5 h-5" />
         </button>
         <div className="flex-1">
-          <h1 className="text-2xl font-bold text-gray-900">
-            {step === 1 ? 'Chọn dịch vụ' : 'Thiết lập giá'}
-          </h1>
-          <p className="text-sm text-gray-500">
-            {step === 1 ? 'Bước 1: Chọn những gì bạn muốn làm' : 'Bước 2: Định giá cho từng dịch vụ'}
-          </p>
+          <h1 className="text-2xl font-bold text-gray-900">{step === 1 ? 'Chọn dịch vụ' : 'Thiết lập giá'}</h1>
+          <p className="text-sm text-gray-500">{step === 1 ? 'Bước 1: Chọn những gì bạn muốn làm' : 'Bước 2: Định giá cho từng dịch vụ'}</p>
         </div>
-        <div className="text-xs font-bold bg-gray-100 px-3 py-1 rounded-full text-gray-500">
-          {step}/2
-        </div>
+        <div className="text-xs font-bold bg-gray-100 px-3 py-1 rounded-full text-gray-500">{step}/2</div>
       </div>
 
       {/* STEP 1: SELECT ACTIVITIES */}
@@ -253,23 +291,18 @@ export default function BecomePartnerClient() {
             {ACTIVITY_OPTIONS.map((opt) => {
               const isSelected = selectedActivities.includes(opt.value);
               const Icon = opt.Icon;
-              
+
               return (
                 <button
                   key={opt.value}
                   onClick={() => toggleActivity(opt.value)}
                   className={cn(
                     'relative p-4 rounded-2xl border-2 text-left transition-all hover:scale-[1.02]',
-                    isSelected
-                      ? 'border-primary-500 bg-primary-50 shadow-md shadow-primary-100'
-                      : 'border-gray-200 bg-white hover:border-gray-300'
+                    isSelected ? 'border-primary-500 bg-primary-50 shadow-md shadow-primary-100' : 'border-gray-200 bg-white hover:border-gray-300'
                   )}
                 >
                   <div className="flex items-start justify-between mb-2">
-                    <div className={cn(
-                      'w-10 h-10 rounded-xl flex items-center justify-center',
-                      isSelected ? 'bg-white text-primary-600' : 'bg-gray-50 text-gray-500'
-                    )}>
+                    <div className={cn('w-10 h-10 rounded-xl flex items-center justify-center', isSelected ? 'bg-white text-primary-600' : 'bg-gray-50 text-gray-500')}>
                       <Icon className="w-5 h-5" />
                     </div>
                     {isSelected && (
@@ -278,12 +311,8 @@ export default function BecomePartnerClient() {
                       </div>
                     )}
                   </div>
-                  <p className={cn("font-bold text-lg", isSelected ? "text-primary-900" : "text-gray-700")}>
-                    {opt.label}
-                  </p>
-                  <p className="text-xs text-gray-500 mt-1">
-                    {opt.defaultDuration === 'day' ? 'Thường đi theo ngày' : 'Thường đi theo buổi'}
-                  </p>
+                  <p className={cn('font-bold text-lg', isSelected ? 'text-primary-900' : 'text-gray-700')}>{opt.label}</p>
+                  <p className="text-xs text-gray-500 mt-1">{opt.defaultDuration === 'day' ? 'Thường đi theo ngày' : 'Thường đi theo buổi'}</p>
                 </button>
               );
             })}
@@ -294,10 +323,8 @@ export default function BecomePartnerClient() {
               onClick={() => setStep(2)}
               disabled={selectedActivities.length === 0}
               className={cn(
-                "w-full md:max-w-md py-4 rounded-2xl font-bold text-lg flex items-center justify-center gap-2 transition shadow-lg",
-                selectedActivities.length > 0
-                  ? "bg-gradient-primary text-white shadow-primary hover:opacity-95"
-                  : "bg-gray-200 text-gray-400 cursor-not-allowed"
+                'w-full md:max-w-md py-4 rounded-2xl font-bold text-lg flex items-center justify-center gap-2 transition shadow-lg',
+                selectedActivities.length > 0 ? 'bg-gradient-primary text-white shadow-primary hover:opacity-95' : 'bg-gray-200 text-gray-400 cursor-not-allowed'
               )}
             >
               Tiếp tục ({selectedActivities.length}) <ChevronRight className="w-5 h-5" />
@@ -316,15 +343,19 @@ export default function BecomePartnerClient() {
             <div>
               <p className="font-bold text-blue-900 text-sm">Gợi ý định giá</p>
               <ul className="text-xs text-blue-700 mt-1 space-y-1 list-disc pl-4">
-                <li><strong>Theo buổi (3h):</strong> Phù hợp Cafe, Ăn uống, Xem phim. Giá 300k - 1tr.</li>
-                <li><strong>Theo ngày (8h+):</strong> Phù hợp Du lịch, Tour guide. Giá x2 hoặc x3 (1.5tr - 3tr).</li>
+                <li>
+                  <strong>Theo buổi (3h):</strong> Phù hợp Cafe, Ăn uống, Xem phim.
+                </li>
+                <li>
+                  <strong>Theo ngày:</strong> Phù hợp Du lịch, Tour guide.
+                </li>
               </ul>
             </div>
           </div>
 
           <div className="space-y-4">
             {selectedActivities.map((activity) => {
-              const option = ACTIVITY_OPTIONS.find(o => o.value === activity)!;
+              const option = ACTIVITY_OPTIONS.find((o) => o.value === activity)!;
               const config = configs[activity];
               const Icon = option.Icon;
 
@@ -337,10 +368,7 @@ export default function BecomePartnerClient() {
                     <div className="flex-1">
                       <h3 className="font-bold text-gray-900 text-lg">{option.label}</h3>
                     </div>
-                    <button 
-                      onClick={() => toggleActivity(activity)}
-                      className="p-2 hover:bg-red-50 text-gray-400 hover:text-red-500 rounded-lg transition"
-                    >
+                    <button onClick={() => toggleActivity(activity)} className="p-2 hover:bg-red-50 text-gray-400 hover:text-red-500 rounded-lg transition">
                       <Trash2 className="w-4 h-4" />
                     </button>
                   </div>
@@ -352,19 +380,15 @@ export default function BecomePartnerClient() {
                       <div className="flex bg-gray-100 p-1 rounded-xl">
                         <button
                           onClick={() => updateConfig(activity, 'duration', 'session')}
-                          className={cn(
-                            "flex-1 py-2 text-sm font-bold rounded-lg transition",
-                            config.duration === 'session' ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700"
-                          )}
+                          type="button"
+                          className={cn('flex-1 py-2 text-sm font-bold rounded-lg transition', config.duration === 'session' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700')}
                         >
-                          Theo buổi (3h)
+                          Theo buổi
                         </button>
                         <button
                           onClick={() => updateConfig(activity, 'duration', 'day')}
-                          className={cn(
-                            "flex-1 py-2 text-sm font-bold rounded-lg transition",
-                            config.duration === 'day' ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700"
-                          )}
+                          type="button"
+                          className={cn('flex-1 py-2 text-sm font-bold rounded-lg transition', config.duration === 'day' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700')}
                         >
                           Theo ngày
                         </button>
@@ -395,16 +419,13 @@ export default function BecomePartnerClient() {
             <button
               onClick={handleCreate}
               disabled={isSubmitting}
-              className="w-full py-4 bg-gradient-primary text-white rounded-2xl font-bold text-lg shadow-primary hover:opacity-90 flex items-center justify-center gap-2"
-            >
-              {isSubmitting ? (
-                <>Đang tạo...</>
-              ) : (
-                <>
-                  <Briefcase className="w-5 h-5" />
-                  Hoàn tất đăng ký
-                </>
+              className={cn(
+                'w-full py-4 rounded-2xl font-bold text-lg shadow-primary hover:opacity-90 flex items-center justify-center gap-2',
+                isSubmitting ? 'bg-gray-200 text-gray-500' : 'bg-gradient-primary text-white'
               )}
+            >
+              <Briefcase className="w-5 h-5" />
+              {isSubmitting ? 'Đang kích hoạt...' : 'Hoàn tất & Bật Partner'}
             </button>
           </div>
         </motion.div>

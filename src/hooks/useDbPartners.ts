@@ -31,11 +31,13 @@ function mapDbServiceToService(row: DbServiceRow): ServiceOffering {
   };
 }
 
-export function useDbPartners(params: { 
-  search?: string; 
-  location?: string; 
-  coords?: { lat: number; lng: number } | null 
-} = {}) {
+export function useDbPartners(
+  params: {
+    search?: string;
+    location?: string;
+    coords?: { lat: number; lng: number } | null;
+  } = {}
+) {
   const { search, location, coords } = params;
 
   const [users, setUsers] = useState<(User & { distance?: number })[]>([]);
@@ -56,7 +58,7 @@ export function useDbPartners(params: {
             my_lat: coords.lat,
             my_lng: coords.lng,
             radius_km: 50, // 50km radius
-            search_query: search || ''
+            search_query: search || '',
           });
 
           if (error) throw error;
@@ -65,7 +67,6 @@ export function useDbPartners(params: {
             const user = mapDbUserToUser(row.user_data);
             return { ...user, distance: Number(row.dist_km) };
           });
-
         } else {
           // Normal Text Search Mode
           let usersQuery = supabase.from('users').select('*');
@@ -79,6 +80,7 @@ export function useDbPartners(params: {
             usersQuery = usersQuery.or(`name.ilike.%${q}%,location.ilike.%${q}%`);
           }
 
+          // IMPORTANT: do not filter by role here yet; we'll determine partner by services too.
           const { data: usersData, error: usersErr } = await usersQuery;
           if (usersErr) throw usersErr;
 
@@ -107,14 +109,23 @@ export function useDbPartners(params: {
 
         if (cancelled) return;
 
-        // Filter and merge services
+        // Merge services, derive partner status from:
+        // - role/verified (from mapper) OR
+        // - having any services
+        // Then apply visibility rule:
+        // - Must be online to show in list (partner can hide themselves by switching offline)
         const providers = mappedUsers
-          .map((u) => ({
-            ...u,
-            services: nextServices[u.id] || [],
-            isServiceProvider: u.isServiceProvider || (nextServices[u.id]?.length || 0) > 0,
-          }))
-          .filter((u) => u.isServiceProvider);
+          .map((u) => {
+            const svs = nextServices[u.id] || [];
+            const isPartnerDerived = !!u.isServiceProvider || svs.length > 0;
+            return {
+              ...u,
+              services: svs,
+              isServiceProvider: isPartnerDerived,
+            };
+          })
+          .filter((u) => u.isServiceProvider)
+          .filter((u) => u.onlineStatus?.isOnline !== false);
 
         setUsers(providers);
       } catch (err) {

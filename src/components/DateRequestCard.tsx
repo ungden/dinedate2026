@@ -1,5 +1,6 @@
 'use client';
 
+import { memo } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { Calendar, Clock, MapPin } from 'lucide-react';
@@ -10,7 +11,7 @@ import {
   getActivityLabel,
 } from '@/lib/utils';
 
-export default function DateRequestCard({ request }: { request: DateRequest }) {
+function DateRequestCard({ request }: { request: DateRequest }) {
   return (
     <Link href={`/request/${request.id}`} className="block group">
       <div className="bg-white rounded-[32px] overflow-hidden shadow-[var(--shadow-sm)] hover:shadow-[var(--shadow-lg)] transition-all duration-300 border border-gray-100/50">
@@ -78,3 +79,5 @@ export default function DateRequestCard({ request }: { request: DateRequest }) {
     </Link>
   );
 }
+
+export default memo(DateRequestCard);

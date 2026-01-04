@@ -1,5 +1,6 @@
 'use client';
 
+import { memo, useCallback } from 'react';
 import { motion } from '@/lib/motion';
 import { ActivityType } from '@/types';
 import { cn } from '@/lib/utils';
@@ -17,12 +18,17 @@ const activities = [
   { type: 'karaoke' as ActivityType, label: 'Karaoke', emoji: '🎤' },
 ];
 
-export default function ActivityFilter({ selected, onSelect }: ActivityFilterProps) {
+function ActivityFilter({ selected, onSelect }: ActivityFilterProps) {
+  const handleAllClick = useCallback(() => onSelect(undefined), [onSelect]);
+  const handleActivityClick = useCallback((type: ActivityType, isSelected: boolean) => {
+    onSelect(isSelected ? undefined : type);
+  }, [onSelect]);
+
   return (
     <div className="flex gap-3 overflow-x-auto pb-4 hide-scrollbar px-4 sm:px-0">
       {/* All filter */}
       <motion.button
-        onClick={() => onSelect(undefined)}
+        onClick={handleAllClick}
         className={cn(
           'flex items-center gap-2 px-5 py-3 rounded-2xl font-bold whitespace-nowrap transition-all duration-300 text-sm',
           !selected
@@ -41,7 +47,7 @@ export default function ActivityFilter({ selected, onSelect }: ActivityFilterPro
         return (
           <motion.button
             key={activity.type}
-            onClick={() => onSelect(isSelected ? undefined : activity.type)}
+            onClick={() => handleActivityClick(activity.type, isSelected)}
             className={cn(
               'flex items-center gap-2 px-5 py-3 rounded-2xl font-bold whitespace-nowrap transition-all duration-300 text-sm',
               isSelected
@@ -58,3 +64,5 @@ export default function ActivityFilter({ selected, onSelect }: ActivityFilterPro
     </div>
   );
 }
+
+export default memo(ActivityFilter);

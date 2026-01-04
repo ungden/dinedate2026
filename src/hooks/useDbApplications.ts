@@ -18,7 +18,8 @@ export function useDbApplications(requestId: string) {
       .from('applications')
       .select(`*, user:users!applications_user_id_fkey(*)`)
       .eq('request_id', requestId)
-      .order('created_at', { ascending: false });
+      .order('created_at', { ascending: false })
+      .limit(50); // Pagination: limit to latest 50 applications
 
     if (error) {
       console.error('Error fetching applications:', error);

@@ -343,15 +343,21 @@ export default function TopupModal({
             <>
               {/* QR */}
               <div className="flex flex-col items-center mb-6">
-                <div className="bg-white p-3 rounded-2xl border border-gray-200 shadow-sm">
+                <div className="bg-white p-3 rounded-2xl border border-gray-200 shadow-sm relative">
                   {qrUrl ? (
-                    <div className="w-52 h-52 flex items-center justify-center">
-                      <img 
-                        src={qrUrl} 
-                        alt="Mã QR chuyển khoản" 
-                        className="w-full h-full object-contain"
-                      />
-                    </div>
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img 
+                      src={qrUrl} 
+                      alt="Mã QR chuyển khoản" 
+                      className="w-52 h-full object-contain mix-blend-multiply"
+                      onError={(e) => {
+                        e.currentTarget.style.display = 'none';
+                        const parent = e.currentTarget.parentElement;
+                        if(parent) {
+                            parent.innerHTML = '<div class="w-52 h-52 flex items-center justify-center text-red-500 text-sm font-medium text-center px-4">Lỗi tải ảnh QR. Vui lòng chuyển khoản thủ công.</div>';
+                        }
+                      }}
+                    />
                   ) : (
                     <div className="w-52 h-52 flex items-center justify-center text-gray-400">
                       Không tạo được QR

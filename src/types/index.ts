@@ -143,6 +143,12 @@ export interface ServiceOffering {
   duration: ServiceDuration; // New field
 }
 
+export interface BankInfo {
+  bankName: string;
+  accountNumber: string;
+  accountHolder: string;
+}
+
 export interface User {
   id: string;
   name: string;
@@ -180,6 +186,7 @@ export interface User {
   partner_agreed_at?: string;
   partner_agreed_version?: string;
   createdAt?: string; // Added field
+  bankInfo?: BankInfo; // New field
 }
 
 export interface DateRequest {

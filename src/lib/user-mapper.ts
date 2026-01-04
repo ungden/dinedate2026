@@ -84,5 +84,8 @@ export function mapDbUserToUser(row: DbUserRow): User {
     partner_agreed_at: row.partner_agreed_at ?? undefined,
     partner_agreed_version: row.partner_agreed_version ?? undefined,
     createdAt: row.created_at ?? undefined,
+    
+    // Map JSONB bank_info
+    bankInfo: row.bank_info || undefined,
   };
 }

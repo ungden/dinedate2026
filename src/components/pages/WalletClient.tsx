@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import Link from 'next/link';
 import { motion, AnimatePresence } from '@/lib/motion';
 import {
@@ -12,13 +12,16 @@ import {
   Clock,
   ExternalLink,
   ArrowRight,
-  X
+  X,
+  Save,
+  Building,
 } from 'lucide-react';
 import { formatCurrency, formatRelativeTime, cn } from '@/lib/utils';
 import { useDbWallet } from '@/hooks/useDbWallet';
 import TopupModal from '@/components/TopupModal';
 import { supabase } from '@/integrations/supabase/client';
 import toast from 'react-hot-toast';
+import { useAuth } from '@/contexts/AuthContext';
 
 const topUpAmounts = [50000, 100000, 200000, 500000, 1000000, 2000000];
 
@@ -33,13 +36,32 @@ const itemVariants = {
 };
 
 export default function WalletClient() {
+  const { user, updateUser } = useAuth();
   const { balance, escrow, transactions, loading, reload } = useDbWallet();
 
   const [selectedAmount, setSelectedAmount] = useState<number | null>(null);
   const [showWithdraw, setShowWithdraw] = useState(false);
   const [withdrawAmount, setWithdrawAmount] = useState('');
-  const [bankInfo, setBankInfo] = useState('');
+  
+  const [bankForm, setBankForm] = useState({
+    bankName: '',
+    accountNumber: '',
+    accountHolder: '',
+  });
+  const [saveBankInfo, setSaveBankInfo] = useState(false);
   const [isWithdrawing, setIsWithdrawing] = useState(false);
+
+  // Pre-fill bank info if available
+  useEffect(() => {
+    if (user?.bankInfo) {
+      setBankForm({
+        bankName: user.bankInfo.bankName || '',
+        accountNumber: user.bankInfo.accountNumber || '',
+        accountHolder: user.bankInfo.accountHolder || '',
+      });
+      setSaveBankInfo(true); // Default check if data exists
+    }
+  }, [user?.bankInfo]);
 
   const totalTopUp = useMemo(() => {
     return transactions
@@ -87,23 +109,29 @@ export default function WalletClient() {
       toast.error('Số dư không đủ');
       return;
     }
-    if (!bankInfo.trim()) {
-      toast.error('Vui lòng nhập thông tin ngân hàng');
+    if (!bankForm.bankName || !bankForm.accountNumber || !bankForm.accountHolder) {
+      toast.error('Vui lòng điền đầy đủ thông tin ngân hàng');
       return;
     }
 
     setIsWithdrawing(true);
-    const { data: auth } = await supabase.auth.getUser();
     
+    // Save bank info if checked
+    if (saveBankInfo && user) {
+        await supabase.from('users').update({ bank_info: bankForm }).eq('id', user.id);
+        // Refresh local user context if needed, but not critical for withdrawal flow
+        updateUser({ bankInfo: bankForm });
+    }
+
     // Create withdrawal request
     const { error } = await supabase.from('withdrawal_requests').insert({
-      user_id: auth.user?.id,
+      user_id: user?.id,
       amount,
-      bank_name: 'Manual', // Simply storing raw string in note for MVP
-      account_number: '0000',
-      account_name: 'USER',
+      bank_name: bankForm.bankName,
+      account_number: bankForm.accountNumber,
+      account_name: bankForm.accountHolder,
       status: 'pending',
-      note: bankInfo
+      note: `${bankForm.bankName} - ${bankForm.accountNumber} - ${bankForm.accountHolder}`
     });
 
     if (error) {
@@ -113,7 +141,6 @@ export default function WalletClient() {
       toast.success('Đã gửi yêu cầu rút tiền');
       setShowWithdraw(false);
       setWithdrawAmount('');
-      setBankInfo('');
     }
     setIsWithdrawing(false);
   };
@@ -282,42 +309,87 @@ export default function WalletClient() {
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
             >
-                <div className="bg-white rounded-3xl w-full max-w-sm p-6 relative">
-                    <button onClick={() => setShowWithdraw(false)} className="absolute top-4 right-4 p-2 hover:bg-gray-100 rounded-full">
-                        <X className="w-5 h-5 text-gray-500" />
-                    </button>
+                <div className="bg-white rounded-3xl w-full max-w-sm overflow-hidden flex flex-col max-h-[90vh]">
+                    <div className="p-4 border-b border-gray-100 flex items-center justify-between">
+                        <h3 className="text-lg font-bold text-gray-900">Rút tiền về ngân hàng</h3>
+                        <button onClick={() => setShowWithdraw(false)} className="p-2 hover:bg-gray-100 rounded-full">
+                            <X className="w-5 h-5 text-gray-500" />
+                        </button>
+                    </div>
                     
-                    <h3 className="text-xl font-bold text-gray-900 mb-4">Rút tiền</h3>
-                    
-                    <div className="space-y-4">
+                    <div className="p-6 overflow-y-auto space-y-5">
+                        {/* Amount */}
                         <div>
-                            <label className="text-sm font-bold text-gray-700">Số tiền rút</label>
-                            <input 
-                                type="number" 
-                                value={withdrawAmount}
-                                onChange={(e) => setWithdrawAmount(e.target.value)}
-                                className="w-full mt-1 p-3 border rounded-xl font-bold text-lg"
-                                placeholder="0"
-                            />
-                            <p className="text-xs text-gray-500 mt-1">Tối đa: {formatCurrency(balance)}</p>
+                            <label className="text-sm font-bold text-gray-700">Số tiền muốn rút</label>
+                            <div className="relative mt-1">
+                                <input 
+                                    type="number" 
+                                    value={withdrawAmount}
+                                    onChange={(e) => setWithdrawAmount(e.target.value)}
+                                    className="w-full pl-4 pr-12 py-3 border border-gray-200 rounded-xl font-bold text-lg focus:ring-2 focus:ring-primary-500 outline-none"
+                                    placeholder="0"
+                                />
+                                <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm text-gray-400 font-bold">VNĐ</span>
+                            </div>
+                            <div className="flex justify-between mt-1 text-xs">
+                                <span className="text-gray-500">Tối đa: {formatCurrency(balance)}</span>
+                                <button 
+                                    onClick={() => setWithdrawAmount(balance.toString())}
+                                    className="text-primary-600 font-bold hover:underline"
+                                >
+                                    Rút hết
+                                </button>
+                            </div>
                         </div>
                         
-                        <div>
-                            <label className="text-sm font-bold text-gray-700">Thông tin nhận tiền</label>
-                            <textarea 
-                                value={bankInfo}
-                                onChange={(e) => setBankInfo(e.target.value)}
-                                className="w-full mt-1 p-3 border rounded-xl text-sm h-24"
-                                placeholder="Tên Ngân hàng - Số TK - Tên chủ TK"
+                        {/* Bank Info */}
+                        <div className="space-y-3">
+                            <div className="flex items-center gap-2 mb-1">
+                                <Building className="w-4 h-4 text-gray-500" />
+                                <label className="text-sm font-bold text-gray-700">Thông tin nhận tiền</label>
+                            </div>
+                            
+                            <input 
+                                type="text"
+                                value={bankForm.bankName}
+                                onChange={(e) => setBankForm({ ...bankForm, bankName: e.target.value })}
+                                className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-primary-500 outline-none"
+                                placeholder="Tên ngân hàng (VD: MB Bank, Vietcombank...)"
+                            />
+                            
+                            <input 
+                                type="text"
+                                value={bankForm.accountNumber}
+                                onChange={(e) => setBankForm({ ...bankForm, accountNumber: e.target.value })}
+                                className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-primary-500 outline-none"
+                                placeholder="Số tài khoản"
+                            />
+                            
+                            <input 
+                                type="text"
+                                value={bankForm.accountHolder}
+                                onChange={(e) => setBankForm({ ...bankForm, accountHolder: e.target.value.toUpperCase() })}
+                                className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-primary-500 outline-none uppercase"
+                                placeholder="Tên chủ tài khoản (Không dấu)"
                             />
                         </div>
+
+                        <label className="flex items-center gap-2 cursor-pointer">
+                            <input 
+                                type="checkbox" 
+                                checked={saveBankInfo}
+                                onChange={(e) => setSaveBankInfo(e.target.checked)}
+                                className="w-4 h-4 rounded text-primary-600 focus:ring-primary-500"
+                            />
+                            <span className="text-sm text-gray-600">Lưu thông tin ngân hàng cho lần sau</span>
+                        </label>
 
                         <button
                             onClick={handleWithdraw}
                             disabled={isWithdrawing}
-                            className="w-full py-3 bg-gradient-primary text-white rounded-xl font-bold hover:opacity-90 disabled:bg-gray-300"
+                            className="w-full py-4 bg-gradient-primary text-white rounded-xl font-bold hover:opacity-90 disabled:bg-gray-300 disabled:cursor-not-allowed shadow-primary transition-all"
                         >
-                            {isWithdrawing ? 'Đang gửi...' : 'Gửi yêu cầu'}
+                            {isWithdrawing ? 'Đang gửi yêu cầu...' : 'Gửi yêu cầu rút tiền'}
                         </button>
                     </div>
                 </div>

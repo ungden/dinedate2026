@@ -4,7 +4,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, Authorization, x-sepay-secret",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, Authorization",
 };
 
 // Regex bắt mã DDXXXXXXXX (ví dụ DD17364822) - Khớp với logic generateTransferNote ở client
@@ -17,6 +17,7 @@ function findPaymentCode(payload: any): string | null {
     payload.addInfo,
     payload.contentStr,
     payload.referenceCode,
+    payload.code,
   ];
 
   for (const source of textSources) {
@@ -40,6 +41,18 @@ function findAmount(payload: any): number | null {
   return null;
 }
 
+function parseSepayApiKeyFromAuthHeader(authHeader: string | null): string | null {
+  if (!authHeader) return null;
+  const trimmed = authHeader.trim();
+
+  // Expected format: "Apikey <key>" (case-insensitive)
+  const parts = trimmed.split(/\s+/);
+  if (parts.length < 2) return null;
+  if (parts[0].toLowerCase() !== "apikey") return null;
+
+  return parts.slice(1).join(" ").trim();
+}
+
 serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -47,7 +60,9 @@ serve(async (req: Request) => {
 
   const supabaseUrl = Deno.env.get("SUPABASE_URL");
   const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
-  const webhookSecret = Deno.env.get("SEPAY_WEBHOOK_SECRET");
+
+  // Reuse existing secret name as SePay webhook API key
+  const sepayApiKey = (Deno.env.get("SEPAY_WEBHOOK_SECRET") || "").trim();
 
   if (!supabaseUrl || !serviceKey) {
     return new Response(JSON.stringify({ success: false, error: "Missing env" }), {
@@ -56,14 +71,14 @@ serve(async (req: Request) => {
     });
   }
 
-  // If secret is configured, require header.
-  if (webhookSecret) {
-    const provided = req.headers.get("x-sepay-secret");
-    if (!provided || provided !== webhookSecret) {
+  // Strict auth: require Authorization: Apikey <SEPAY_WEBHOOK_SECRET>
+  if (sepayApiKey) {
+    const providedKey = parseSepayApiKeyFromAuthHeader(req.headers.get("Authorization"));
+    if (!providedKey || providedKey !== sepayApiKey) {
       return new Response(
         JSON.stringify({
           success: false,
-          error: "Missing or invalid x-sepay-secret",
+          error: "Missing or invalid Authorization Apikey",
         }),
         {
           status: 401,
@@ -82,10 +97,10 @@ serve(async (req: Request) => {
     let matchedRequestId: string | null = null;
     let matchedRequest: any = null;
 
-    // 1. Tìm theo mã chuyển khoản (Ưu tiên)
+    // 1) Match pending topup_requests by transfer_code
     const paymentCode = findPaymentCode(payload);
     if (paymentCode) {
-      const { data: req, error: reqErr } = await admin
+      const { data: reqRow, error: reqErr } = await admin
         .from("topup_requests")
         .select("*")
         .eq("transfer_code", paymentCode)
@@ -96,14 +111,13 @@ serve(async (req: Request) => {
         console.log("Find request error:", reqErr);
       }
 
-      if (req) {
-        // Verify amount (cho phép sai số nhỏ nếu cần, ở đây yêu cầu chính xác hoặc lớn hơn)
+      if (reqRow) {
         const amount = findAmount(payload);
-        if (amount && amount >= req.amount) {
-          matchedRequestId = req.id;
-          matchedRequest = req;
+        if (amount && amount >= reqRow.amount) {
+          matchedRequestId = reqRow.id;
+          matchedRequest = reqRow;
         } else {
-          console.log(`Amount mismatch or too low. Expected: ${req.amount}, Got: ${amount}`);
+          console.log(`Amount mismatch or too low. Expected: ${reqRow.amount}, Got: ${amount}`);
         }
       }
     }
@@ -118,9 +132,7 @@ serve(async (req: Request) => {
       );
     }
 
-    // 2. Xử lý giao dịch thành công
-
-    // a. Cập nhật trạng thái yêu cầu nạp
+    // 2) Confirm topup request
     const { error: updateReqErr } = await admin
       .from("topup_requests")
       .update({
@@ -131,8 +143,8 @@ serve(async (req: Request) => {
 
     if (updateReqErr) throw updateReqErr;
 
-    // b. Lấy thông tin user hiện tại để cộng tiền
-    const { data: user, error: userErr } = await admin
+    // 3) Add wallet balance
+    const { data: userRow, error: userErr } = await admin
       .from("users")
       .select("wallet_balance")
       .eq("id", matchedRequest.user_id)
@@ -140,9 +152,8 @@ serve(async (req: Request) => {
 
     if (userErr) throw userErr;
 
-    const newBalance = (Number(user.wallet_balance) || 0) + Number(matchedRequest.amount);
+    const newBalance = (Number(userRow.wallet_balance) || 0) + Number(matchedRequest.amount);
 
-    // c. Cập nhật số dư ví
     const { error: updateWalletErr } = await admin
       .from("users")
       .update({ wallet_balance: newBalance })
@@ -150,7 +161,7 @@ serve(async (req: Request) => {
 
     if (updateWalletErr) throw updateWalletErr;
 
-    // d. Ghi log transaction
+    // 4) Log transaction
     const { error: txErr } = await admin.from("transactions").insert({
       user_id: matchedRequest.user_id,
       type: "top_up",

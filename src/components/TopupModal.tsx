@@ -23,6 +23,7 @@ import {
   PaymentConfig,
 } from '@/lib/payment';
 import { formatCurrency, cn } from '@/lib/utils';
+import { useDbWalletBalance } from '@/hooks/useDbWalletBalance';
 
 interface TopupModalProps {
   isOpen: boolean;
@@ -67,6 +68,10 @@ export default function TopupModal({
   const [fatalError, setFatalError] = useState<string | null>(null);
 
   const pollingRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Balance re-check
+  const { balance, reload: reloadBalance } = useDbWalletBalance();
+  const [startingBalance, setStartingBalance] = useState<number | null>(null);
 
   const qrUrl = useMemo(() => {
     if (!config || !config.is_active) return '';
@@ -122,6 +127,14 @@ export default function TopupModal({
     setIsCreating(false);
   }, [amount, localCode, localRequestId]);
 
+  const markSuccess = useCallback(() => {
+    if (pollingRef.current) clearInterval(pollingRef.current);
+    setPaymentStatus('confirmed');
+    toast.success('Nạp tiền thành công! 🎉');
+    onSuccess?.();
+    setTimeout(() => onClose(), 800);
+  }, [onClose, onSuccess]);
+
   useEffect(() => {
     if (!isOpen) return;
 
@@ -142,10 +155,18 @@ export default function TopupModal({
           return;
         }
 
-        await createRequestIfNeeded();
+        // Snapshot balance at modal open (for re-check)
+        await reloadBalance();
         if (cancelled) return;
 
         setIsBooting(false);
+
+        await createRequestIfNeeded();
+        if (cancelled) return;
+
+        // After request created, snapshot the starting balance (once)
+        // (We do it here because reloadBalance may have completed before Auth is ready in some edge cases)
+        await reloadBalance();
       } catch (err) {
         if (cancelled) return;
         setConfig(null);
@@ -159,36 +180,58 @@ export default function TopupModal({
     return () => {
       cancelled = true;
     };
-  }, [isOpen, createRequestIfNeeded]);
+  }, [isOpen, createRequestIfNeeded, reloadBalance]);
 
   useEffect(() => {
     if (!isOpen) return;
+    if (startingBalance !== null) return;
+    if (typeof balance !== 'number') return;
+    setStartingBalance(balance);
+  }, [isOpen, balance, startingBalance]);
 
+  const pollOnce = useCallback(async () => {
+    if (!localRequestId) return;
+    if (paymentStatus === 'confirmed' || paymentStatus === 'cancelled') return;
+
+    // 1) Check request status
+    const status = await checkTopupStatus(localRequestId);
+    if (status && status !== 'pending') {
+      setPaymentStatus(status);
+      if (status === 'confirmed') {
+        markSuccess();
+      }
+      return;
+    }
+
+    // 2) If still pending, re-check wallet balance (webhook might have credited but request isn't updated yet)
+    await reloadBalance();
+
+    // We consider success if balance increased (simple, robust for MVP).
+    if (typeof balance === 'number' && typeof startingBalance === 'number') {
+      if (balance > startingBalance) {
+        markSuccess();
+      }
+    }
+  }, [balance, localRequestId, markSuccess, paymentStatus, reloadBalance, startingBalance]);
+
+  useEffect(() => {
+    if (!isOpen) return;
     if (!localRequestId) return;
     if (paymentStatus === 'confirmed' || paymentStatus === 'cancelled') return;
 
     if (pollingRef.current) clearInterval(pollingRef.current);
 
-    pollingRef.current = setInterval(async () => {
-      const status = await checkTopupStatus(localRequestId);
-      if (!status) return;
+    // immediate poll so user doesn't wait 3s for first check
+    pollOnce();
 
-      if (status !== 'pending') {
-        setPaymentStatus(status);
-      }
-
-      if (status === 'confirmed') {
-        if (pollingRef.current) clearInterval(pollingRef.current);
-        toast.success('Nạp tiền thành công! 🎉');
-        onSuccess?.();
-        setTimeout(() => onClose(), 800);
-      }
+    pollingRef.current = setInterval(() => {
+      pollOnce();
     }, POLL_INTERVAL);
 
     return () => {
       if (pollingRef.current) clearInterval(pollingRef.current);
     };
-  }, [isOpen, localRequestId, paymentStatus, onClose, onSuccess]);
+  }, [isOpen, localRequestId, paymentStatus, pollOnce]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -196,11 +239,13 @@ export default function TopupModal({
     return () => {
       if (pollingRef.current) clearInterval(pollingRef.current);
       pollingRef.current = null;
+
       setPaymentStatus('pending');
       setFatalError(null);
       setIsBooting(true);
       setIsCreating(false);
       setCopied(null);
+      setStartingBalance(null);
 
       if (!requestId && !transferCode) {
         setLocalRequestId(null);
@@ -219,18 +264,12 @@ export default function TopupModal({
   const handleManualCheck = async () => {
     if (!localRequestId) return;
     setChecking(true);
-    const status = await checkTopupStatus(localRequestId);
+    await pollOnce();
     setChecking(false);
 
-    if (status === 'confirmed') {
-      setPaymentStatus('confirmed');
-      toast.success('Đã nhận được tiền!');
-      onSuccess?.();
-      setTimeout(() => onClose(), 800);
-      return;
+    if (paymentStatus !== 'confirmed') {
+      toast('Chưa nhận được thanh toán, vui lòng đợi thêm...', { icon: '⏳' });
     }
-
-    toast('Chưa nhận được thanh toán, vui lòng đợi thêm...', { icon: '⏳' });
   };
 
   const handleCancel = async () => {
@@ -346,15 +385,16 @@ export default function TopupModal({
                 <div className="bg-white p-3 rounded-2xl border border-gray-200 shadow-sm relative">
                   {qrUrl ? (
                     // eslint-disable-next-line @next/next/no-img-element
-                    <img 
-                      src={qrUrl} 
-                      alt="Mã QR chuyển khoản" 
+                    <img
+                      src={qrUrl}
+                      alt="Mã QR chuyển khoản"
                       className="w-52 h-full object-contain mix-blend-multiply"
                       onError={(e) => {
                         e.currentTarget.style.display = 'none';
                         const parent = e.currentTarget.parentElement;
-                        if(parent) {
-                            parent.innerHTML = '<div class="w-52 h-52 flex items-center justify-center text-red-500 text-sm font-medium text-center px-4">Lỗi tải ảnh QR. Vui lòng chuyển khoản thủ công.</div>';
+                        if (parent) {
+                          parent.innerHTML =
+                            '<div class="w-52 h-52 flex items-center justify-center text-red-500 text-sm font-medium text-center px-4">Lỗi tải ảnh QR. Vui lòng chuyển khoản thủ công.</div>';
                         }
                       }}
                     />
@@ -386,7 +426,9 @@ export default function TopupModal({
                 <div className="flex justify-between items-center text-sm">
                   <span className="text-gray-500">Số tài khoản</span>
                   <div className="flex items-center gap-2">
-                    <span className="font-mono font-bold text-gray-900 tracking-wide">{config.bank_account}</span>
+                    <span className="font-mono font-bold text-gray-900 tracking-wide">
+                      {config.bank_account}
+                    </span>
                     <button
                       onClick={() => handleCopy(config.bank_account, 'Số tài khoản')}
                       className="text-primary-600 hover:bg-primary-50 p-1 rounded"
@@ -453,6 +495,12 @@ export default function TopupModal({
                   Tôi đã chuyển
                 </button>
               </div>
+
+              {typeof startingBalance === 'number' && typeof balance === 'number' && (
+                <p className="mt-4 text-[11px] text-gray-400 text-center">
+                  Đang theo dõi số dư để tự động xác nhận: {formatCurrency(startingBalance)} → {formatCurrency(balance)}
+                </p>
+              )}
             </>
           )}
         </div>

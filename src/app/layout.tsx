@@ -17,7 +17,7 @@ export const metadata: Metadata = {
     url: 'https://dinedate.vn',
     images: [
       {
-        url: '/opengraph-image',
+        url: '/opengraph-image.png',
         width: 1200,
         height: 630,
         alt: 'DineDate',
@@ -28,7 +28,7 @@ export const metadata: Metadata = {
     card: 'summary_large_image',
     title: 'DineDate - Hẹn hò và Gặp gỡ',
     description: 'Ứng dụng hẹn hò và booking dịch vụ đồng hành',
-    images: ['/twitter-image'],
+    images: ['/twitter-image.png'],
   },
 };
 

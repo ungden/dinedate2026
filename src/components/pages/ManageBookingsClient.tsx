@@ -2,9 +2,10 @@
 
 import { useMemo, useState } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, Calendar, Clock, MapPin, Check, X } from 'lucide-react';
+import { ArrowLeft, Calendar, Clock, MapPin, Check, X, Loader2 } from 'lucide-react';
 import { cn, formatCurrency, formatDate } from '@/lib/utils';
 import { useDbBookings } from '@/hooks/useDbBookings';
+import toast from 'react-hot-toast';
 
 type TabType = 'sent' | 'received';
 
@@ -23,15 +24,48 @@ function formatDateFromIso(iso?: string) {
 export default function ManageBookingsClient() {
   const [activeTab, setActiveTab] = useState<TabType>('sent');
   const { sent, received, loading, accept, reject } = useDbBookings();
+  const [processingId, setProcessingId] = useState<string | null>(null);
 
   const bookings = activeTab === 'sent' ? sent : received;
+
+  const handleCancel = async (id: string) => {
+    if (!confirm('Bạn chắc chắn muốn hủy yêu cầu này? Tiền sẽ được hoàn về ví ngay lập tức.')) return;
+    setProcessingId(id);
+    try {
+      await reject(id); // Reuse logic reject của Edge Function (User reject = Cancel)
+      toast.success('Đã hủy và hoàn tiền thành công');
+    } catch (error: any) {
+      toast.error('Lỗi: ' + error.message);
+    } finally {
+      setProcessingId(null);
+    }
+  };
+
+  const handlePartnerAction = async (id: string, action: 'accept' | 'reject') => {
+    setProcessingId(id);
+    try {
+      if (action === 'accept') {
+        await accept(id);
+        toast.success('Đã chấp nhận booking!');
+      } else {
+        await reject(id);
+        toast.success('Đã từ chối booking');
+      }
+    } catch (error: any) {
+      toast.error('Lỗi: ' + error.message);
+    } finally {
+      setProcessingId(null);
+    }
+  };
 
   const getStatusBadge = (status: string) => {
     const styles: Record<string, string> = {
       pending: 'bg-yellow-100 text-yellow-700',
-      accepted: 'bg-green-100 text-green-700',
+      accepted: 'bg-blue-100 text-blue-700',
       rejected: 'bg-red-100 text-red-700',
-      completed: 'bg-blue-100 text-blue-700',
+      cancelled: 'bg-gray-100 text-gray-600',
+      completed: 'bg-green-100 text-green-700',
+      completed_pending: 'bg-green-50 text-green-600 border border-green-200',
       in_progress: 'bg-purple-100 text-purple-700',
       paid: 'bg-green-100 text-green-700',
     };
@@ -39,19 +73,21 @@ export default function ManageBookingsClient() {
       pending: 'Chờ xác nhận',
       accepted: 'Đã chấp nhận',
       rejected: 'Đã từ chối',
+      cancelled: 'Đã hủy',
       completed: 'Hoàn thành',
+      completed_pending: 'Chờ thanh toán',
       in_progress: 'Đang diễn ra',
       paid: 'Đã thanh toán',
     };
     return (
-      <span className={cn('px-2 py-1 rounded-full text-xs font-medium', styles[status] || 'bg-gray-100 text-gray-700')}>
+      <span className={cn('px-2.5 py-1 rounded-full text-xs font-bold uppercase', styles[status] || 'bg-gray-100 text-gray-700')}>
         {labels[status] || status}
       </span>
     );
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 pb-20">
       {/* Header */}
       <div className="flex items-center gap-4">
         <Link
@@ -68,10 +104,10 @@ export default function ManageBookingsClient() {
         <button
           onClick={() => setActiveTab('sent')}
           className={cn(
-            'flex-1 py-2 px-4 rounded-lg font-medium transition',
+            'flex-1 py-2 px-4 rounded-lg font-bold text-sm transition',
             activeTab === 'sent'
               ? 'bg-white text-primary-600 shadow'
-              : 'text-gray-600 hover:text-gray-900'
+              : 'text-gray-500 hover:text-gray-900'
           )}
         >
           Đã gửi ({sent.length})
@@ -79,10 +115,10 @@ export default function ManageBookingsClient() {
         <button
           onClick={() => setActiveTab('received')}
           className={cn(
-            'flex-1 py-2 px-4 rounded-lg font-medium transition',
+            'flex-1 py-2 px-4 rounded-lg font-bold text-sm transition',
             activeTab === 'received'
               ? 'bg-white text-primary-600 shadow'
-              : 'text-gray-600 hover:text-gray-900'
+              : 'text-gray-500 hover:text-gray-900'
           )}
         >
           Đã nhận ({received.length})
@@ -91,68 +127,80 @@ export default function ManageBookingsClient() {
 
       {/* Booking List */}
       {loading ? (
-        <div className="py-12 text-center text-gray-500">Đang tải booking...</div>
+        <div className="py-20 text-center">
+          <Loader2 className="w-8 h-8 animate-spin text-primary-500 mx-auto" />
+          <p className="text-gray-500 mt-2">Đang tải dữ liệu...</p>
+        </div>
       ) : bookings.length > 0 ? (
         <div className="space-y-4">
           {bookings.map((b) => {
             const startIso = b.start_time as string | undefined;
+            const isProcessing = processingId === b.id;
 
             return (
               <div
                 key={b.id}
-                className="bg-white rounded-2xl border border-gray-100 overflow-hidden"
+                className="bg-white rounded-2xl border border-gray-100 overflow-hidden shadow-sm"
               >
-                <div className="p-4">
-                  <div className="flex items-start gap-4">
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between mb-2">
-                        <div className="font-semibold text-gray-900 truncate">
-                          {b.activity || 'Booking'}
-                        </div>
-                        {getStatusBadge(b.status)}
-                      </div>
+                <div className="p-4 border-b border-gray-50">
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="font-black text-gray-900 truncate pr-2 text-lg">
+                      {b.activity ? b.activity.charAt(0).toUpperCase() + b.activity.slice(1) : 'Booking'}
+                    </div>
+                    {getStatusBadge(b.status)}
+                  </div>
 
-                      <div className="grid grid-cols-2 gap-2 text-sm text-gray-500">
-                        <div className="flex items-center gap-1">
-                          <Calendar className="w-4 h-4" />
-                          <span>{startIso ? formatDateFromIso(startIso) : '-'}</span>
-                        </div>
-                        <div className="flex items-center gap-1">
-                          <Clock className="w-4 h-4" />
-                          <span>{startIso ? formatTimeFromIso(startIso) : '-'}</span>
-                        </div>
-                        <div className="flex items-center gap-1 col-span-2">
-                          <MapPin className="w-4 h-4" />
-                          <span className="truncate">{b.meeting_location || '-'}</span>
-                        </div>
-                      </div>
-
-                      {b.duration_hours ? (
-                        <p className="text-sm text-gray-600 mt-2">
-                          Thời lượng: <span className="font-semibold">{b.duration_hours} giờ</span>
-                        </p>
-                      ) : null}
+                  <div className="grid grid-cols-2 gap-3 text-sm text-gray-600">
+                    <div className="flex items-center gap-2">
+                      <Calendar className="w-4 h-4 text-primary-500" />
+                      <span className="font-medium">{startIso ? formatDateFromIso(startIso) : '-'}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Clock className="w-4 h-4 text-primary-500" />
+                      <span className="font-medium">{startIso ? formatTimeFromIso(startIso) : '-'}</span>
+                    </div>
+                    <div className="flex items-center gap-2 col-span-2">
+                      <MapPin className="w-4 h-4 text-primary-500 flex-shrink-0" />
+                      <span className="truncate">{b.meeting_location || '-'}</span>
                     </div>
                   </div>
                 </div>
 
                 <div className="px-4 py-3 bg-gray-50 flex items-center justify-between">
-                  <p className="font-semibold text-green-600">
-                    {formatCurrency(Number(b.total_amount || 0))}
-                  </p>
+                  <div>
+                    <p className="text-[10px] font-black text-gray-400 uppercase">Tổng tiền</p>
+                    <p className="font-black text-lg text-green-600">
+                        {formatCurrency(Number(b.total_amount || 0))}
+                    </p>
+                  </div>
 
+                  {/* USER: Cancel button if pending */}
+                  {activeTab === 'sent' && b.status === 'pending' && (
+                    <button
+                      onClick={() => handleCancel(b.id)}
+                      disabled={isProcessing}
+                      className="px-4 py-2 bg-white border border-gray-200 text-gray-600 rounded-xl text-sm font-bold hover:bg-red-50 hover:text-red-600 hover:border-red-100 transition shadow-sm flex items-center gap-2"
+                    >
+                      {isProcessing && <Loader2 className="w-4 h-4 animate-spin" />}
+                      Hủy yêu cầu
+                    </button>
+                  )}
+
+                  {/* PARTNER: Accept/Reject buttons if pending */}
                   {activeTab === 'received' && b.status === 'pending' && (
                     <div className="flex gap-2">
                       <button
-                        onClick={() => reject(b.id)}
-                        className="flex items-center gap-1 px-3 py-1.5 bg-red-100 text-red-600 rounded-lg font-medium hover:bg-red-200 transition"
+                        onClick={() => handlePartnerAction(b.id, 'reject')}
+                        disabled={isProcessing}
+                        className="flex items-center gap-1 px-3 py-2 bg-white border border-gray-200 text-gray-600 rounded-xl font-bold text-sm hover:bg-red-50 hover:text-red-600 hover:border-red-100 transition shadow-sm"
                       >
-                        <X className="w-4 h-4" />
-                        Từ chối
+                        {isProcessing ? <Loader2 className="w-4 h-4 animate-spin" /> : <X className="w-4 h-4" />}
+                        <span className="hidden sm:inline">Từ chối</span>
                       </button>
                       <button
-                        onClick={() => accept(b.id)}
-                        className="flex items-center gap-1 px-3 py-1.5 bg-green-100 text-green-600 rounded-lg font-medium hover:bg-green-200 transition"
+                        onClick={() => handlePartnerAction(b.id, 'accept')}
+                        disabled={isProcessing}
+                        className="flex items-center gap-1 px-4 py-2 bg-gradient-primary text-white rounded-xl font-bold text-sm shadow-primary hover:opacity-90 transition"
                       >
                         <Check className="w-4 h-4" />
                         Chấp nhận
@@ -165,15 +213,17 @@ export default function ManageBookingsClient() {
           })}
         </div>
       ) : (
-        <div className="text-center py-12">
-          <Calendar className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-          <h3 className="text-lg font-semibold text-gray-900 mb-2">
+        <div className="text-center py-16">
+          <div className="w-20 h-20 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-4">
+            <Calendar className="w-10 h-10 text-gray-300" />
+          </div>
+          <h3 className="text-lg font-bold text-gray-900 mb-1">
             Chưa có booking nào
           </h3>
-          <p className="text-gray-500">
+          <p className="text-gray-500 text-sm">
             {activeTab === 'sent'
-              ? 'Bạn chưa gửi booking nào'
-              : 'Bạn chưa nhận booking nào'}
+              ? 'Bạn chưa gửi yêu cầu booking nào.'
+              : 'Bạn chưa nhận được yêu cầu nào.'}
           </p>
         </div>
       )}

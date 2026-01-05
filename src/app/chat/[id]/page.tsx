@@ -21,6 +21,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useConversation } from '@/hooks/useDbChat';
 import { formatRelativeTime, cn, getVIPBadgeColor } from '@/lib/utils';
 import toast from 'react-hot-toast';
+import SafetyChatBanner from '@/components/SafetyChatBanner'; // Import Safety Banner
 
 export default function ChatPage() {
   const params = useParams();
@@ -176,6 +177,10 @@ export default function ChatPage() {
 
       {/* Messages */}
       <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-gray-50/50">
+        
+        {/* SAFETY BANNER */}
+        <SafetyChatBanner className="mb-4" />
+
         {messages.length === 0 ? (
           <div className="text-center py-12">
             <div className="w-20 h-20 mx-auto mb-4 relative">

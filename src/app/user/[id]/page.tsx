@@ -27,18 +27,11 @@ import { cn, formatCurrency, formatRelativeTime, getVIPBadgeColor, getActivityIc
 import { ServiceOffering } from '@/types';
 import { useAuth } from '@/contexts/AuthContext';
 import AuthModal from '@/components/AuthModal';
-import { PLATFORM_FEE_RATE } from '@/lib/platform';
 import { useDbUserProfile } from '@/hooks/useDbUserProfile';
 import { createBookingViaEdge } from '@/lib/booking';
 import { motion, AnimatePresence } from '@/lib/motion';
 
 const SESSION_HOURS = 3;
-
-function calcSessionTotals(sessionPrice: number) {
-  const subTotal = sessionPrice;
-  const platformFee = Math.round(subTotal * PLATFORM_FEE_RATE);
-  return { subTotal, platformFee, total: subTotal + platformFee };
-}
 
 export default function UserProfilePage() {
   const params = useParams();
@@ -61,8 +54,8 @@ export default function UserProfilePage() {
   const selectedService: ServiceOffering | null =
     services.find((s) => s.id === selectedServiceId) || null;
 
-  const sessionPrice = selectedService?.price || 0;
-  const pricing = calcSessionTotals(sessionPrice);
+  // Giá niêm yết là giá cuối cùng User phải trả
+  const totalPrice = selectedService?.price || 0;
 
   const [bookingForm, setBookingForm] = useState({
     date: '',
@@ -282,9 +275,9 @@ export default function UserProfilePage() {
                   <BadgeCheck className="w-5 h-5 text-green-700" />
                 </div>
                 <div>
-                  <p className="font-bold text-green-900">Giá theo buổi</p>
+                  <p className="font-bold text-green-900">Giá trọn gói</p>
                   <p className="text-green-800/80 text-[13px] leading-snug">
-                    Mỗi booking là 1 buổi ({SESSION_HOURS} giờ), không tính theo giờ
+                    Không thu thêm phí nền tảng từ khách hàng
                   </p>
                 </div>
               </div>
@@ -357,7 +350,6 @@ export default function UserProfilePage() {
           <div className="space-y-4">
             {services.map((service) => {
               const selectedForThis = selectedServiceId === service.id;
-              const totalForThis = calcSessionTotals(service.price || 0).total;
 
               return (
                 <div key={service.id} className="bg-white rounded-[28px] border border-gray-100 shadow-soft overflow-hidden">
@@ -391,17 +383,10 @@ export default function UserProfilePage() {
                         ) : null}
 
                         {/* Primary action */}
-                        <div className="mt-4 flex items-center justify-between gap-3">
-                          <div className="min-w-0">
-                            <p className="text-[12px] text-gray-400 font-bold">Tổng (đã gồm phí)</p>
-                            <p className="text-[20px] font-black text-primary-600 leading-none">
-                              {formatCurrency(totalForThis)}
-                            </p>
-                          </div>
-
+                        <div className="mt-4 flex items-center justify-end gap-3">
                           <button
                             onClick={() => openBookingForService(service.id)}
-                            className="px-5 py-3 rounded-2xl bg-gradient-primary text-white font-black shadow-primary hover:opacity-90 transition flex items-center justify-center gap-2"
+                            className="px-5 py-3 rounded-2xl bg-gradient-primary text-white font-black shadow-primary hover:opacity-90 transition flex items-center justify-center gap-2 w-full"
                           >
                             Đặt ngay
                           </button>
@@ -472,21 +457,9 @@ export default function UserProfilePage() {
                           </div>
                         </div>
 
-                        <div className="mt-4 bg-white rounded-xl border border-gray-100 p-3">
-                          <div className="flex items-center justify-between text-sm">
-                            <span className="text-gray-600 font-medium">
-                              Tạm tính ({service.duration === 'day' ? '1 ngày' : '1 buổi'})
-                            </span>
-                            <span className="font-black text-gray-900">{formatCurrency(pricing.subTotal)}</span>
-                          </div>
-                          <div className="flex items-center justify-between text-sm mt-1">
-                            <span className="text-gray-600 font-medium">Phí nền tảng (30%)</span>
-                            <span className="font-black text-gray-900">{formatCurrency(pricing.platformFee)}</span>
-                          </div>
-                          <div className="flex items-center justify-between mt-2 pt-2 border-t border-gray-100">
-                            <span className="font-black text-gray-900">Tổng</span>
-                            <span className="font-black text-primary-600 text-lg">{formatCurrency(pricing.total)}</span>
-                          </div>
+                        <div className="mt-4 bg-white rounded-xl border border-gray-100 p-3 flex justify-between items-center">
+                          <span className="text-sm font-medium text-gray-600">Tổng thanh toán</span>
+                          <span className="text-lg font-black text-primary-600">{formatCurrency(totalPrice)}</span>
                         </div>
 
                         <div className="mt-4 flex gap-3">

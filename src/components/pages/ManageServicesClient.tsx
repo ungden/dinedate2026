@@ -155,6 +155,11 @@ export default function ManageServicesClient() {
     });
   };
 
+  // Helper values for display
+  const displayPrice = isPro ? formData.price : LOCKED_PRICE;
+  const receiveAmount = displayPrice * PARTNER_EARNING_RATE;
+  const platformFee = displayPrice * (1 - PARTNER_EARNING_RATE);
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -328,14 +333,18 @@ export default function ManageServicesClient() {
                   {/* Revenue Calculation */}
                   <div className="mt-3 bg-white border border-gray-200 rounded-xl p-3 text-xs space-y-1 shadow-sm">
                       <div className="flex justify-between items-center font-bold text-gray-700">
-                          <span>Thực nhận (70%):</span>
-                          <span className="text-green-600 text-sm">
-                              {formatCurrency((isPro ? formData.price : LOCKED_PRICE) * PARTNER_EARNING_RATE)}
-                          </span>
+                          <span>Giá khách trả (Tổng):</span>
+                          <span className="text-gray-900 text-sm">{formatCurrency(displayPrice)}</span>
                       </div>
-                      <div className="flex justify-between items-center text-gray-500">
+                      <div className="flex justify-between items-center text-gray-500 border-t border-gray-100 pt-1 mt-1">
                           <span>Phí nền tảng (30%):</span>
-                          <span>{formatCurrency((isPro ? formData.price : LOCKED_PRICE) * (1 - PARTNER_EARNING_RATE))}</span>
+                          <span>- {formatCurrency(platformFee)}</span>
+                      </div>
+                      <div className="flex justify-between items-center font-bold text-green-700 bg-green-50 px-2 py-1 rounded">
+                          <span>Thực nhận (Về ví):</span>
+                          <span className="text-sm">
+                              {formatCurrency(receiveAmount)}
+                          </span>
                       </div>
                   </div>
                 </div>

@@ -36,6 +36,7 @@ export default function PartnerDashboardClient() {
   const [incomingRequest, setIncomingRequest] = useState<ServiceBooking | null>(null);
   const [countdown, setCountdown] = useState(300);
   const [loadingRequest, setLoadingRequest] = useState(false);
+  const [processingAction, setProcessingAction] = useState(false);
 
   const { currentUser } = useDateStore();
   const { reload: reloadBookings, accept: acceptBooking, reject: rejectBooking } = useDbBookings();
@@ -156,18 +157,32 @@ export default function PartnerDashboardClient() {
 
   const handleAccept = async () => {
     if (!incomingRequest) return;
-    await acceptBooking(incomingRequest.id);
-    setIncomingRequest(null);
-    toast.success('Đã chấp nhận yêu cầu! 🎉');
-    reloadBookings();
+    setProcessingAction(true);
+    try {
+        await acceptBooking(incomingRequest.id);
+        setIncomingRequest(null);
+        toast.success('Đã chấp nhận yêu cầu! 🎉');
+        reloadBookings();
+    } catch (e: any) {
+        toast.error('Lỗi: ' + e.message);
+    } finally {
+        setProcessingAction(false);
+    }
   };
 
   const handleReject = async () => {
     if (!incomingRequest) return;
-    await rejectBooking(incomingRequest.id);
-    setIncomingRequest(null);
-    toast.success('Đã từ chối yêu cầu');
-    reloadBookings();
+    setProcessingAction(true);
+    try {
+        await rejectBooking(incomingRequest.id);
+        setIncomingRequest(null);
+        toast.success('Đã từ chối yêu cầu. Tiền đã được hoàn lại cho khách.');
+        reloadBookings();
+    } catch (e: any) {
+        toast.error('Lỗi: ' + e.message);
+    } finally {
+        setProcessingAction(false);
+    }
   };
 
   return (
@@ -377,20 +392,22 @@ export default function PartnerDashboardClient() {
                 <div className="flex gap-3 pt-2">
                   <motion.button
                     onClick={handleReject}
+                    disabled={processingAction}
                     className="flex-1 flex items-center justify-center gap-2 py-4 bg-gray-100 text-gray-700 rounded-xl font-semibold"
                     whileHover={{ scale: 1.02 }}
                     whileTap={{ scale: 0.98 }}
                   >
-                    <XCircle className="w-5 h-5" />
+                    {processingAction ? <Loader2 className="w-5 h-5 animate-spin" /> : <XCircle className="w-5 h-5" />}
                     <span>Từ chối</span>
                   </motion.button>
                   <motion.button
                     onClick={handleAccept}
+                    disabled={processingAction}
                     className="flex-1 flex items-center justify-center gap-2 py-4 bg-gradient-to-r from-green-500 to-green-600 text-white rounded-xl font-semibold shadow-lg shadow-green-500/30"
                     whileHover={{ scale: 1.02 }}
                     whileTap={{ scale: 0.98 }}
                   >
-                    <CheckCircle className="w-5 h-5" />
+                    {processingAction ? <Loader2 className="w-5 h-5 animate-spin" /> : <CheckCircle className="w-5 h-5" />}
                     <span>Chấp nhận</span>
                   </motion.button>
                 </div>

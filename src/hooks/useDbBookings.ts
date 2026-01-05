@@ -3,6 +3,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import { rejectBookingViaEdge } from '@/lib/booking';
+import toast from 'react-hot-toast';
 
 type DbBookingRow = Record<string, any>;
 
@@ -65,17 +67,17 @@ export function useDbBookings() {
     await reload();
   };
 
+  // New Reject with Refund Logic
   const reject = async (bookingId: string) => {
     if (!userId) return;
 
-    const { error } = await supabase
-      .from('bookings')
-      .update({ status: 'rejected' })
-      .eq('id', bookingId);
-
-    if (error) throw error;
-
-    await reload();
+    try {
+        await rejectBookingViaEdge(bookingId);
+        await reload();
+    } catch (err: any) {
+        console.error("Reject error:", err);
+        throw err;
+    }
   };
 
   return { sent, received, loading, reload, accept, reject };

@@ -44,3 +44,15 @@ export async function completeBookingViaEdge(bookingId: string): Promise<boolean
 
   return true;
 }
+
+export async function rejectBookingViaEdge(bookingId: string): Promise<boolean> {
+  const { error } = await supabase.functions.invoke('reject-booking', {
+    body: { bookingId },
+  });
+
+  if (error) {
+    throw toError(error, 'Không thể hủy đơn hàng');
+  }
+
+  return true;
+}

@@ -25,8 +25,10 @@ import {
   CreditCard,
   QrCode,
   Loader2,
-  Mic2
+  Mic2,
+  Check
 } from 'lucide-react';
+import toast from 'react-hot-toast';
 import { cn, formatCurrency, formatRelativeTime, getVIPBadgeColor, getActivityIcon, getActivityLabel, isNewPartner, isQualityPartner } from '@/lib/utils';
 import { ServiceOffering } from '@/types';
 import { useAuth } from '@/contexts/AuthContext';

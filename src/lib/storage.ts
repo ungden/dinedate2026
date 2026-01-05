@@ -8,17 +8,21 @@ function extFromType(type: string) {
   if (type === 'image/jpeg') return 'jpg';
   if (type === 'image/png') return 'png';
   if (type === 'image/webp') return 'webp';
-  return 'jpg';
+  if (type === 'audio/webm') return 'webm';
+  if (type === 'audio/mp4') return 'm4a';
+  if (type === 'audio/mpeg') return 'mp3';
+  return 'bin';
 }
 
-export async function uploadUserImage(params: {
+export async function uploadUserMedia(params: {
   userId: string;
-  file: File;
-  folder: 'avatars' | 'gallery';
+  file: File | Blob;
+  folder: 'avatars' | 'gallery' | 'voice';
 }): Promise<string> {
   const { userId, file, folder } = params;
 
-  const ext = extFromType(file.type);
+  const type = file.type;
+  const ext = extFromType(type);
   const fileName = `${Date.now()}-${Math.random().toString(16).slice(2)}.${ext}`;
   const path = `${folder}/${userId}/${fileName}`;
 
@@ -27,7 +31,7 @@ export async function uploadUserImage(params: {
     .upload(path, file, {
       cacheControl: '3600',
       upsert: false,
-      contentType: file.type,
+      contentType: type,
     });
 
   if (uploadError) throw uploadError;
@@ -35,6 +39,10 @@ export async function uploadUserImage(params: {
   const { data } = supabase.storage.from(USER_MEDIA_BUCKET).getPublicUrl(path);
   return data.publicUrl;
 }
+
+// Alias for backward compatibility if needed, or I can update usages.
+// Since I can search/replace, I'll update usages.
+export const uploadUserImage = uploadUserMedia; 
 
 export async function deleteByPublicUrl(publicUrl: string): Promise<void> {
   const marker = `/storage/v1/object/public/${USER_MEDIA_BUCKET}/`;

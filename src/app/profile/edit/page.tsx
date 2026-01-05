@@ -3,15 +3,16 @@
 import { useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
-import { ArrowLeft, Camera, Save, AlertTriangle, MapPin, Loader2 } from 'lucide-react';
+import { ArrowLeft, Camera, Save, AlertTriangle, MapPin, Loader2, Mic } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { LoadingSpinner } from '@/components/Skeleton';
 import ProfileGalleryUploader from '@/components/profile/ProfileGalleryUploader';
-import { uploadUserImage, deleteByPublicUrl } from '@/lib/storage';
+import { uploadUserMedia, deleteByPublicUrl } from '@/lib/storage';
 import { cn } from '@/lib/utils';
 import toast from 'react-hot-toast';
 import LocationPicker from '@/components/profile/LocationPicker';
 import { supabase } from '@/integrations/supabase/client';
+import VoiceIntro from '@/components/VoiceIntro';
 
 const MIN_BIO_LEN = 30;
 const MIN_PHOTOS = 3;
@@ -34,6 +35,7 @@ export default function EditProfilePage() {
 
   const [avatarUrl, setAvatarUrl] = useState<string>(user?.avatar || '/default-avatar.png');
   const [galleryImages, setGalleryImages] = useState<string[]>((user?.images || []).filter(Boolean));
+  const [voiceIntroUrl, setVoiceIntroUrl] = useState<string | undefined>(user?.voiceIntroUrl);
 
   const [formData, setFormData] = useState({
     name: user?.name || '',
@@ -43,7 +45,8 @@ export default function EditProfilePage() {
     occupation: user?.occupation || '',
     interests: user?.interests?.join(', ') || '',
     birthYear: user?.birthYear?.toString() || '',
-    coordinates: user?.coordinates
+    coordinates: user?.coordinates,
+    phone: user?.phone || ''
   });
 
   const bioLen = (formData.bio || '').trim().length;
@@ -61,11 +64,11 @@ export default function EditProfilePage() {
     if (!user?.id) return;
     setIsUploading(true);
     try {
-      const uploadedUrl = await uploadUserImage({ userId: user.id, folder: 'avatars', file });
+      const uploadedUrl = await uploadUserMedia({ userId: user.id, folder: 'avatars', file });
       const prev = avatarUrl;
       setAvatarUrl(uploadedUrl);
       await updateUser({ avatar: uploadedUrl });
-      if (prev && prev !== uploadedUrl) await deleteByPublicUrl(prev);
+      if (prev && prev !== uploadedUrl && !prev.includes('dicebear')) await deleteByPublicUrl(prev);
       toast.success('Đã cập nhật ảnh đại diện.');
     } catch (err) {
       toast.error(getNiceUploadError(err));
@@ -80,7 +83,7 @@ export default function EditProfilePage() {
     try {
       const uploadedUrls: string[] = [];
       for (const f of files) {
-        const url = await uploadUserImage({ userId: user.id, folder: 'gallery', file: f });
+        const url = await uploadUserMedia({ userId: user.id, folder: 'gallery', file: f });
         uploadedUrls.push(url);
       }
       const next = [...galleryImages, ...uploadedUrls];
@@ -108,6 +111,44 @@ export default function EditProfilePage() {
     } finally {
       setIsUploading(false);
     }
+  };
+
+  const handleVoiceRecordComplete = async (blob: Blob) => {
+    if (!user?.id) return;
+    setIsUploading(true);
+    try {
+        const url = await uploadUserMedia({ userId: user.id, folder: 'voice', file: blob });
+        
+        // Delete old voice if exists
+        if (voiceIntroUrl) {
+            await deleteByPublicUrl(voiceIntroUrl);
+        }
+
+        setVoiceIntroUrl(url);
+        await updateUser({ voiceIntroUrl: url });
+        toast.success('Đã lưu giọng nói giới thiệu!');
+    } catch (err) {
+        toast.error('Lỗi upload giọng nói: ' + getNiceUploadError(err));
+    } finally {
+        setIsUploading(false);
+    }
+  };
+
+  const handleDeleteVoice = async () => {
+      if (!user?.id || !voiceIntroUrl) return;
+      if(!confirm('Bạn muốn xóa bản ghi âm này?')) return;
+
+      setIsUploading(true);
+      try {
+          await deleteByPublicUrl(voiceIntroUrl);
+          setVoiceIntroUrl(undefined);
+          await updateUser({ voiceIntroUrl: null as any }); // sending null to clear
+          toast.success('Đã xóa giọng nói.');
+      } catch (err) {
+          toast.error(getNiceUploadError(err));
+      } finally {
+          setIsUploading(false);
+      }
   };
 
   const handleUpdateGPS = () => {
@@ -164,7 +205,8 @@ export default function EditProfilePage() {
         avatar: avatarUrl,
         images: galleryImages,
         coordinates: formData.coordinates,
-        birthYear: year
+        birthYear: year,
+        phone: formData.phone
       } as any);
 
       if (formData.coordinates) {
@@ -234,12 +276,57 @@ export default function EditProfilePage() {
           </div>
         </div>
 
+        {/* Gallery */}
         <ProfileGalleryUploader images={galleryImages} minImages={MIN_PHOTOS} onAddFiles={handleAddGalleryFiles} onRemoveImage={handleRemoveGalleryImage} isUploading={isUploading} />
+
+        {/* Voice Intro Section */}
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 space-y-4">
+            <div className="flex items-center justify-between">
+                <div>
+                    <h3 className="font-bold text-gray-900 flex items-center gap-2">
+                        <Mic className="w-5 h-5 text-primary-500" />
+                        Giới thiệu giọng nói
+                    </h3>
+                    <p className="text-sm text-gray-500">Thu hút hơn bằng giọng nói của bạn</p>
+                </div>
+                {voiceIntroUrl && (
+                    <button 
+                        type="button" 
+                        onClick={handleDeleteVoice}
+                        className="text-red-500 text-sm font-medium hover:underline"
+                    >
+                        Xóa bản ghi
+                    </button>
+                )}
+            </div>
+
+            {voiceIntroUrl ? (
+                <div className="bg-gray-50 p-3 rounded-xl">
+                    <VoiceIntro audioUrl={voiceIntroUrl} userName="Bạn" />
+                </div>
+            ) : (
+                <VoiceIntro 
+                    isRecording={true} 
+                    onRecordComplete={handleVoiceRecordComplete} 
+                />
+            )}
+        </div>
 
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 space-y-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Tên hiển thị</label>
             <input type="text" value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500" required />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Số điện thoại</label>
+            <input 
+              type="tel" 
+              value={formData.phone} 
+              onChange={(e) => setFormData({ ...formData, phone: e.target.value.replace(/\D/g,'') })} 
+              className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500"
+              placeholder="0912xxxxxx"
+            />
           </div>
 
           <div>

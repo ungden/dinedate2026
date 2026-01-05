@@ -15,13 +15,14 @@ import {
   Check,
   CheckCheck,
   Loader2,
-  Navigation
+  Navigation,
+  Lock
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useConversation } from '@/hooks/useDbChat';
 import { formatRelativeTime, cn, getVIPBadgeColor } from '@/lib/utils';
 import toast from 'react-hot-toast';
-import SafetyChatBanner from '@/components/SafetyChatBanner'; // Import Safety Banner
+import SafetyChatBanner from '@/components/SafetyChatBanner';
 
 export default function ChatPage() {
   const params = useParams();
@@ -34,7 +35,7 @@ export default function ChatPage() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const { messages, partner, loading, sendMessage } = useConversation(conversationId);
+  const { messages, partner, loading, sendMessage, isLocked } = useConversation(conversationId);
 
   // Auto scroll to bottom
   useEffect(() => {
@@ -99,6 +100,29 @@ export default function ChatPage() {
       <div className="flex items-center justify-center min-h-screen">
         <Loader2 className="w-8 h-8 animate-spin text-primary-500" />
       </div>
+    );
+  }
+
+  // --- BLOCKED / EXPIRED CHAT SCREEN ---
+  if (isLocked) {
+    return (
+        <div className="flex flex-col items-center justify-center min-h-[60vh] p-6 text-center animate-fadeIn">
+            <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mb-6">
+                <Lock className="w-10 h-10 text-gray-400" />
+            </div>
+            <h2 className="text-2xl font-bold text-gray-900 mb-2">Đoạn chat đã đóng</h2>
+            <p className="text-gray-500 max-w-sm mb-8">
+                Dịch vụ đã hoàn tất hoặc bị hủy. Để đảm bảo riêng tư, bạn không thể truy cập lại đoạn chat này.
+            </p>
+            <div className="flex gap-4">
+                <Link href="/messages" className="px-6 py-3 bg-gray-100 text-gray-700 rounded-xl font-bold hover:bg-gray-200 transition">
+                    Về tin nhắn
+                </Link>
+                <Link href="/discover" className="px-6 py-3 bg-gradient-primary text-white rounded-xl font-bold shadow-lg hover:opacity-90 transition">
+                    Đặt lịch mới
+                </Link>
+            </div>
+        </div>
     );
   }
 

@@ -32,6 +32,7 @@ interface TopupModalProps {
   requestId?: string; // resume
   transferCode?: string; // resume
   onSuccess?: () => void;
+  title?: string; // Custom title
 }
 
 const POLL_INTERVAL = 3000;
@@ -49,6 +50,7 @@ export default function TopupModal({
   requestId,
   transferCode,
   onSuccess,
+  title = 'Nạp tiền bằng QR'
 }: TopupModalProps) {
   const [config, setConfig] = useState<PaymentConfig | null>(null);
 
@@ -130,9 +132,11 @@ export default function TopupModal({
   const markSuccess = useCallback(() => {
     if (pollingRef.current) clearInterval(pollingRef.current);
     setPaymentStatus('confirmed');
-    toast.success('Nạp tiền thành công! 🎉');
-    onSuccess?.();
-    setTimeout(() => onClose(), 800);
+    // Don't close immediately, let user see success
+    setTimeout(() => {
+      onSuccess?.();
+      onClose(); // Auto close after success
+    }, 1500);
   }, [onClose, onSuccess]);
 
   useEffect(() => {
@@ -165,7 +169,6 @@ export default function TopupModal({
         if (cancelled) return;
 
         // After request created, snapshot the starting balance (once)
-        // (We do it here because reloadBalance may have completed before Auth is ready in some edge cases)
         await reloadBalance();
       } catch (err) {
         if (cancelled) return;
@@ -206,7 +209,7 @@ export default function TopupModal({
     // 2) If still pending, re-check wallet balance (webhook might have credited but request isn't updated yet)
     await reloadBalance();
 
-    // We consider success if balance increased (simple, robust for MVP).
+    // We consider success if balance increased
     if (typeof balance === 'number' && typeof startingBalance === 'number') {
       if (balance > startingBalance) {
         markSuccess();
@@ -221,8 +224,7 @@ export default function TopupModal({
 
     if (pollingRef.current) clearInterval(pollingRef.current);
 
-    // immediate poll so user doesn't wait 3s for first check
-    pollOnce();
+    pollOnce(); // Immediate check
 
     pollingRef.current = setInterval(() => {
       pollOnce();
@@ -283,7 +285,6 @@ export default function TopupModal({
     setCancelling(false);
 
     if (ok) {
-      toast.success('Đã hủy yêu cầu');
       onClose();
       return;
     }
@@ -302,7 +303,7 @@ export default function TopupModal({
         <div className="p-4 border-b border-gray-100 flex items-center justify-between bg-white">
           <h3 className="font-black text-gray-900 flex items-center gap-2">
             <QrCode className="w-5 h-5 text-primary-600" />
-            Nạp tiền bằng QR
+            {title}
           </h3>
           <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-full transition">
             <X className="w-5 h-5 text-gray-500" />
@@ -321,7 +322,7 @@ export default function TopupModal({
                 <div className="flex-1">
                   <p className="font-bold text-red-800">Hệ thống thanh toán chưa được cấu hình</p>
                   <p className="text-sm text-red-700 mt-1">
-                    Vui lòng vào trang Cấu hình để thiết lập Sepay.
+                    Vui lòng liên hệ Admin để kiểm tra cấu hình SePay.
                   </p>
                   <button
                     onClick={onClose}
@@ -342,7 +343,7 @@ export default function TopupModal({
                   <AlertCircle className="w-5 h-5 text-amber-700" />
                 </div>
                 <div className="flex-1">
-                  <p className="font-bold text-amber-900">Không thể tạo mã thanh toán</p>
+                  <p className="font-bold text-amber-900">Lỗi tạo mã</p>
                   <p className="text-sm text-amber-800 mt-1">{fatalError}</p>
                   <button
                     onClick={() => createRequestIfNeeded()}
@@ -363,7 +364,7 @@ export default function TopupModal({
                 <CheckCircle2 className="w-10 h-10 text-green-600" />
               </div>
               <h3 className="text-2xl font-black text-green-600 mb-2">Thanh toán thành công!</h3>
-              <p className="text-gray-500">Tiền đã được cộng vào ví của bạn.</p>
+              <p className="text-gray-500">Đang xử lý đơn hàng của bạn...</p>
             </div>
           )}
 
@@ -372,7 +373,7 @@ export default function TopupModal({
             <div className="py-10 text-center">
               <Loader2 className="w-10 h-10 animate-spin text-primary-600 mx-auto" />
               <p className="mt-4 text-gray-600 font-medium">
-                {isBooting ? 'Đang tải cấu hình thanh toán...' : 'Đang tạo mã thanh toán...'}
+                {isBooting ? 'Đang kết nối ngân hàng...' : 'Đang tạo mã thanh toán...'}
               </p>
             </div>
           )}
@@ -467,10 +468,6 @@ export default function TopupModal({
                 </div>
               </div>
 
-              <p className="text-xs text-center text-gray-500 mt-4 px-2">
-                Vui lòng chuyển khoản đúng <strong>Số tiền</strong> và <strong>Nội dung</strong> để hệ thống tự động cộng tiền.
-              </p>
-
               <div className="grid grid-cols-2 gap-3 mt-6">
                 <button
                   onClick={handleCancel}
@@ -480,7 +477,7 @@ export default function TopupModal({
                     cancelling ? 'bg-gray-200 text-gray-400 cursor-not-allowed' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                   )}
                 >
-                  {cancelling ? 'Đang hủy...' : 'Hủy yêu cầu'}
+                  {cancelling ? 'Đang hủy...' : 'Hủy bỏ'}
                 </button>
 
                 <button
@@ -495,12 +492,6 @@ export default function TopupModal({
                   Tôi đã chuyển
                 </button>
               </div>
-
-              {typeof startingBalance === 'number' && typeof balance === 'number' && (
-                <p className="mt-4 text-[11px] text-gray-400 text-center">
-                  Đang theo dõi số dư để tự động xác nhận: {formatCurrency(startingBalance)} → {formatCurrency(balance)}
-                </p>
-              )}
             </>
           )}
         </div>

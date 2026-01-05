@@ -22,6 +22,9 @@ import {
   ChevronLeft,
   ChevronRight,
   Lock,
+  CreditCard,
+  QrCode,
+  Loader2
 } from 'lucide-react';
 import { cn, formatCurrency, formatRelativeTime, getVIPBadgeColor, getActivityIcon, getActivityLabel, isNewPartner, isQualityPartner } from '@/lib/utils';
 import { ServiceOffering } from '@/types';
@@ -30,6 +33,7 @@ import AuthModal from '@/components/AuthModal';
 import { useDbUserProfile } from '@/hooks/useDbUserProfile';
 import { createBookingViaEdge } from '@/lib/booking';
 import { motion, AnimatePresence } from '@/lib/motion';
+import TopupModal from '@/components/TopupModal';
 
 const SESSION_HOURS = 3;
 
@@ -65,6 +69,8 @@ export default function UserProfilePage() {
   });
 
   const [isBooking, setIsBooking] = useState(false);
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [showTopupModal, setShowTopupModal] = useState(false);
 
   const [authModal, setAuthModal] = useState<{
     isOpen: boolean;
@@ -95,7 +101,6 @@ export default function UserProfilePage() {
   const isNew = isNewPartner(user.createdAt);
   const isQuality = isQualityPartner(rating, user.reviewCount);
 
-  // VIP Logic to see age
   const canSeeAge = authUser?.vipStatus.tier === 'vip' || authUser?.vipStatus.tier === 'svip' || isCurrentUser;
   const displayAge = canSeeAge && user.age ? `, ${user.age}` : '';
 
@@ -105,41 +110,47 @@ export default function UserProfilePage() {
     setBookingForm({ date: '', time: '19:00', location: '', message: '' });
   };
 
-  const handleBook = async () => {
+  const executeBooking = async () => {
+    if (!authUser || !selectedServiceId) return;
+    setIsBooking(true);
+
+    try {
+      const res = await createBookingViaEdge({
+        providerId: user.id,
+        serviceId: selectedServiceId,
+        date: bookingForm.date,
+        time: bookingForm.time,
+        location: bookingForm.location,
+        message: bookingForm.message,
+        durationHours: SESSION_HOURS,
+      });
+
+      if (res?.bookingId) {
+        alert('Đã tạo booking thành công! 🎉');
+        setSelectedServiceId(null);
+        setShowPaymentModal(false);
+      }
+    } catch (err: any) {
+      const msg = (err?.context?.body?.message || err?.message || '').toString();
+      if (msg.includes('INSUFFICIENT_FUNDS')) {
+        alert('Số dư không đủ. Vui lòng nạp thêm tiền.');
+      } else {
+        alert('Lỗi: ' + msg);
+      }
+    } finally {
+      setIsBooking(false);
+    }
+  };
+
+  const handlePreBooking = () => {
     if (!authUser) {
       setAuthModal({ isOpen: true, actionType: 'book' });
       return;
     }
-    if (!selectedServiceId) return;
-    if (!bookingForm.date || !bookingForm.location) return;
-
-    setIsBooking(true);
-
-    const providerId = user.id;
-
-    const res = await createBookingViaEdge({
-      providerId,
-      serviceId: selectedServiceId,
-      date: bookingForm.date,
-      time: bookingForm.time,
-      location: bookingForm.location,
-      message: bookingForm.message,
-      durationHours: SESSION_HOURS,
-    }).catch((err: any) => {
-      const msg = (err?.context?.body?.message || err?.message || '').toString();
-      if (msg.includes('INSUFFICIENT_FUNDS')) {
-        alert('Số dư không đủ. Vui lòng nạp thêm tiền.');
-        return null;
-      }
-      throw err;
-    });
-
-    setIsBooking(false);
-
-    if (!res) return;
-
-    alert('Đã tạo booking thành công! 🎉');
-    setSelectedServiceId(null);
+    if (!selectedServiceId || !bookingForm.date || !bookingForm.location) return;
+    
+    // Open Payment Selection
+    setShowPaymentModal(true);
   };
 
   return (
@@ -457,11 +468,6 @@ export default function UserProfilePage() {
                           </div>
                         </div>
 
-                        <div className="mt-4 bg-white rounded-xl border border-gray-100 p-3 flex justify-between items-center">
-                          <span className="text-sm font-medium text-gray-600">Tổng thanh toán</span>
-                          <span className="text-lg font-black text-primary-600">{formatCurrency(totalPrice)}</span>
-                        </div>
-
                         <div className="mt-4 flex gap-3">
                           <button
                             onClick={() => setSelectedServiceId(null)}
@@ -474,7 +480,7 @@ export default function UserProfilePage() {
                             Đóng
                           </button>
                           <button
-                            onClick={handleBook}
+                            onClick={handlePreBooking}
                             disabled={isBooking || !bookingForm.date || !bookingForm.location}
                             className={cn(
                               'flex-1 py-3 rounded-xl font-black transition shadow-primary',
@@ -483,7 +489,7 @@ export default function UserProfilePage() {
                                 : 'bg-gradient-primary text-white hover:opacity-90'
                             )}
                           >
-                            {isBooking ? 'Đang tạo...' : 'Xác nhận đặt'}
+                            Xác nhận đặt
                           </button>
                         </div>
                       </div>
@@ -502,6 +508,98 @@ export default function UserProfilePage() {
         onClose={() => setAuthModal({ ...authModal, isOpen: false })}
         actionType={authModal.actionType}
       />
+
+      {/* Payment Selection Modal */}
+      <AnimatePresence>
+        {showPaymentModal && (
+          <motion.div
+            className="fixed inset-0 z-[60] bg-black/60 backdrop-blur-sm flex items-end sm:items-center justify-center p-4"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+          >
+            <motion.div
+              className="bg-white rounded-3xl w-full max-w-sm overflow-hidden"
+              initial={{ y: 200, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              exit={{ y: 200, opacity: 0 }}
+            >
+              <div className="p-5 border-b border-gray-100 flex items-center justify-between">
+                <h3 className="text-lg font-black text-gray-900">Thanh toán</h3>
+                <button onClick={() => setShowPaymentModal(false)} className="p-2 hover:bg-gray-100 rounded-full">
+                  <X className="w-5 h-5 text-gray-500" />
+                </button>
+              </div>
+
+              <div className="p-6 space-y-6">
+                <div className="text-center">
+                  <p className="text-gray-500 text-sm font-medium mb-1">Tổng tiền cần thanh toán</p>
+                  <p className="text-3xl font-black text-primary-600">{formatCurrency(totalPrice)}</p>
+                </div>
+
+                <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 flex gap-3">
+                  <ShieldCheck className="w-6 h-6 text-amber-600 flex-shrink-0" />
+                  <p className="text-sm text-amber-800 leading-relaxed">
+                    <b>Thanh toán trước</b> để bảo vệ quyền lợi của cả bạn và Partner. Tiền sẽ được giữ an toàn (Escrow) và chỉ chuyển cho Partner khi bạn hài lòng.
+                  </p>
+                </div>
+
+                <div className="space-y-3">
+                  <button
+                    onClick={executeBooking}
+                    disabled={isBooking || (authUser?.wallet.balance || 0) < totalPrice}
+                    className="w-full flex items-center justify-between p-4 rounded-2xl border-2 border-gray-100 hover:border-primary-500 hover:bg-primary-50 transition-all group disabled:opacity-60 disabled:cursor-not-allowed"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 bg-gray-100 rounded-xl flex items-center justify-center text-gray-600 group-hover:bg-white group-hover:text-primary-500">
+                        <Wallet className="w-5 h-5" />
+                      </div>
+                      <div className="text-left">
+                        <p className="font-bold text-gray-900">Ví của tôi</p>
+                        <p className="text-xs text-gray-500">Số dư: {formatCurrency(authUser?.wallet.balance || 0)}</p>
+                      </div>
+                    </div>
+                    {isBooking ? <Loader2 className="w-5 h-5 animate-spin text-primary-500" /> : <ChevronRight className="w-5 h-5 text-gray-300 group-hover:text-primary-500" />}
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      setShowPaymentModal(false);
+                      setShowTopupModal(true);
+                    }}
+                    className="w-full flex items-center justify-between p-4 rounded-2xl border-2 border-gray-100 hover:border-green-500 hover:bg-green-50 transition-all group"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 bg-gray-100 rounded-xl flex items-center justify-center text-gray-600 group-hover:bg-white group-hover:text-green-500">
+                        <QrCode className="w-5 h-5" />
+                      </div>
+                      <div className="text-left">
+                        <p className="font-bold text-gray-900">Thanh toán bill này (QR)</p>
+                        <p className="text-xs text-gray-500">Chuyển khoản & tự động book</p>
+                      </div>
+                    </div>
+                    <ChevronRight className="w-5 h-5 text-gray-300 group-hover:text-green-500" />
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Topup Modal for Single Bill */}
+      {showTopupModal && selectedServiceId && (
+        <TopupModal
+          isOpen={showTopupModal}
+          onClose={() => setShowTopupModal(false)}
+          amount={totalPrice}
+          title="Thanh toán đơn hàng"
+          onSuccess={() => {
+            // Wait a bit for modal to close visual logic then execute
+            setTimeout(() => executeBooking(), 500);
+          }}
+        />
+      )}
 
       {/* Lightbox Overlay */}
       <AnimatePresence>

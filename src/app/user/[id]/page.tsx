@@ -120,11 +120,14 @@ export default function UserProfilePage() {
 
   const openBookingForService = (serviceId: string) => {
     if (isCurrentUser) return;
-    if (!authUser?.phone) {
+    
+    // FIX: Chỉ kiểm tra số điện thoại khi ĐÃ ĐĂNG NHẬP
+    if (authUser && !authUser.phone) {
         toast.error('Vui lòng cập nhật số điện thoại trước khi đặt lịch');
         setTimeout(() => router.push('/profile/edit'), 1500);
         return;
     }
+
     setSelectedServiceId(serviceId);
     setBookingForm({ date: '', time: '19:00', location: '', message: '' });
   };
@@ -164,6 +167,13 @@ export default function UserProfilePage() {
       setAuthModal({ isOpen: true, actionType: 'book' });
       return;
     }
+    // Double check phone just in case
+    if (!authUser.phone) {
+        toast.error('Vui lòng cập nhật số điện thoại');
+        router.push('/profile/edit');
+        return;
+    }
+
     if (!selectedServiceId || !bookingForm.date || !bookingForm.location) return;
     setShowPaymentModal(true);
   };

@@ -71,7 +71,7 @@ export default function ManageBookingsClient() {
     };
     const labels: Record<string, string> = {
       pending: 'Chờ xác nhận',
-      accepted: 'Đã chấp nhận',
+      accepted: 'Đã nhận đơn', // Updated label
       rejected: 'Đã từ chối',
       cancelled: 'Đã hủy',
       completed: 'Hoàn thành',
@@ -157,7 +157,7 @@ export default function ManageBookingsClient() {
                     </div>
                     <div className="flex items-center gap-2">
                       <Clock className="w-4 h-4 text-primary-500" />
-                      <span className="font-medium">{startIso ? formatTimeFromIso(startIso) : '-'}</span>
+                      <span className="font-medium">{startIso ? formatTimeFromIso(startIso) : '-'} (Dự kiến)</span>
                     </div>
                     <div className="flex items-center gap-2 col-span-2">
                       <MapPin className="w-4 h-4 text-primary-500 flex-shrink-0" />

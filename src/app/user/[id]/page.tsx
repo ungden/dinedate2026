@@ -24,7 +24,8 @@ import {
   Check,
   CreditCard,
   QrCode,
-  Mic2
+  Mic2,
+  MessageCircle
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { cn, formatCurrency, getVIPBadgeColor, getActivityIcon, isNewPartner, isQualityPartner } from '@/lib/utils';
@@ -59,8 +60,8 @@ export default function UserProfilePage() {
 
   const [selectedServiceId, setSelectedServiceId] = useState<string | null>(null);
   const [bookingForm, setBookingForm] = useState({
-    date: '',
-    time: '19:00',
+    date: new Date().toISOString().split('T')[0], // Default to today
+    time: new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }), // Default to now
     location: '',
     message: '',
   });
@@ -129,7 +130,18 @@ export default function UserProfilePage() {
     }
 
     setSelectedServiceId(serviceId);
-    setBookingForm({ date: '', time: '19:00', location: '', message: '' });
+    // Reset form to nice defaults
+    const now = new Date();
+    // Round up to next 30 mins
+    now.setMinutes(now.getMinutes() + 30);
+    const timeStr = now.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+    
+    setBookingForm({ 
+        date: new Date().toISOString().split('T')[0], 
+        time: timeStr, 
+        location: '', 
+        message: '' 
+    });
   };
 
   const executeBooking = async () => {
@@ -146,9 +158,10 @@ export default function UserProfilePage() {
         durationHours: SESSION_HOURS,
       });
       if (res?.bookingId) {
-        alert('Đã tạo booking thành công! 🎉');
+        toast.success('Đã gửi yêu cầu! Đợi Partner xác nhận nhé.');
         setSelectedServiceId(null);
         setShowPaymentModal(false);
+        router.push('/manage-bookings'); // Redirect to manage to see status
       }
     } catch (err: any) {
       const msg = (err?.context?.body?.message || err?.message || '').toString();
@@ -167,7 +180,6 @@ export default function UserProfilePage() {
       setAuthModal({ isOpen: true, actionType: 'book' });
       return;
     }
-    // Double check phone just in case
     if (!authUser.phone) {
         toast.error('Vui lòng cập nhật số điện thoại');
         router.push('/profile/edit');
@@ -411,7 +423,7 @@ export default function UserProfilePage() {
                                                 <div className="pt-3 pb-2 space-y-3 px-1">
                                                     <div className="grid grid-cols-2 gap-2">
                                                         <div className="bg-gray-50 p-2 rounded-xl border border-gray-200">
-                                                            <label className="text-[10px] font-bold text-gray-500 uppercase block mb-1">Ngày hẹn</label>
+                                                            <label className="text-[10px] font-bold text-gray-500 uppercase block mb-1">Ngày (Dự kiến)</label>
                                                             <input
                                                                 type="date"
                                                                 value={bookingForm.date}
@@ -421,7 +433,7 @@ export default function UserProfilePage() {
                                                             />
                                                         </div>
                                                         <div className="bg-gray-50 p-2 rounded-xl border border-gray-200">
-                                                            <label className="text-[10px] font-bold text-gray-500 uppercase block mb-1">Giờ</label>
+                                                            <label className="text-[10px] font-bold text-gray-500 uppercase block mb-1">Giờ (Dự kiến)</label>
                                                             <input
                                                                 type="time"
                                                                 value={bookingForm.time}
@@ -442,6 +454,13 @@ export default function UserProfilePage() {
                                                         />
                                                     </div>
 
+                                                    <div className="bg-blue-50 p-3 rounded-xl border border-blue-100 flex gap-2 items-start">
+                                                        <MessageCircle className="w-4 h-4 text-blue-600 flex-shrink-0 mt-0.5" />
+                                                        <p className="text-[11px] text-blue-800 leading-tight font-medium">
+                                                            Thời gian và địa điểm chính xác sẽ được chốt trực tiếp với Partner qua chat sau khi nhận đơn.
+                                                        </p>
+                                                    </div>
+
                                                     <div className="flex gap-2 pt-2">
                                                         <button 
                                                             onClick={(e) => { e.stopPropagation(); setSelectedServiceId(null); }}
@@ -455,7 +474,7 @@ export default function UserProfilePage() {
                                                             className="flex-1 py-3 bg-gradient-primary text-white rounded-xl font-bold text-sm shadow-lg hover:opacity-90 transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                                                         >
                                                             {isBooking ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
-                                                            Xác nhận
+                                                            Gửi yêu cầu
                                                         </button>
                                                     </div>
                                                 </div>
@@ -494,7 +513,7 @@ export default function UserProfilePage() {
               exit={{ y: 200, opacity: 0 }}
             >
               <div className="p-5 border-b border-gray-100 flex items-center justify-between bg-white/50 backdrop-blur-md">
-                <h3 className="text-lg font-black text-gray-900">Thanh toán</h3>
+                <h3 className="text-lg font-black text-gray-900">Thanh toán & Gửi yêu cầu</h3>
                 <button onClick={() => setShowPaymentModal(false)} className="p-2 hover:bg-gray-100 rounded-full transition">
                   <X className="w-5 h-5 text-gray-500" />
                 </button>
@@ -509,7 +528,7 @@ export default function UserProfilePage() {
                 <div className="bg-blue-50 border border-blue-100 rounded-2xl p-4 flex gap-3">
                   <ShieldCheck className="w-6 h-6 text-blue-600 flex-shrink-0" />
                   <p className="text-xs text-blue-800 leading-relaxed font-medium">
-                    <b>Bảo vệ Escrow:</b> Tiền của bạn được giữ an toàn bởi hệ thống. Partner chỉ nhận được tiền sau khi bạn xác nhận hoàn thành dịch vụ.
+                    <b>Bảo vệ Escrow:</b> Tiền được giữ an toàn. Partner chỉ nhận được tiền sau khi bạn xác nhận hoàn thành dịch vụ. Nếu Partner từ chối, bạn sẽ được hoàn tiền 100%.
                   </p>
                 </div>
 

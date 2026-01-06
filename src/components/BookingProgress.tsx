@@ -16,7 +16,8 @@ import {
     Shield,
     Info,
     ShieldCheck,
-    EyeOff
+    EyeOff,
+    MessageCircle
 } from 'lucide-react';
 import { ServiceBooking } from '@/types';
 import { formatCurrency, cn, getActivityLabel } from '@/lib/utils';
@@ -25,6 +26,8 @@ import { completeBookingViaEdge } from '@/lib/booking';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import toast from 'react-hot-toast';
+import { getOrCreateConversation } from '@/hooks/useDbChat';
+import { useRouter } from 'next/navigation';
 
 interface BookingProgressProps {
     booking: ServiceBooking;
@@ -44,6 +47,7 @@ export default function BookingProgress({
     className
 }: BookingProgressProps) {
     const { user } = useAuth();
+    const router = useRouter();
     const isUser = user?.id === booking.bookerId;
     const isPartner = user?.id === booking.providerId;
 
@@ -52,6 +56,7 @@ export default function BookingProgress({
     const [isTimerRunning, setIsTimerRunning] = useState(false);
     const [isProcessing, setIsProcessing] = useState(false);
     const [isCheckingIn, setIsCheckingIn] = useState(false);
+    const [isOpeningChat, setIsOpeningChat] = useState(false);
 
     // Review State
     const [rating, setRating] = useState(5);
@@ -93,6 +98,25 @@ export default function BookingProgress({
             .maybeSingle();
         
         if (data) setHasReviewed(true);
+    };
+
+    const handleOpenChat = async () => {
+        if (!user) return;
+        setIsOpeningChat(true);
+        try {
+            const otherId = isUser ? booking.providerId : booking.bookerId;
+            const convId = await getOrCreateConversation(user.id, otherId, booking.id);
+            if (convId) {
+                router.push(`/chat/${convId}`);
+            } else {
+                toast.error('Không thể mở chat');
+            }
+        } catch (e) {
+            console.error(e);
+            toast.error('Lỗi kết nối chat');
+        } finally {
+            setIsOpeningChat(false);
+        }
     };
 
     const handleGPSCheckIn = async () => {
@@ -300,32 +324,43 @@ export default function BookingProgress({
             </div>
 
             <div className="p-6">
-                {/* Stages Logic (Accepted, Arrived, In Progress, Completed Pending) - SAME AS BEFORE */}
+                {/* 1. Accepted: CHAT FIRST */}
                 {stage === 'accepted' && (
                     <div className="space-y-4">
-                        <div className="bg-blue-50 p-4 rounded-xl border border-blue-100 flex gap-3 items-start">
-                            <Clock className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
-                            <div>
-                                <p className="font-bold text-blue-900 text-sm">Đang chờ gặp mặt</p>
-                                <p className="text-xs text-blue-700 mt-1">
-                                    {isPartner 
-                                        ? "Hãy di chuyển đến điểm hẹn. Bạn cần check-in GPS khi đến nơi."
-                                        : "Partner đang di chuyển. Vui lòng đợi trong khoảng 30p - 1h."
-                                    }
-                                </p>
+                        <div className="bg-blue-50 p-4 rounded-xl border border-blue-100 text-center">
+                            <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                                <MessageCircle className="w-6 h-6 text-blue-600" />
                             </div>
+                            <h4 className="font-bold text-blue-900">Kết nối thành công! 🎉</h4>
+                            <p className="text-sm text-blue-700 mt-1">
+                                Hãy nhắn tin để thống nhất <b>thời gian và địa điểm</b> gặp mặt chính xác.
+                            </p>
                         </div>
+
                         <motion.button
-                            onClick={handleGPSCheckIn}
-                            disabled={isCheckingIn}
-                            className="w-full py-4 bg-primary-600 text-white rounded-xl font-bold text-lg flex items-center justify-center gap-2 shadow-lg shadow-primary-500/30"
+                            onClick={handleOpenChat}
+                            disabled={isOpeningChat}
+                            className="w-full py-3.5 bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-xl font-bold text-lg flex items-center justify-center gap-2 shadow-lg hover:shadow-xl transition-all"
                             whileHover={{ scale: 1.02 }}
                             whileTap={{ scale: 0.98 }}
                         >
-                            {isCheckingIn ? <Loader2 className="w-5 h-5 animate-spin" /> : <MapPin className="w-5 h-5" />}
-                            <span>{isCheckingIn ? 'Đang định vị...' : 'Check-in tại điểm hẹn'}</span>
+                            {isOpeningChat ? <Loader2 className="w-5 h-5 animate-spin" /> : <MessageCircle className="w-5 h-5" />}
+                            <span>Chat ngay</span>
                         </motion.button>
-                        <p className="text-center text-xs text-gray-400">Yêu cầu bật GPS để xác thực</p>
+
+                        <div className="pt-4 border-t border-gray-100 mt-4">
+                            <motion.button
+                                onClick={handleGPSCheckIn}
+                                disabled={isCheckingIn}
+                                className="w-full py-3 bg-white border-2 border-gray-100 text-gray-700 rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-gray-50 hover:border-gray-200 transition-colors"
+                            >
+                                {isCheckingIn ? <Loader2 className="w-4 h-4 animate-spin" /> : <MapPin className="w-4 h-4" />}
+                                <span>Đã đến điểm hẹn (Check-in GPS)</span>
+                            </motion.button>
+                            <p className="text-center text-[10px] text-gray-400 mt-2">
+                                {isPartner ? "Partner: Cần check-in khi đến nơi để bắt đầu tính giờ." : "User: Có thể check-in để thông báo đã đến."}
+                            </p>
+                        </div>
                     </div>
                 )}
 

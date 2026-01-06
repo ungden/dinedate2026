@@ -146,6 +146,8 @@ export default function RequestDetailPage() {
   const isExpired = request.status === 'expired';
   const isMatched = request.status === 'matched';
 
+  const userProfileLink = `/user/${request.user.username || request.user.id}`;
+
   return (
     <div className="max-w-3xl mx-auto space-y-6 pb-20">
       {/* Header */}
@@ -182,7 +184,7 @@ export default function RequestDetailPage() {
         {/* User Info */}
         <div className="p-6 border-b border-gray-100">
           <div className="flex items-center gap-4">
-            <Link href={`/user/${request.user.id}`}>
+            <Link href={userProfileLink}>
               <Image
                 src={request.user.avatar}
                 alt={request.user.name}
@@ -195,7 +197,7 @@ export default function RequestDetailPage() {
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2">
                 <Link
-                  href={`/user/${request.user.id}`}
+                  href={userProfileLink}
                   className="text-lg font-semibold text-gray-900 hover:underline truncate"
                 >
                   {request.user.name}
@@ -295,67 +297,70 @@ export default function RequestDetailPage() {
               <p className="text-sm text-gray-500 italic">Chưa có ai ứng tuyển.</p>
             ) : (
               <div className="space-y-3">
-                {applications.map((app) => (
-                  <div key={app.id} className="bg-white rounded-2xl p-4 border border-gray-200 shadow-sm">
-                    <div className="flex items-start gap-4">
-                      <Link href={`/user/${app.user.id}`}>
-                        <Image
-                          src={app.user.avatar}
-                          alt={app.user.name}
-                          width={56}
-                          height={56}
-                          className="rounded-full object-cover"
-                        />
-                      </Link>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center justify-between">
-                          <Link href={`/user/${app.user.id}`} className="font-bold text-gray-900 hover:text-primary-600">
-                            {app.user.name}
-                          </Link>
-                          {app.status === 'pending' && (
-                            <span className="text-xs bg-yellow-100 text-yellow-700 px-2 py-1 rounded-full font-medium">Chờ duyệt</span>
+                {applications.map((app) => {
+                  const applicantLink = `/user/${app.user.username || app.user.id}`;
+                  return (
+                    <div key={app.id} className="bg-white rounded-2xl p-4 border border-gray-200 shadow-sm">
+                      <div className="flex items-start gap-4">
+                        <Link href={applicantLink}>
+                          <Image
+                            src={app.user.avatar}
+                            alt={app.user.name}
+                            width={56}
+                            height={56}
+                            className="rounded-full object-cover"
+                          />
+                        </Link>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center justify-between">
+                            <Link href={applicantLink} className="font-bold text-gray-900 hover:text-primary-600">
+                              {app.user.name}
+                            </Link>
+                            {app.status === 'pending' && (
+                              <span className="text-xs bg-yellow-100 text-yellow-700 px-2 py-1 rounded-full font-medium">Chờ duyệt</span>
+                            )}
+                            {app.status === 'accepted' && (
+                              <span className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded-full font-medium">Đã chọn</span>
+                            )}
+                            {app.status === 'rejected' && (
+                              <span className="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded-full font-medium">Đã từ chối</span>
+                            )}
+                          </div>
+                          
+                          <p className="text-sm text-gray-600 mt-1 bg-gray-50 p-2 rounded-lg italic">
+                            &quot;{app.message}&quot;
+                          </p>
+
+                          {app.status === 'pending' && !isMatched && (
+                            <div className="flex gap-2 mt-3">
+                              <button
+                                onClick={() => handleAcceptApplicant(app.id, app.user.id)}
+                                className="flex-1 bg-green-600 text-white py-2 rounded-xl text-sm font-bold hover:bg-green-700 transition flex items-center justify-center gap-1"
+                              >
+                                <Check className="w-4 h-4" /> Chấp nhận
+                              </button>
+                              <button
+                                onClick={() => rejectApplication(app.id)}
+                                className="flex-1 bg-gray-100 text-gray-600 py-2 rounded-xl text-sm font-bold hover:bg-gray-200 transition flex items-center justify-center gap-1"
+                              >
+                                <XCircle className="w-4 h-4" /> Từ chối
+                              </button>
+                            </div>
                           )}
+
                           {app.status === 'accepted' && (
-                            <span className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded-full font-medium">Đã chọn</span>
-                          )}
-                          {app.status === 'rejected' && (
-                            <span className="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded-full font-medium">Đã từ chối</span>
+                            <div className="mt-3">
+                              <button className="w-full py-2 bg-blue-50 text-blue-600 rounded-xl text-sm font-bold flex items-center justify-center gap-2">
+                                <MessageCircle className="w-4 h-4" />
+                                Nhắn tin ngay
+                              </button>
+                            </div>
                           )}
                         </div>
-                        
-                        <p className="text-sm text-gray-600 mt-1 bg-gray-50 p-2 rounded-lg italic">
-                          &quot;{app.message}&quot;
-                        </p>
-
-                        {app.status === 'pending' && !isMatched && (
-                          <div className="flex gap-2 mt-3">
-                            <button
-                              onClick={() => handleAcceptApplicant(app.id, app.user.id)}
-                              className="flex-1 bg-green-600 text-white py-2 rounded-xl text-sm font-bold hover:bg-green-700 transition flex items-center justify-center gap-1"
-                            >
-                              <Check className="w-4 h-4" /> Chấp nhận
-                            </button>
-                            <button
-                              onClick={() => rejectApplication(app.id)}
-                              className="flex-1 bg-gray-100 text-gray-600 py-2 rounded-xl text-sm font-bold hover:bg-gray-200 transition flex items-center justify-center gap-1"
-                            >
-                              <XCircle className="w-4 h-4" /> Từ chối
-                            </button>
-                          </div>
-                        )}
-
-                        {app.status === 'accepted' && (
-                          <div className="mt-3">
-                            <button className="w-full py-2 bg-blue-50 text-blue-600 rounded-xl text-sm font-bold flex items-center justify-center gap-2">
-                              <MessageCircle className="w-4 h-4" />
-                              Nhắn tin ngay
-                            </button>
-                          </div>
-                        )}
                       </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>

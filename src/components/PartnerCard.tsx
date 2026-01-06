@@ -21,8 +21,11 @@ function PartnerCard({ partner, distance }: { partner: UserType; distance?: numb
   const canSeeAge = currentUser?.vipStatus.tier === 'vip' || currentUser?.vipStatus.tier === 'svip';
   const displayAge = canSeeAge && partner.age ? `, ${partner.age}` : '';
 
+  // Use username if available, else ID
+  const profileLink = `/user/${partner.username || partner.id}`;
+
   return (
-    <Link href={`/user/${partner.id}`} className="block group h-full">
+    <Link href={profileLink} className="block group h-full">
       <div className="relative h-full overflow-hidden rounded-[24px] bg-white shadow-sm border border-gray-100 transition-all duration-300 hover:shadow-lg hover:border-rose-200 hover:-translate-y-1">
         
         {/* Image Container - Aspect 3:4 for portrait feel */}

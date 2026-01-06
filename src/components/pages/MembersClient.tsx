@@ -329,16 +329,16 @@ export default function MembersClient() {
         </AnimatePresence>
       </div>
 
-      {/* Results */}
-      <div className="px-1 space-y-4">
-        <div className="flex flex-col gap-4">
-          {loading ? (
-            <div className="py-20 text-center text-gray-500 font-medium flex flex-col items-center">
-              <Loader2 className="w-8 h-8 animate-spin text-primary-500 mb-2" />
-              Đang tải Partner...
-            </div>
-          ) : partners.length > 0 ? (
-            partners.map((partner, idx) => (
+      {/* Results GRID */}
+      <div className="px-1 min-h-[50vh]">
+        {loading ? (
+          <div className="py-20 text-center text-gray-500 font-medium flex flex-col items-center">
+            <Loader2 className="w-8 h-8 animate-spin text-primary-500 mb-2" />
+            Đang tải Partner...
+          </div>
+        ) : partners.length > 0 ? (
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 pb-20">
+            {partners.map((partner, idx) => (
               <motion.div
                 key={partner.id}
                 initial={{ opacity: 0, y: 14 }}
@@ -347,25 +347,25 @@ export default function MembersClient() {
               >
                 <PartnerCard partner={partner} distance={partner.distance ?? undefined} />
               </motion.div>
-            ))
-          ) : (
-            <div className="py-20 text-center">
-              <div className="text-6xl mb-4">🔍</div>
-              <h3 className="text-lg font-black text-rose-900">Không có kết quả</h3>
-              <p className="text-rose-400 text-sm mt-1">
-                {gpsCoords ? 'Không tìm thấy ai trong bán kính 50km.' : 'Thử bỏ bớt bộ lọc xem sao nhé!'}
-              </p>
-              {gpsCoords && (
-                <button 
-                  onClick={clearGps}
-                  className="mt-4 px-4 py-2 bg-white border border-rose-200 text-rose-600 rounded-xl font-bold text-sm shadow-sm"
-                >
-                  Xem tất cả khu vực
-                </button>
-              )}
-            </div>
-          )}
-        </div>
+            ))}
+          </div>
+        ) : (
+          <div className="py-20 text-center">
+            <div className="text-6xl mb-4">🔍</div>
+            <h3 className="text-lg font-black text-rose-900">Không có kết quả</h3>
+            <p className="text-rose-400 text-sm mt-1">
+              {gpsCoords ? 'Không tìm thấy ai trong bán kính 50km.' : 'Thử bỏ bớt bộ lọc xem sao nhé!'}
+            </p>
+            {gpsCoords && (
+              <button 
+                onClick={clearGps}
+                className="mt-4 px-4 py-2 bg-white border border-rose-200 text-rose-600 rounded-xl font-bold text-sm shadow-sm"
+              >
+                Xem tất cả khu vực
+              </button>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );

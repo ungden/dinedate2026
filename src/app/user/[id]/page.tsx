@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useRef } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
@@ -13,7 +13,6 @@ import {
   ShieldCheck,
   BadgeCheck,
   Wallet,
-  Calendar,
   Clock,
   Zap,
   Sparkles,
@@ -21,15 +20,13 @@ import {
   X,
   ChevronLeft,
   ChevronRight,
-  Lock,
-  CreditCard,
-  QrCode,
   Loader2,
-  Mic2,
-  Check
+  Check,
+  CreditCard,
+  QrCode
 } from 'lucide-react';
 import toast from 'react-hot-toast';
-import { cn, formatCurrency, formatRelativeTime, getVIPBadgeColor, getActivityIcon, getActivityLabel, isNewPartner, isQualityPartner } from '@/lib/utils';
+import { cn, formatCurrency, getVIPBadgeColor, getActivityIcon, isNewPartner, isQualityPartner } from '@/lib/utils';
 import { ServiceOffering } from '@/types';
 import { useAuth } from '@/contexts/AuthContext';
 import AuthModal from '@/components/AuthModal';
@@ -44,10 +41,14 @@ const SESSION_HOURS = 3;
 export default function UserProfilePage() {
   const params = useParams();
   const router = useRouter();
-  const userId = params.id as string;
+  const userId = params.id as string; // This can be UUID or Username now
 
   const { user: authUser } = useAuth();
   const { user, services: dbServices, reviews, rating, loading } = useDbUserProfile(userId);
+
+  // Carousel State
+  const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  const [isLightboxOpen, setIsLightboxOpen] = useState(false);
 
   const services = useMemo(() => {
     const list = dbServices || [];
@@ -57,13 +58,6 @@ export default function UserProfilePage() {
   const isCurrentUser = !!authUser && !!user && authUser.id === user.id;
 
   const [selectedServiceId, setSelectedServiceId] = useState<string | null>(null);
-  const [viewingImageIndex, setViewingImageIndex] = useState<number | null>(null);
-
-  const selectedService: ServiceOffering | null =
-    services.find((s) => s.id === selectedServiceId) || null;
-
-  const totalPrice = selectedService?.price || 0;
-
   const [bookingForm, setBookingForm] = useState({
     date: '',
     time: '19:00',
@@ -106,26 +100,32 @@ export default function UserProfilePage() {
     );
   }
 
-  // Optimize Images: Combine Avatar + Gallery if gallery is empty or short
+  // --- CAROUSEL LOGIC ---
   const rawGallery = user.images && user.images.length > 0 ? user.images : [user.avatar];
-  // Ensure we have unique images
   const gallery = Array.from(new Set(rawGallery));
+
+  const handleNextImage = (e?: React.MouseEvent) => {
+    e?.stopPropagation();
+    setCurrentImageIndex((prev) => (prev === gallery.length - 1 ? 0 : prev + 1));
+  };
+
+  const handlePrevImage = (e?: React.MouseEvent) => {
+    e?.stopPropagation();
+    setCurrentImageIndex((prev) => (prev === 0 ? gallery.length - 1 : prev - 1));
+  };
 
   const isNew = isNewPartner(user.createdAt);
   const isQuality = isQualityPartner(rating, user.reviewCount);
-
   const canSeeAge = authUser?.vipStatus.tier === 'vip' || authUser?.vipStatus.tier === 'svip' || isCurrentUser;
   const displayAge = canSeeAge && user.age ? `, ${user.age}` : '';
 
   const openBookingForService = (serviceId: string) => {
     if (isCurrentUser) return;
-    
     if (!authUser?.phone) {
         toast.error('Vui lòng cập nhật số điện thoại trước khi đặt lịch');
         setTimeout(() => router.push('/profile/edit'), 1500);
         return;
     }
-
     setSelectedServiceId(serviceId);
     setBookingForm({ date: '', time: '19:00', location: '', message: '' });
   };
@@ -133,7 +133,6 @@ export default function UserProfilePage() {
   const executeBooking = async () => {
     if (!authUser || !selectedServiceId) return;
     setIsBooking(true);
-
     try {
       const res = await createBookingViaEdge({
         providerId: user.id,
@@ -144,7 +143,6 @@ export default function UserProfilePage() {
         message: bookingForm.message,
         durationHours: SESSION_HOURS,
       });
-
       if (res?.bookingId) {
         alert('Đã tạo booking thành công! 🎉');
         setSelectedServiceId(null);
@@ -168,91 +166,103 @@ export default function UserProfilePage() {
       return;
     }
     if (!selectedServiceId || !bookingForm.date || !bookingForm.location) return;
-    
     setShowPaymentModal(true);
   };
 
-  // Grid Layout Logic
-  const MainImage = gallery[0];
-  const SubImages = gallery.slice(1, 3); // Max 2 sub images on preview
-  const remainingCount = Math.max(0, gallery.length - 3);
+  const selectedService = services.find((s) => s.id === selectedServiceId);
+  const totalPrice = selectedService?.price || 0;
 
   return (
-    <div className="max-w-5xl mx-auto pb-28 md:pt-4 px-0 md:px-4">
-      {/* Navigation & Actions (Desktop) */}
-      <div className="hidden md:flex items-center justify-between mb-4">
-        <button onClick={() => router.back()} className="flex items-center gap-2 text-gray-600 hover:text-gray-900 font-bold transition">
-            <ArrowLeft className="w-5 h-5" /> Quay lại
-        </button>
-        <div className="flex gap-2">
-            <button className="p-2.5 bg-white border border-gray-200 rounded-xl hover:bg-gray-50 text-gray-700 transition">
-                <Share2 className="w-5 h-5" />
-            </button>
-            <button className="p-2.5 bg-white border border-gray-200 rounded-xl hover:bg-gray-50 text-gray-700 transition">
-                <Heart className="w-5 h-5" />
-            </button>
-        </div>
-      </div>
-
-      {/* Modern Photo Grid Gallery */}
-      <div className="relative md:rounded-[32px] overflow-hidden bg-gray-100 mb-6">
-        {/* Mobile: Horizontal Scroll Snap / Desktop: Grid */}
-        <div className="md:grid md:grid-cols-4 md:gap-2 h-[400px] md:h-[500px] flex overflow-x-auto snap-x snap-mandatory md:overflow-visible hide-scrollbar">
-            {/* Main Image (First) */}
-            <div 
-                className="relative w-full md:w-auto h-full flex-shrink-0 snap-center md:col-span-2 md:row-span-2 cursor-pointer group"
-                onClick={() => setViewingImageIndex(0)}
+    <div className="max-w-5xl mx-auto pb-28 px-0 md:px-4">
+      {/* --- CAROUSEL HEADER --- */}
+      <div className="relative w-full aspect-[4/5] md:aspect-[21/9] md:rounded-[32px] overflow-hidden bg-gray-100 group">
+        
+        {/* Navigation / Actions Overlay */}
+        <div className="absolute top-0 left-0 right-0 p-4 z-20 flex justify-between items-start bg-gradient-to-b from-black/40 to-transparent pointer-events-none">
+            <button 
+                onClick={() => router.back()} 
+                className="pointer-events-auto p-2 bg-white/20 backdrop-blur-md border border-white/20 text-white rounded-full hover:bg-white/40 transition"
             >
-                <Image src={MainImage} alt="Main photo" fill className="object-cover transition-transform duration-700 group-hover:scale-105" priority />
-                <div className="absolute inset-0 bg-black/10 group-hover:bg-black/0 transition-colors" />
-                
-                {/* Mobile Back Button Overlay */}
-                <button onClick={(e) => { e.stopPropagation(); router.back(); }} className="md:hidden absolute top-4 left-4 p-2.5 bg-black/30 backdrop-blur-md text-white rounded-full z-20">
-                    <ArrowLeft className="w-6 h-6" />
+                <ArrowLeft className="w-6 h-6" />
+            </button>
+            <div className="flex gap-2 pointer-events-auto">
+                <button className="p-2 bg-white/20 backdrop-blur-md border border-white/20 text-white rounded-full hover:bg-white/40 transition">
+                    <Share2 className="w-5 h-5" />
+                </button>
+                <button className="p-2 bg-white/20 backdrop-blur-md border border-white/20 text-white rounded-full hover:bg-white/40 transition">
+                    <Heart className="w-5 h-5" />
                 </button>
             </div>
-
-            {/* Desktop: Side Images */}
-            {SubImages.map((img, idx) => (
-                <div 
-                    key={idx}
-                    className="hidden md:block relative w-full h-full cursor-pointer group overflow-hidden"
-                    onClick={() => setViewingImageIndex(idx + 1)}
-                >
-                    <Image src={img} alt={`Photo ${idx + 1}`} fill className="object-cover transition-transform duration-700 group-hover:scale-105" />
-                    
-                    {/* Overlay for the last image if more exist */}
-                    {idx === 1 && remainingCount > 0 && (
-                        <div className="absolute inset-0 bg-black/60 flex items-center justify-center text-white font-bold text-xl backdrop-blur-[2px] transition-colors group-hover:bg-black/50">
-                            +{remainingCount} ảnh
-                        </div>
-                    )}
-                </div>
-            ))}
-
-            {/* Mobile: Remaining Images in Scroll */}
-            {gallery.slice(1).map((img, idx) => (
-                <div 
-                    key={`mob-${idx}`}
-                    className="md:hidden relative w-full h-full flex-shrink-0 snap-center"
-                    onClick={() => setViewingImageIndex(idx + 1)}
-                >
-                    <Image src={img} alt={`Photo ${idx}`} fill className="object-cover" />
-                </div>
-            ))}
         </div>
 
-        {/* Mobile Gallery Indicator */}
-        <div className="md:hidden absolute bottom-4 right-4 bg-black/60 backdrop-blur-md text-white px-3 py-1.5 rounded-full text-xs font-bold flex items-center gap-1.5 pointer-events-none">
-            <GalleryIcon className="w-3.5 h-3.5" />
-            <span>{gallery.length} ảnh</span>
+        {/* The Image */}
+        <AnimatePresence initial={false} mode='wait'>
+            <motion.div
+                key={currentImageIndex}
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.4 }}
+                className="absolute inset-0 cursor-pointer"
+                onClick={() => setIsLightboxOpen(true)}
+            >
+                <Image 
+                    src={gallery[currentImageIndex]} 
+                    alt={`Photo ${currentImageIndex}`} 
+                    fill 
+                    className="object-cover" 
+                    priority
+                />
+            </motion.div>
+        </AnimatePresence>
+
+        {/* Carousel Controls (Desktop Hover) */}
+        {gallery.length > 1 && (
+            <>
+                <button 
+                    onClick={handlePrevImage}
+                    className="absolute left-4 top-1/2 -translate-y-1/2 p-3 bg-black/20 backdrop-blur-md text-white rounded-full opacity-0 group-hover:opacity-100 hover:bg-black/40 transition-all z-10 hidden md:flex"
+                >
+                    <ChevronLeft className="w-6 h-6" />
+                </button>
+                <button 
+                    onClick={handleNextImage}
+                    className="absolute right-4 top-1/2 -translate-y-1/2 p-3 bg-black/20 backdrop-blur-md text-white rounded-full opacity-0 group-hover:opacity-100 hover:bg-black/40 transition-all z-10 hidden md:flex"
+                >
+                    <ChevronRight className="w-6 h-6" />
+                </button>
+            </>
+        )}
+
+        {/* Indicators & Counter */}
+        <div className="absolute bottom-0 left-0 right-0 p-6 bg-gradient-to-t from-black/80 via-black/40 to-transparent z-10">
+            <div className="flex items-end justify-between">
+                <div className="flex gap-1.5 justify-center md:justify-start overflow-hidden">
+                    {gallery.map((_, idx) => (
+                        <button
+                            key={idx}
+                            onClick={(e) => { e.stopPropagation(); setCurrentImageIndex(idx); }}
+                            className={cn(
+                                "h-1.5 rounded-full transition-all duration-300",
+                                idx === currentImageIndex ? "w-6 bg-white" : "w-1.5 bg-white/40 hover:bg-white/60"
+                            )}
+                        />
+                    ))}
+                </div>
+                <div className="flex items-center gap-2">
+                    <span className="px-3 py-1 bg-black/40 backdrop-blur-md rounded-full text-white text-xs font-bold border border-white/10 flex items-center gap-1.5">
+                        <GalleryIcon className="w-3.5 h-3.5" />
+                        {currentImageIndex + 1}/{gallery.length}
+                    </span>
+                </div>
+            </div>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 px-4 md:px-0">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 px-4 md:px-0 mt-6">
         {/* Left Column: Info */}
         <div className="lg:col-span-2 space-y-8">
-            {/* Header Info */}
+            {/* Name & Basic Info */}
             <div>
                 <div className="flex items-center gap-3 mb-2">
                     <h1 className="text-3xl font-black text-gray-900 tracking-tight">{user.name}{displayAge}</h1>
@@ -288,7 +298,7 @@ export default function UserProfilePage() {
                 </div>
             )}
 
-            {/* About */}
+            {/* Bio */}
             <div className="space-y-3">
                 <h3 className="font-bold text-gray-900 text-lg">Giới thiệu</h3>
                 <p className="text-gray-600 leading-relaxed whitespace-pre-wrap text-[15px]">
@@ -454,6 +464,43 @@ export default function UserProfilePage() {
         actionType={authModal.actionType}
       />
 
+      {/* Lightbox Modal */}
+      <AnimatePresence>
+        {isLightboxOpen && (
+            <motion.div 
+                initial={{ opacity: 0 }} 
+                animate={{ opacity: 1 }} 
+                exit={{ opacity: 0 }}
+                className="fixed inset-0 z-[100] bg-black flex items-center justify-center touch-none"
+                onClick={() => setIsLightboxOpen(false)}
+            >
+                <div className="relative w-full h-full max-w-5xl flex items-center justify-center">
+                    <button onClick={() => setIsLightboxOpen(false)} className="absolute top-4 right-4 p-3 bg-white/10 rounded-full text-white z-20">
+                        <X className="w-6 h-6" />
+                    </button>
+                    
+                    <button 
+                        onClick={(e) => { e.stopPropagation(); handlePrevImage(e as any); }}
+                        className="absolute left-4 p-3 bg-white/10 rounded-full text-white z-20 hidden md:block"
+                    >
+                        <ChevronLeft className="w-8 h-8" />
+                    </button>
+
+                    <div className="relative w-full h-[90vh]">
+                        <Image src={gallery[currentImageIndex]} alt="Zoom" fill className="object-contain" />
+                    </div>
+
+                    <button 
+                        onClick={(e) => { e.stopPropagation(); handleNextImage(e as any); }}
+                        className="absolute right-4 p-3 bg-white/10 rounded-full text-white z-20 hidden md:block"
+                    >
+                        <ChevronRight className="w-8 h-8" />
+                    </button>
+                </div>
+            </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Payment Selection Modal */}
       <AnimatePresence>
         {showPaymentModal && (
@@ -532,7 +579,7 @@ export default function UserProfilePage() {
         )}
       </AnimatePresence>
 
-      {/* Topup Modal for Single Bill */}
+      {/* Topup Modal */}
       {showTopupModal && selectedServiceId && (
         <TopupModal
           isOpen={showTopupModal}
@@ -544,71 +591,6 @@ export default function UserProfilePage() {
           }}
         />
       )}
-
-      {/* Lightbox Overlay */}
-      <AnimatePresence>
-        {viewingImageIndex !== null && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[100] bg-black/95 backdrop-blur-xl flex items-center justify-center touch-none"
-            onClick={() => setViewingImageIndex(null)}
-          >
-            <button 
-              onClick={() => setViewingImageIndex(null)}
-              className="absolute top-4 right-4 p-3 bg-white/10 rounded-full text-white hover:bg-white/20 z-50 backdrop-blur-sm"
-            >
-              <X className="w-6 h-6" />
-            </button>
-            
-            {gallery.length > 1 && (
-              <button 
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setViewingImageIndex((prev) => (prev !== null && prev > 0 ? prev - 1 : gallery.length - 1));
-                }}
-                className="absolute left-4 p-3 bg-white/10 rounded-full text-white hover:bg-white/20 backdrop-blur-sm z-50 hidden sm:block"
-              >
-                <ChevronLeft className="w-8 h-8" />
-              </button>
-            )}
-
-            <motion.div 
-              className="relative w-full h-full max-w-5xl max-h-[85vh] mx-2"
-              initial={{ scale: 0.95, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              key={viewingImageIndex}
-              transition={{ type: "spring", stiffness: 300, damping: 30 }}
-              onClick={(e) => e.stopPropagation()}
-            >
-              <Image
-                src={gallery[viewingImageIndex]}
-                alt={`Gallery ${viewingImageIndex}`}
-                fill
-                className="object-contain"
-                priority
-              />
-            </motion.div>
-
-            {gallery.length > 1 && (
-              <button 
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setViewingImageIndex((prev) => (prev !== null && prev < gallery.length - 1 ? prev + 1 : 0));
-                }}
-                className="absolute right-4 p-3 bg-white/10 rounded-full text-white hover:bg-white/20 backdrop-blur-sm z-50 hidden sm:block"
-              >
-                <ChevronRight className="w-8 h-8" />
-              </button>
-            )}
-            
-            <div className="absolute bottom-8 left-1/2 -translate-x-1/2 px-4 py-2 bg-white/10 backdrop-blur-md rounded-full text-white font-bold text-sm border border-white/10">
-              {viewingImageIndex + 1} / {gallery.length}
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
     </div>
   );
 }

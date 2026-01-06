@@ -25,7 +25,8 @@ import {
   CreditCard,
   QrCode,
   Mic2,
-  MessageCircle
+  MessageCircle,
+  Info
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { cn, formatCurrency, getVIPBadgeColor, getActivityIcon, isNewPartner, isQualityPartner } from '@/lib/utils';
@@ -59,12 +60,9 @@ export default function UserProfilePage() {
   const isCurrentUser = !!authUser && !!user && authUser.id === user.id;
 
   const [selectedServiceId, setSelectedServiceId] = useState<string | null>(null);
-  const [bookingForm, setBookingForm] = useState({
-    date: new Date().toISOString().split('T')[0], // Default to today
-    time: new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }), // Default to now
-    location: '',
-    message: '',
-  });
+  // Removed explicit date/time/location form state. 
+  // Message is optional, can be added later if needed, but for "Quick Book" we might skip it too.
+  const [bookingMessage, setBookingMessage] = useState('');
 
   const [isBooking, setIsBooking] = useState(false);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
@@ -122,43 +120,44 @@ export default function UserProfilePage() {
   const openBookingForService = (serviceId: string) => {
     if (isCurrentUser) return;
     
-    // FIX: Chỉ kiểm tra số điện thoại khi ĐÃ ĐĂNG NHẬP
-    if (authUser && !authUser.phone) {
+    // Check login
+    if (!authUser) {
+        setAuthModal({ isOpen: true, actionType: 'book' });
+        return;
+    }
+
+    // Check phone
+    if (!authUser.phone) {
         toast.error('Vui lòng cập nhật số điện thoại trước khi đặt lịch');
         setTimeout(() => router.push('/profile/edit'), 1500);
         return;
     }
 
     setSelectedServiceId(serviceId);
-    // Reset form to nice defaults
-    const now = new Date();
-    // Round up to next 30 mins
-    now.setMinutes(now.getMinutes() + 30);
-    const timeStr = now.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
-    
-    setBookingForm({ 
-        date: new Date().toISOString().split('T')[0], 
-        time: timeStr, 
-        location: '', 
-        message: '' 
-    });
+    setBookingMessage(''); 
   };
 
   const executeBooking = async () => {
     if (!authUser || !selectedServiceId) return;
     setIsBooking(true);
+    
+    // Default placeholders since we removed the form
+    const now = new Date();
+    const dateStr = now.toISOString().split('T')[0];
+    const timeStr = now.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+
     try {
       const res = await createBookingViaEdge({
         providerId: user.id,
         serviceId: selectedServiceId,
-        date: bookingForm.date,
-        time: bookingForm.time,
-        location: bookingForm.location,
-        message: bookingForm.message,
+        date: dateStr, // Placeholder: Today
+        time: timeStr, // Placeholder: Now
+        location: 'Thỏa thuận qua chat', // Explicit marker
+        message: bookingMessage,
         durationHours: SESSION_HOURS,
       });
       if (res?.bookingId) {
-        toast.success('Đã gửi yêu cầu! Đợi Partner xác nhận nhé.');
+        toast.success('Thanh toán thành công! Đang kết nối...');
         setSelectedServiceId(null);
         setShowPaymentModal(false);
         router.push('/manage-bookings'); // Redirect to manage to see status
@@ -176,17 +175,7 @@ export default function UserProfilePage() {
   };
 
   const handlePreBooking = () => {
-    if (!authUser) {
-      setAuthModal({ isOpen: true, actionType: 'book' });
-      return;
-    }
-    if (!authUser.phone) {
-        toast.error('Vui lòng cập nhật số điện thoại');
-        router.push('/profile/edit');
-        return;
-    }
-
-    if (!selectedServiceId || !bookingForm.date || !bookingForm.location) return;
+    if (!selectedServiceId) return;
     setShowPaymentModal(true);
   };
 
@@ -212,7 +201,6 @@ export default function UserProfilePage() {
 
       {/* --- SQUARE CAROUSEL --- */}
       <div className="relative w-full md:max-w-md md:mx-auto aspect-square rounded-b-[32px] md:rounded-[32px] overflow-hidden bg-gray-100 shadow-xl group">
-        
         {/* Navigation Overlay (Mobile) */}
         <div className="md:hidden absolute top-0 left-0 right-0 p-4 z-20 flex justify-between items-start bg-gradient-to-b from-black/40 to-transparent pointer-events-none">
             <button 
@@ -411,7 +399,7 @@ export default function UserProfilePage() {
                                         )}
                                     </button>
 
-                                    {/* Inline Booking Form for Mobile/Desktop */}
+                                    {/* Inline Booking Confirmation */}
                                     <AnimatePresence>
                                         {selectedServiceId === service.id && (
                                             <motion.div
@@ -421,47 +409,24 @@ export default function UserProfilePage() {
                                                 className="overflow-hidden"
                                             >
                                                 <div className="pt-3 pb-2 space-y-3 px-1">
-                                                    <div className="grid grid-cols-2 gap-2">
-                                                        <div className="bg-gray-50 p-2 rounded-xl border border-gray-200">
-                                                            <label className="text-[10px] font-bold text-gray-500 uppercase block mb-1">Ngày (Dự kiến)</label>
-                                                            <input
-                                                                type="date"
-                                                                value={bookingForm.date}
-                                                                min={new Date().toISOString().split('T')[0]}
-                                                                onChange={(e) => setBookingForm({ ...bookingForm, date: e.target.value })}
-                                                                className="w-full bg-transparent text-sm font-bold outline-none"
-                                                            />
-                                                        </div>
-                                                        <div className="bg-gray-50 p-2 rounded-xl border border-gray-200">
-                                                            <label className="text-[10px] font-bold text-gray-500 uppercase block mb-1">Giờ (Dự kiến)</label>
-                                                            <input
-                                                                type="time"
-                                                                value={bookingForm.time}
-                                                                onChange={(e) => setBookingForm({ ...bookingForm, time: e.target.value })}
-                                                                className="w-full bg-transparent text-sm font-bold outline-none"
-                                                            />
-                                                        </div>
-                                                    </div>
                                                     
-                                                    <div className="bg-gray-50 p-2 rounded-xl border border-gray-200">
-                                                        <label className="text-[10px] font-bold text-gray-500 uppercase block mb-1">Địa điểm</label>
-                                                        <input
-                                                            type="text"
-                                                            value={bookingForm.location}
-                                                            onChange={(e) => setBookingForm({ ...bookingForm, location: e.target.value })}
-                                                            placeholder="VD: Cafe Starbucks..."
-                                                            className="w-full bg-transparent text-sm font-medium outline-none placeholder:text-gray-400"
-                                                        />
+                                                    {/* Process Explanation */}
+                                                    <div className="bg-blue-50 p-3 rounded-xl border border-blue-100 space-y-2">
+                                                        <div className="flex gap-2 items-start">
+                                                            <Info className="w-4 h-4 text-blue-600 flex-shrink-0 mt-0.5" />
+                                                            <p className="text-[11px] text-blue-800 leading-relaxed font-medium">
+                                                                <b>Quy trình:</b> Thanh toán → Kết nối (Match) → Chat chốt địa điểm & thời gian.
+                                                            </p>
+                                                        </div>
+                                                        <div className="flex gap-2 items-start">
+                                                            <ShieldCheck className="w-4 h-4 text-blue-600 flex-shrink-0 mt-0.5" />
+                                                            <p className="text-[11px] text-blue-800 leading-relaxed font-medium">
+                                                                <b>An toàn:</b> Tiền được giữ tại hệ thống (Escrow). Partner chỉ nhận tiền khi bạn xác nhận hoàn thành. Hoàn tiền 100% nếu Partner không nhận đơn.
+                                                            </p>
+                                                        </div>
                                                     </div>
 
-                                                    <div className="bg-blue-50 p-3 rounded-xl border border-blue-100 flex gap-2 items-start">
-                                                        <MessageCircle className="w-4 h-4 text-blue-600 flex-shrink-0 mt-0.5" />
-                                                        <p className="text-[11px] text-blue-800 leading-tight font-medium">
-                                                            Thời gian và địa điểm chính xác sẽ được chốt trực tiếp với Partner qua chat sau khi nhận đơn.
-                                                        </p>
-                                                    </div>
-
-                                                    <div className="flex gap-2 pt-2">
+                                                    <div className="flex gap-2 pt-1">
                                                         <button 
                                                             onClick={(e) => { e.stopPropagation(); setSelectedServiceId(null); }}
                                                             className="px-4 py-3 bg-gray-100 text-gray-600 rounded-xl font-bold text-sm hover:bg-gray-200 transition"
@@ -470,11 +435,11 @@ export default function UserProfilePage() {
                                                         </button>
                                                         <button
                                                             onClick={handlePreBooking}
-                                                            disabled={!bookingForm.date || !bookingForm.location || isBooking}
+                                                            disabled={isBooking}
                                                             className="flex-1 py-3 bg-gradient-primary text-white rounded-xl font-bold text-sm shadow-lg hover:opacity-90 transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                                                         >
                                                             {isBooking ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
-                                                            Gửi yêu cầu
+                                                            Thanh toán & Kết nối
                                                         </button>
                                                     </div>
                                                 </div>
@@ -513,7 +478,7 @@ export default function UserProfilePage() {
               exit={{ y: 200, opacity: 0 }}
             >
               <div className="p-5 border-b border-gray-100 flex items-center justify-between bg-white/50 backdrop-blur-md">
-                <h3 className="text-lg font-black text-gray-900">Thanh toán & Gửi yêu cầu</h3>
+                <h3 className="text-lg font-black text-gray-900">Xác nhận thanh toán</h3>
                 <button onClick={() => setShowPaymentModal(false)} className="p-2 hover:bg-gray-100 rounded-full transition">
                   <X className="w-5 h-5 text-gray-500" />
                 </button>
@@ -521,15 +486,8 @@ export default function UserProfilePage() {
 
               <div className="p-6 space-y-6">
                 <div className="text-center">
-                  <p className="text-gray-500 text-xs font-bold uppercase tracking-wider mb-1">Tổng tiền cần thanh toán</p>
+                  <p className="text-gray-500 text-xs font-bold uppercase tracking-wider mb-1">Tổng tiền (Escrow)</p>
                   <p className="text-4xl font-black text-gray-900 tracking-tight">{formatCurrency(totalPrice)}</p>
-                </div>
-
-                <div className="bg-blue-50 border border-blue-100 rounded-2xl p-4 flex gap-3">
-                  <ShieldCheck className="w-6 h-6 text-blue-600 flex-shrink-0" />
-                  <p className="text-xs text-blue-800 leading-relaxed font-medium">
-                    <b>Bảo vệ Escrow:</b> Tiền được giữ an toàn. Partner chỉ nhận được tiền sau khi bạn xác nhận hoàn thành dịch vụ. Nếu Partner từ chối, bạn sẽ được hoàn tiền 100%.
-                  </p>
                 </div>
 
                 <div className="space-y-3">

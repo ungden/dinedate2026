@@ -2,24 +2,12 @@
 
 import { useMemo, useState } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, Calendar, Clock, MapPin, Check, X, Loader2 } from 'lucide-react';
+import { ArrowLeft, Calendar, Clock, MapPin, Check, X, Loader2, MessageCircle } from 'lucide-react';
 import { cn, formatCurrency, formatDate } from '@/lib/utils';
 import { useDbBookings } from '@/hooks/useDbBookings';
 import toast from 'react-hot-toast';
 
 type TabType = 'sent' | 'received';
-
-function formatTimeFromIso(iso?: string) {
-  if (!iso) return '';
-  const d = new Date(iso);
-  return d.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
-}
-
-function formatDateFromIso(iso?: string) {
-  if (!iso) return '';
-  const d = new Date(iso);
-  return d.toLocaleDateString('vi-VN');
-}
 
 export default function ManageBookingsClient() {
   const [activeTab, setActiveTab] = useState<TabType>('sent');
@@ -32,7 +20,7 @@ export default function ManageBookingsClient() {
     if (!confirm('Bạn chắc chắn muốn hủy yêu cầu này? Tiền sẽ được hoàn về ví ngay lập tức.')) return;
     setProcessingId(id);
     try {
-      await reject(id); // Reuse logic reject của Edge Function (User reject = Cancel)
+      await reject(id);
       toast.success('Đã hủy và hoàn tiền thành công');
     } catch (error: any) {
       toast.error('Lỗi: ' + error.message);
@@ -71,7 +59,7 @@ export default function ManageBookingsClient() {
     };
     const labels: Record<string, string> = {
       pending: 'Chờ xác nhận',
-      accepted: 'Đã nhận đơn', // Updated label
+      accepted: 'Đã nhận đơn',
       rejected: 'Đã từ chối',
       cancelled: 'Đã hủy',
       completed: 'Hoàn thành',
@@ -85,6 +73,8 @@ export default function ManageBookingsClient() {
       </span>
     );
   };
+
+  const isNegotiation = (loc: string) => loc === 'Thỏa thuận qua chat';
 
   return (
     <div className="space-y-6 pb-20">
@@ -134,8 +124,9 @@ export default function ManageBookingsClient() {
       ) : bookings.length > 0 ? (
         <div className="space-y-4">
           {bookings.map((b) => {
-            const startIso = b.start_time as string | undefined;
             const isProcessing = processingId === b.id;
+            const location = b.meeting_location || '';
+            const isPendingNegotiation = isNegotiation(location);
 
             return (
               <div
@@ -150,20 +141,27 @@ export default function ManageBookingsClient() {
                     {getStatusBadge(b.status)}
                   </div>
 
-                  <div className="grid grid-cols-2 gap-3 text-sm text-gray-600">
-                    <div className="flex items-center gap-2">
-                      <Calendar className="w-4 h-4 text-primary-500" />
-                      <span className="font-medium">{startIso ? formatDateFromIso(startIso) : '-'}</span>
+                  {isPendingNegotiation ? (
+                    <div className="bg-blue-50 p-2 rounded-lg flex items-center gap-2 text-xs font-bold text-blue-700">
+                        <MessageCircle className="w-4 h-4" />
+                        Thời gian & Địa điểm: Thỏa thuận qua Chat
                     </div>
-                    <div className="flex items-center gap-2">
-                      <Clock className="w-4 h-4 text-primary-500" />
-                      <span className="font-medium">{startIso ? formatTimeFromIso(startIso) : '-'} (Dự kiến)</span>
+                  ) : (
+                    <div className="grid grid-cols-2 gap-3 text-sm text-gray-600">
+                        <div className="flex items-center gap-2">
+                        <Calendar className="w-4 h-4 text-primary-500" />
+                        <span className="font-medium">{b.start_time ? new Date(b.start_time).toLocaleDateString('vi-VN') : '-'}</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                        <Clock className="w-4 h-4 text-primary-500" />
+                        <span className="font-medium">{b.start_time ? new Date(b.start_time).toLocaleTimeString('vi-VN', {hour:'2-digit', minute:'2-digit'}) : '-'}</span>
+                        </div>
+                        <div className="flex items-center gap-2 col-span-2">
+                        <MapPin className="w-4 h-4 text-primary-500 flex-shrink-0" />
+                        <span className="truncate">{location}</span>
+                        </div>
                     </div>
-                    <div className="flex items-center gap-2 col-span-2">
-                      <MapPin className="w-4 h-4 text-primary-500 flex-shrink-0" />
-                      <span className="truncate">{b.meeting_location || '-'}</span>
-                    </div>
-                  </div>
+                  )}
                 </div>
 
                 <div className="px-4 py-3 bg-gray-50 flex items-center justify-between">

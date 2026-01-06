@@ -260,6 +260,7 @@ export default function BookingProgress({
 
     const otherPerson = isUser ? booking.provider : booking.booker;
     const isDayBooking = booking.service.duration === 'day';
+    const isNegotiation = booking.location === 'Thỏa thuận qua chat';
 
     return (
         <div className={cn('bg-white rounded-2xl border border-gray-100 overflow-hidden shadow-sm', className)}>
@@ -333,7 +334,10 @@ export default function BookingProgress({
                             </div>
                             <h4 className="font-bold text-blue-900">Kết nối thành công! 🎉</h4>
                             <p className="text-sm text-blue-700 mt-1">
-                                Hãy nhắn tin để thống nhất <b>thời gian và địa điểm</b> gặp mặt chính xác.
+                                {isNegotiation 
+                                    ? "Bạn chưa chốt giờ/địa điểm. Hãy nhắn tin để thống nhất nhé."
+                                    : "Hãy nhắn tin để thống nhất thời gian và địa điểm gặp mặt chính xác."
+                                }
                             </p>
                         </div>
 
@@ -345,7 +349,7 @@ export default function BookingProgress({
                             whileTap={{ scale: 0.98 }}
                         >
                             {isOpeningChat ? <Loader2 className="w-5 h-5 animate-spin" /> : <MessageCircle className="w-5 h-5" />}
-                            <span>Chat ngay</span>
+                            <span>Chat ngay để chốt lịch</span>
                         </motion.button>
 
                         <div className="pt-4 border-t border-gray-100 mt-4">

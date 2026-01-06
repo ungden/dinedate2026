@@ -21,8 +21,9 @@ function PartnerCard({ partner, distance }: { partner: UserType; distance?: numb
   const canSeeAge = currentUser?.vipStatus.tier === 'vip' || currentUser?.vipStatus.tier === 'svip';
   const displayAge = canSeeAge && partner.age ? `, ${partner.age}` : '';
 
-  // Use username if available, else ID
-  const profileLink = `/user/${partner.username || partner.id}`;
+  // Ưu tiên username, fallback về ID nếu không có username
+  const slug = partner.username && partner.username.trim() !== '' ? partner.username : partner.id;
+  const profileLink = `/user/${slug}`;
 
   return (
     <Link href={profileLink} className="block group h-full">

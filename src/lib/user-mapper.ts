@@ -47,9 +47,15 @@ export function mapDbUserToUser(row: DbUserRow): User {
       displayName = row.email ? row.email.split('@')[0] : 'Người dùng mới';
   }
 
+  // Ensure username is valid
+  let username = row.username;
+  if (!username || username.trim() === '') {
+      username = undefined;
+  }
+
   return {
     id: row.id,
-    username: row.username ?? undefined,
+    username: username,
     name: displayName,
     age: row.birth_year ? new Date().getFullYear() - Number(row.birth_year) : 0, // 0 means unset
     avatar: row.avatar ?? row.avatar_url ?? `https://api.dicebear.com/7.x/avataaars/svg?seed=${row.id}`,

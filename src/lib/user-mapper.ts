@@ -23,6 +23,11 @@ function mapDbServiceToService(row: DbServiceRow): ServiceOffering {
   };
 }
 
+function isUUID(str: string) {
+  const regex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  return regex.test(str);
+}
+
 export function mapDbUserToUser(row: DbUserRow): User {
   const gallery: string[] = Array.isArray(row.gallery_images) ? row.gallery_images.filter(Boolean) : [];
 
@@ -36,10 +41,16 @@ export function mapDbUserToUser(row: DbUserRow): User {
     ? (Number(row.average_rating ?? row.rating ?? 0)) 
     : 5.0;
 
+  // Handle display name: fallback if UUID or missing
+  let displayName = row.name;
+  if (!displayName || isUUID(displayName)) {
+      displayName = row.email ? row.email.split('@')[0] : 'Người dùng mới';
+  }
+
   return {
     id: row.id,
     username: row.username ?? undefined,
-    name: row.name ?? 'Người dùng',
+    name: displayName,
     age: row.birth_year ? new Date().getFullYear() - Number(row.birth_year) : 0, // 0 means unset
     avatar: row.avatar ?? row.avatar_url ?? `https://api.dicebear.com/7.x/avataaars/svg?seed=${row.id}`,
     bio: row.bio ?? '',

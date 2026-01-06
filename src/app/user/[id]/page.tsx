@@ -37,7 +37,7 @@ import { useDbUserProfile } from '@/hooks/useDbUserProfile';
 import { createBookingViaEdge } from '@/lib/booking';
 import { motion, AnimatePresence } from '@/lib/motion';
 import TopupModal from '@/components/TopupModal';
-import VoiceIntro from '@/components/VoiceIntro'; // Import VoiceIntro
+import VoiceIntro from '@/components/VoiceIntro';
 
 const SESSION_HOURS = 3;
 
@@ -62,7 +62,6 @@ export default function UserProfilePage() {
   const selectedService: ServiceOffering | null =
     services.find((s) => s.id === selectedServiceId) || null;
 
-  // Giá niêm yết là giá cuối cùng User phải trả
   const totalPrice = selectedService?.price || 0;
 
   const [bookingForm, setBookingForm] = useState({
@@ -107,8 +106,11 @@ export default function UserProfilePage() {
     );
   }
 
-  const coverImage = user.images?.[0] || user.avatar;
-  const gallery = user.images || [user.avatar];
+  // Optimize Images: Combine Avatar + Gallery if gallery is empty or short
+  const rawGallery = user.images && user.images.length > 0 ? user.images : [user.avatar];
+  // Ensure we have unique images
+  const gallery = Array.from(new Set(rawGallery));
+
   const isNew = isNewPartner(user.createdAt);
   const isQuality = isQualityPartner(rating, user.reviewCount);
 
@@ -118,11 +120,8 @@ export default function UserProfilePage() {
   const openBookingForService = (serviceId: string) => {
     if (isCurrentUser) return;
     
-    // Check Phone before booking
     if (!authUser?.phone) {
         toast.error('Vui lòng cập nhật số điện thoại trước khi đặt lịch');
-        // A global modal handler or redirect to profile edit would go here. 
-        // For now, simpler toast guidance:
         setTimeout(() => router.push('/profile/edit'), 1500);
         return;
     }
@@ -170,351 +169,285 @@ export default function UserProfilePage() {
     }
     if (!selectedServiceId || !bookingForm.date || !bookingForm.location) return;
     
-    // Open Payment Selection
     setShowPaymentModal(true);
   };
 
+  // Grid Layout Logic
+  const MainImage = gallery[0];
+  const SubImages = gallery.slice(1, 3); // Max 2 sub images on preview
+  const remainingCount = Math.max(0, gallery.length - 3);
+
   return (
-    <div className="max-w-4xl mx-auto pb-28">
-      {/* Top media */}
-      <div className="relative group cursor-pointer" onClick={() => setViewingImageIndex(0)}>
-        <div className="relative aspect-[3/4] md:aspect-[16/9] overflow-hidden rounded-b-[32px] shadow-lg">
-          <Image src={coverImage} alt={user.name} fill className="object-cover" priority />
-          <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-black/10" />
-        </div>
-        
-        {/* Gallery Indicator */}
-        {gallery.length > 1 && (
-          <div className="absolute bottom-6 right-6 bg-black/50 backdrop-blur-md text-white px-3 py-1.5 rounded-full text-xs font-bold flex items-center gap-1.5 border border-white/20">
-            <GalleryIcon className="w-3.5 h-3.5" />
-            <span>1 / {gallery.length}</span>
-          </div>
-        )}
-
-        {/* Top controls */}
-        <div className="absolute top-4 left-4 right-4 flex items-center justify-between z-20" onClick={(e) => e.stopPropagation()}>
-          <button
-            onClick={() => router.back()}
-            className="w-10 h-10 bg-white/90 backdrop-blur-sm rounded-full shadow flex items-center justify-center hover:bg-white transition"
-            aria-label="Quay lại"
-          >
-            <ArrowLeft className="w-5 h-5 text-gray-800" />
-          </button>
-
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => !authUser && setAuthModal({ isOpen: true, actionType: 'like' })}
-              className="w-10 h-10 bg-white/90 backdrop-blur-sm rounded-full shadow flex items-center justify-center hover:bg-white transition"
-              aria-label="Yêu thích"
-            >
-              <Heart className="w-5 h-5 text-gray-800" />
+    <div className="max-w-5xl mx-auto pb-28 md:pt-4 px-0 md:px-4">
+      {/* Navigation & Actions (Desktop) */}
+      <div className="hidden md:flex items-center justify-between mb-4">
+        <button onClick={() => router.back()} className="flex items-center gap-2 text-gray-600 hover:text-gray-900 font-bold transition">
+            <ArrowLeft className="w-5 h-5" /> Quay lại
+        </button>
+        <div className="flex gap-2">
+            <button className="p-2.5 bg-white border border-gray-200 rounded-xl hover:bg-gray-50 text-gray-700 transition">
+                <Share2 className="w-5 h-5" />
             </button>
-            <button
-              className="w-10 h-10 bg-white/90 backdrop-blur-sm rounded-full shadow flex items-center justify-center hover:bg-white transition"
-              aria-label="Chia sẻ"
-            >
-              <Share2 className="w-5 h-5 text-gray-800" />
+            <button className="p-2.5 bg-white border border-gray-200 rounded-xl hover:bg-gray-50 text-gray-700 transition">
+                <Heart className="w-5 h-5" />
             </button>
-          </div>
         </div>
       </div>
 
-      {/* Main info card */}
-      <div className="-mt-10 px-4 relative z-10">
-        <div className="bg-white rounded-[32px] shadow-soft border border-gray-100 p-6">
-          <div className="flex items-start gap-4">
-            <div className="relative w-20 h-20 rounded-[20px] overflow-hidden ring-4 ring-white shadow-md flex-shrink-0">
-              <Image src={user.avatar} alt={user.name} fill className="object-cover" />
+      {/* Modern Photo Grid Gallery */}
+      <div className="relative md:rounded-[32px] overflow-hidden bg-gray-100 mb-6">
+        {/* Mobile: Horizontal Scroll Snap / Desktop: Grid */}
+        <div className="md:grid md:grid-cols-4 md:gap-2 h-[400px] md:h-[500px] flex overflow-x-auto snap-x snap-mandatory md:overflow-visible hide-scrollbar">
+            {/* Main Image (First) */}
+            <div 
+                className="relative w-full md:w-auto h-full flex-shrink-0 snap-center md:col-span-2 md:row-span-2 cursor-pointer group"
+                onClick={() => setViewingImageIndex(0)}
+            >
+                <Image src={MainImage} alt="Main photo" fill className="object-cover transition-transform duration-700 group-hover:scale-105" priority />
+                <div className="absolute inset-0 bg-black/10 group-hover:bg-black/0 transition-colors" />
+                
+                {/* Mobile Back Button Overlay */}
+                <button onClick={(e) => { e.stopPropagation(); router.back(); }} className="md:hidden absolute top-4 left-4 p-2.5 bg-black/30 backdrop-blur-md text-white rounded-full z-20">
+                    <ArrowLeft className="w-6 h-6" />
+                </button>
             </div>
 
-            <div className="min-w-0 flex-1 pt-1">
-              <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <h1 className="text-[24px] font-black text-gray-900 truncate tracking-tight">
-                      {user.name}{displayAge}
-                    </h1>
-                    {/* Lock Icon if age hidden */}
-                    {!canSeeAge && user.age > 0 && (
-                      <div className="flex items-center gap-1 px-2 py-0.5 bg-gray-100 rounded-lg text-[10px] font-bold text-gray-500 border border-gray-200">
-                        <Lock className="w-2.5 h-2.5" />
-                        <span>VIP</span>
-                      </div>
+            {/* Desktop: Side Images */}
+            {SubImages.map((img, idx) => (
+                <div 
+                    key={idx}
+                    className="hidden md:block relative w-full h-full cursor-pointer group overflow-hidden"
+                    onClick={() => setViewingImageIndex(idx + 1)}
+                >
+                    <Image src={img} alt={`Photo ${idx + 1}`} fill className="object-cover transition-transform duration-700 group-hover:scale-105" />
+                    
+                    {/* Overlay for the last image if more exist */}
+                    {idx === 1 && remainingCount > 0 && (
+                        <div className="absolute inset-0 bg-black/60 flex items-center justify-center text-white font-bold text-xl backdrop-blur-[2px] transition-colors group-hover:bg-black/50">
+                            +{remainingCount} ảnh
+                        </div>
                     )}
+                </div>
+            ))}
 
-                    {isNew && (
-                      <span className="px-2 py-0.5 rounded-lg text-[10px] font-black uppercase bg-blue-100 text-blue-600 flex-shrink-0">
-                        Mới
-                      </span>
+            {/* Mobile: Remaining Images in Scroll */}
+            {gallery.slice(1).map((img, idx) => (
+                <div 
+                    key={`mob-${idx}`}
+                    className="md:hidden relative w-full h-full flex-shrink-0 snap-center"
+                    onClick={() => setViewingImageIndex(idx + 1)}
+                >
+                    <Image src={img} alt={`Photo ${idx}`} fill className="object-cover" />
+                </div>
+            ))}
+        </div>
+
+        {/* Mobile Gallery Indicator */}
+        <div className="md:hidden absolute bottom-4 right-4 bg-black/60 backdrop-blur-md text-white px-3 py-1.5 rounded-full text-xs font-bold flex items-center gap-1.5 pointer-events-none">
+            <GalleryIcon className="w-3.5 h-3.5" />
+            <span>{gallery.length} ảnh</span>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 px-4 md:px-0">
+        {/* Left Column: Info */}
+        <div className="lg:col-span-2 space-y-8">
+            {/* Header Info */}
+            <div>
+                <div className="flex items-center gap-3 mb-2">
+                    <h1 className="text-3xl font-black text-gray-900 tracking-tight">{user.name}{displayAge}</h1>
+                    {user.vipStatus.tier !== 'free' && (
+                        <span className={cn('px-2.5 py-1 rounded-full text-[10px] font-black text-white uppercase shadow-sm', getVIPBadgeColor(user.vipStatus.tier))}>
+                            {user.vipStatus.tier}
+                        </span>
                     )}
                     {isQuality && (
-                      <span className="px-2 py-0.5 rounded-lg text-[10px] font-black uppercase bg-orange-100 text-orange-600 flex items-center gap-0.5 flex-shrink-0">
-                        <Zap className="w-3 h-3 fill-orange-600" /> Uy tín
-                      </span>
+                        <span className="px-2.5 py-1 rounded-full text-[10px] font-black uppercase bg-orange-100 text-orange-600 flex items-center gap-1">
+                            <Zap className="w-3 h-3 fill-orange-600" /> Uy tín
+                        </span>
                     )}
-                  </div>
-                  <div className="flex flex-wrap items-center gap-2 mt-1.5 text-sm text-gray-500">
-                    <span className="inline-flex items-center gap-1">
-                      <MapPin className="w-3.5 h-3.5 text-rose-500" />
-                      <span className="truncate max-w-[200px] font-medium">{user.location}</span>
-                    </span>
-                    <span className="text-gray-300">•</span>
-                    <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-yellow-50 rounded-lg border border-yellow-100">
-                      <Star className="w-3.5 h-3.5 fill-yellow-500 text-yellow-500" />
-                      <span className="font-black text-yellow-700">{rating ? rating.toFixed(1) : '5.0'}</span>
-                      <span className="text-yellow-600 text-xs">({user.reviewCount || reviews.length})</span>
-                    </span>
-                  </div>
                 </div>
 
-                {user.vipStatus.tier !== 'free' && (
-                  <span
-                    className={cn(
-                      'px-2.5 py-1 rounded-xl text-[11px] font-black text-white uppercase tracking-tight flex-shrink-0',
-                      getVIPBadgeColor(user.vipStatus.tier)
-                    )}
-                  >
-                    {user.vipStatus.tier}
-                  </span>
-                )}
-              </div>
-            </div>
-          </div>
-
-          {/* Voice Intro */}
-          {user.voiceIntroUrl && (
-            <div className="mt-5">
-                <VoiceIntro audioUrl={user.voiceIntroUrl} userName={user.name} />
-            </div>
-          )}
-
-          {/* Bio */}
-          <div className="mt-5">
-            <h3 className="text-sm font-black text-gray-900 uppercase tracking-wider mb-2">Giới thiệu</h3>
-            {user.bio ? (
-                <p className="text-[15px] text-gray-600 leading-relaxed font-medium">
-                {user.bio}
-                </p>
-            ) : (
-                <p className="text-sm text-gray-400 italic">Chưa có mô tả.</p>
-            )}
-          </div>
-
-          {/* Personality Tags */}
-          {user.personalityTags && user.personalityTags.length > 0 && (
-            <div className="mt-5 flex flex-wrap gap-2">
-                {user.personalityTags.map(tag => (
-                    <span key={tag} className="px-3 py-1.5 bg-gray-100 text-gray-600 rounded-xl text-xs font-bold border border-gray-200">
-                        #{tag}
-                    </span>
-                ))}
-            </div>
-          )}
-
-          {/* Trust badges */}
-          <div className="mt-6 bg-gradient-to-r from-green-50 to-emerald-50 border border-green-100 rounded-2xl p-4">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
-              <div className="flex items-start gap-2.5">
-                <div className="w-8 h-8 rounded-full bg-white flex items-center justify-center flex-shrink-0 shadow-sm text-green-600 border border-green-100">
-                  <ShieldCheck className="w-4 h-4" />
-                </div>
-                <div>
-                  <p className="font-bold text-green-900">Thanh toán Escrow</p>
-                  <p className="text-green-800/80 text-[12px] leading-snug">
-                    Tiền được giữ an toàn cho đến khi hoàn thành
-                  </p>
-                </div>
-              </div>
-
-              <div className="flex items-start gap-2.5">
-                <div className="w-8 h-8 rounded-full bg-white flex items-center justify-center flex-shrink-0 shadow-sm text-green-600 border border-green-100">
-                  <BadgeCheck className="w-4 h-4" />
-                </div>
-                <div>
-                  <p className="font-bold text-green-900">Partner xác thực</p>
-                  <p className="text-green-800/80 text-[12px] leading-snug">
-                    Đã kiểm tra số điện thoại và thông tin
-                  </p>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Services */}
-      <div className="px-4 mt-8 space-y-4">
-        <div className="flex items-center justify-between px-2">
-          <h2 className="text-lg font-black text-gray-900 flex items-center gap-2">
-            <Sparkles className="w-5 h-5 text-primary-500" />
-            Dịch vụ
-          </h2>
-          <span className="text-xs font-bold text-gray-500 bg-gray-100 px-2 py-1 rounded-full">
-            {services.length}
-          </span>
-        </div>
-
-        {services.length === 0 ? (
-          <div className="bg-white rounded-[24px] border border-gray-100 p-8 text-center shadow-sm">
-            <div className="text-5xl mb-3 opacity-50">📭</div>
-            <p className="font-bold text-gray-900">Chưa có dịch vụ</p>
-            <p className="text-sm text-gray-500 mt-1">Partner này đang cập nhật danh sách dịch vụ.</p>
-          </div>
-        ) : (
-          <div className="space-y-4">
-            {services.map((service) => {
-              const selectedForThis = selectedServiceId === service.id;
-
-              return (
-                <div key={service.id} className="bg-white rounded-[24px] border border-gray-100 shadow-sm overflow-hidden transition-all hover:shadow-md">
-                  <div className="p-5">
-                    <div className="flex items-start gap-4">
-                      <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center text-3xl flex-shrink-0 border border-gray-100 shadow-inner">
-                        {getActivityIcon(service.activity)}
-                      </div>
-
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-start justify-between gap-3">
-                          <div className="min-w-0">
-                            <p className="text-[17px] font-black text-gray-900 truncate leading-tight">{service.title}</p>
-                            <p className="text-[13px] text-gray-500 font-bold mt-1 uppercase tracking-wide">
-                              {getActivityLabel(service.activity)}
-                            </p>
-                          </div>
-                          <div className="text-right flex-shrink-0">
-                            <p className="text-[11px] text-gray-400 font-bold uppercase tracking-wider">Giá trọn gói</p>
-                            <p className="text-[18px] font-black text-rose-600 leading-none mt-0.5">
-                              {formatCurrency(service.price || 0)}
-                            </p>
-                            <p className="text-[11px] text-gray-400 font-medium mt-0.5">
-                                /{service.duration === 'day' ? 'ngày' : '3h'}
-                            </p>
-                          </div>
-                        </div>
-
-                        {service.description ? (
-                          <p className="text-[14px] text-gray-600 mt-3 line-clamp-2 leading-relaxed bg-gray-50 p-2.5 rounded-xl">
-                            {service.description}
-                          </p>
-                        ) : null}
-
-                        {/* Primary action */}
-                        <div className="mt-4">
-                          <button
-                            onClick={() => openBookingForService(service.id)}
-                            className="w-full py-3 rounded-xl bg-gray-900 text-white font-bold shadow-lg hover:bg-gray-800 active:scale-[0.98] transition-all flex items-center justify-center gap-2"
-                          >
-                            <Calendar className="w-4 h-4" />
-                            Đặt lịch ngay
-                          </button>
-                        </div>
-                      </div>
+                <div className="flex flex-wrap items-center gap-4 text-sm text-gray-600">
+                    <div className="flex items-center gap-1.5">
+                        <MapPin className="w-4 h-4 text-rose-500" />
+                        <span>{user.location}</span>
                     </div>
-                  </div>
-
-                  {selectedForThis && (
-                    <motion.div 
-                        initial={{ height: 0, opacity: 0 }}
-                        animate={{ height: "auto", opacity: 1 }}
-                        className="px-5 pb-5 -mt-2 bg-gray-50/50 border-t border-gray-100"
-                    >
-                      <div className="pt-4">
-                        <h3 className="text-sm font-black text-gray-900 mb-3 flex items-center gap-2">
-                            <Clock className="w-4 h-4 text-primary-500" />
-                            Thông tin đặt lịch
-                        </h3>
-                        <div className="grid grid-cols-2 gap-3">
-                          <div>
-                            <label className="text-[11px] font-bold text-gray-500 uppercase tracking-wider mb-1.5 block">
-                              Ngày hẹn
-                            </label>
-                            <input
-                              type="date"
-                              value={bookingForm.date}
-                              min={new Date().toISOString().split('T')[0]}
-                              onChange={(e) => setBookingForm({ ...bookingForm, date: e.target.value })}
-                              className="w-full px-3 py-2.5 rounded-xl bg-white border border-gray-200 focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 outline-none font-medium text-sm transition-all"
-                            />
-                          </div>
-
-                          <div>
-                            <label className="text-[11px] font-bold text-gray-500 uppercase tracking-wider mb-1.5 block">
-                              Giờ bắt đầu
-                            </label>
-                            <input
-                              type="time"
-                              value={bookingForm.time}
-                              onChange={(e) => setBookingForm({ ...bookingForm, time: e.target.value })}
-                              className="w-full px-3 py-2.5 rounded-xl bg-white border border-gray-200 focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 outline-none font-medium text-sm transition-all"
-                            />
-                          </div>
-
-                          <div className="col-span-2">
-                            <label className="text-[11px] font-bold text-gray-500 uppercase tracking-wider mb-1.5 block">
-                              Địa điểm gặp mặt
-                            </label>
-                            <div className="relative">
-                                <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                                <input
-                                type="text"
-                                value={bookingForm.location}
-                                onChange={(e) => setBookingForm({ ...bookingForm, location: e.target.value })}
-                                placeholder="VD: Quán cafe ABC, Quận 1"
-                                className="w-full pl-9 pr-3 py-2.5 rounded-xl bg-white border border-gray-200 focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 outline-none font-medium text-sm transition-all"
-                                />
-                            </div>
-                          </div>
-
-                          <div className="col-span-2">
-                            <label className="text-[11px] font-bold text-gray-500 uppercase tracking-wider mb-1.5 block">
-                              Lời nhắn (tuỳ chọn)
-                            </label>
-                            <textarea
-                              value={bookingForm.message}
-                              onChange={(e) => setBookingForm({ ...bookingForm, message: e.target.value })}
-                              placeholder="Ghi chú ngắn cho Partner..."
-                              rows={2}
-                              className="w-full px-3 py-2.5 rounded-xl bg-white border border-gray-200 focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 outline-none text-sm font-medium resize-none transition-all"
-                            />
-                          </div>
-                        </div>
-
-                        <div className="mt-4 flex gap-3">
-                          <button
-                            onClick={() => setSelectedServiceId(null)}
-                            disabled={isBooking}
-                            className={cn(
-                              'flex-1 py-3 rounded-xl font-bold text-sm transition',
-                              isBooking ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'
-                            )}
-                          >
-                            Đóng
-                          </button>
-                          <button
-                            onClick={handlePreBooking}
-                            disabled={isBooking || !bookingForm.date || !bookingForm.location}
-                            className={cn(
-                              'flex-[2] py-3 rounded-xl font-bold text-sm transition shadow-lg flex items-center justify-center gap-2',
-                              isBooking || !bookingForm.date || !bookingForm.location
-                                ? 'bg-gray-200 text-gray-400 cursor-not-allowed shadow-none'
-                                : 'bg-gradient-primary text-white hover:opacity-90 active:scale-[0.98]'
-                            )}
-                          >
-                            {isBooking ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
-                            Xác nhận & Thanh toán
-                          </button>
-                        </div>
-                      </div>
-                    </motion.div>
-                  )}
+                    <div className="flex items-center gap-1.5">
+                        <Star className="w-4 h-4 text-yellow-500 fill-yellow-500" />
+                        <span className="font-bold text-gray-900">{rating.toFixed(1)}</span>
+                        <span className="text-gray-400">({user.reviewCount} đánh giá)</span>
+                    </div>
                 </div>
-              );
-            })}
-          </div>
-        )}
+            </div>
+
+            {/* Voice Intro */}
+            {user.voiceIntroUrl && (
+                <div className="p-1">
+                    <VoiceIntro audioUrl={user.voiceIntroUrl} userName={user.name} />
+                </div>
+            )}
+
+            {/* About */}
+            <div className="space-y-3">
+                <h3 className="font-bold text-gray-900 text-lg">Giới thiệu</h3>
+                <p className="text-gray-600 leading-relaxed whitespace-pre-wrap text-[15px]">
+                    {user.bio || "Người dùng này chưa viết giới thiệu."}
+                </p>
+                
+                {/* Tags */}
+                {user.personalityTags && user.personalityTags.length > 0 && (
+                    <div className="flex flex-wrap gap-2 pt-2">
+                        {user.personalityTags.map(tag => (
+                            <span key={tag} className="px-3 py-1.5 bg-gray-100 text-gray-600 rounded-xl text-xs font-bold border border-gray-200">
+                                #{tag}
+                            </span>
+                        ))}
+                    </div>
+                )}
+            </div>
+
+            {/* Trust Badges */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="bg-green-50 border border-green-100 rounded-2xl p-4 flex items-start gap-3">
+                    <div className="w-10 h-10 bg-white rounded-full flex items-center justify-center text-green-600 shadow-sm border border-green-100">
+                        <ShieldCheck className="w-5 h-5" />
+                    </div>
+                    <div>
+                        <p className="font-bold text-green-900">Thanh toán Escrow</p>
+                        <p className="text-sm text-green-800/80 mt-0.5">Tiền được giữ an toàn bởi hệ thống</p>
+                    </div>
+                </div>
+                <div className="bg-blue-50 border border-blue-100 rounded-2xl p-4 flex items-start gap-3">
+                    <div className="w-10 h-10 bg-white rounded-full flex items-center justify-center text-blue-600 shadow-sm border border-blue-100">
+                        <BadgeCheck className="w-5 h-5" />
+                    </div>
+                    <div>
+                        <p className="font-bold text-blue-900">Đã xác thực</p>
+                        <p className="text-sm text-blue-800/80 mt-0.5">SĐT và thông tin đã kiểm tra</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        {/* Right Column: Services (Sticky on Desktop) */}
+        <div className="lg:col-span-1">
+            <div className="sticky top-24 space-y-6">
+                <div className="bg-white rounded-[24px] border border-gray-100 shadow-lg shadow-gray-200/50 p-6">
+                    <h3 className="font-black text-gray-900 text-xl mb-4 flex items-center gap-2">
+                        <Sparkles className="w-5 h-5 text-primary-500" />
+                        Dịch vụ ({services.length})
+                    </h3>
+
+                    {services.length === 0 ? (
+                        <div className="text-center py-8 text-gray-500">
+                            <p>Chưa có dịch vụ nào.</p>
+                        </div>
+                    ) : (
+                        <div className="space-y-3">
+                            {services.map((service) => (
+                                <div key={service.id} className="group">
+                                    <button
+                                        onClick={() => openBookingForService(service.id)}
+                                        className={cn(
+                                            "w-full text-left p-4 rounded-2xl border transition-all duration-200 hover:shadow-md",
+                                            selectedServiceId === service.id 
+                                                ? "bg-primary-50 border-primary-500 ring-1 ring-primary-500" 
+                                                : "bg-white border-gray-200 hover:border-primary-300"
+                                        )}
+                                    >
+                                        <div className="flex justify-between items-start mb-2">
+                                            <div className="flex items-center gap-2">
+                                                <span className="text-2xl">{getActivityIcon(service.activity)}</span>
+                                                <span className="font-bold text-gray-900 group-hover:text-primary-600 transition-colors">
+                                                    {service.title}
+                                                </span>
+                                            </div>
+                                            <div className="text-right">
+                                                <span className="block font-black text-rose-600">{formatCurrency(service.price)}</span>
+                                                <span className="text-[10px] text-gray-400 uppercase font-bold">/{service.duration === 'day' ? 'ngày' : '3h'}</span>
+                                            </div>
+                                        </div>
+                                        {service.description && (
+                                            <p className="text-xs text-gray-600 line-clamp-2 leading-relaxed">
+                                                {service.description}
+                                            </p>
+                                        )}
+                                    </button>
+
+                                    {/* Inline Booking Form for Mobile/Desktop */}
+                                    <AnimatePresence>
+                                        {selectedServiceId === service.id && (
+                                            <motion.div
+                                                initial={{ height: 0, opacity: 0 }}
+                                                animate={{ height: "auto", opacity: 1 }}
+                                                exit={{ height: 0, opacity: 0 }}
+                                                className="overflow-hidden"
+                                            >
+                                                <div className="pt-3 pb-2 space-y-3 px-1">
+                                                    <div className="grid grid-cols-2 gap-2">
+                                                        <div className="bg-gray-50 p-2 rounded-xl border border-gray-200">
+                                                            <label className="text-[10px] font-bold text-gray-500 uppercase block mb-1">Ngày hẹn</label>
+                                                            <input
+                                                                type="date"
+                                                                value={bookingForm.date}
+                                                                min={new Date().toISOString().split('T')[0]}
+                                                                onChange={(e) => setBookingForm({ ...bookingForm, date: e.target.value })}
+                                                                className="w-full bg-transparent text-sm font-bold outline-none"
+                                                            />
+                                                        </div>
+                                                        <div className="bg-gray-50 p-2 rounded-xl border border-gray-200">
+                                                            <label className="text-[10px] font-bold text-gray-500 uppercase block mb-1">Giờ</label>
+                                                            <input
+                                                                type="time"
+                                                                value={bookingForm.time}
+                                                                onChange={(e) => setBookingForm({ ...bookingForm, time: e.target.value })}
+                                                                className="w-full bg-transparent text-sm font-bold outline-none"
+                                                            />
+                                                        </div>
+                                                    </div>
+                                                    
+                                                    <div className="bg-gray-50 p-2 rounded-xl border border-gray-200">
+                                                        <label className="text-[10px] font-bold text-gray-500 uppercase block mb-1">Địa điểm</label>
+                                                        <input
+                                                            type="text"
+                                                            value={bookingForm.location}
+                                                            onChange={(e) => setBookingForm({ ...bookingForm, location: e.target.value })}
+                                                            placeholder="VD: Cafe Starbucks..."
+                                                            className="w-full bg-transparent text-sm font-medium outline-none placeholder:text-gray-400"
+                                                        />
+                                                    </div>
+
+                                                    <div className="flex gap-2 pt-2">
+                                                        <button 
+                                                            onClick={(e) => { e.stopPropagation(); setSelectedServiceId(null); }}
+                                                            className="px-4 py-3 bg-gray-100 text-gray-600 rounded-xl font-bold text-sm hover:bg-gray-200 transition"
+                                                        >
+                                                            Đóng
+                                                        </button>
+                                                        <button
+                                                            onClick={handlePreBooking}
+                                                            disabled={!bookingForm.date || !bookingForm.location || isBooking}
+                                                            className="flex-1 py-3 bg-gradient-primary text-white rounded-xl font-bold text-sm shadow-lg hover:opacity-90 transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                                                        >
+                                                            {isBooking ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
+                                                            Xác nhận
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            </motion.div>
+                                        )}
+                                    </AnimatePresence>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </div>
+            </div>
+        </div>
       </div>
 
-      {/* Auth modal */}
+      {/* Auth Modal */}
       <AuthModal
         isOpen={authModal.isOpen}
         onClose={() => setAuthModal({ ...authModal, isOpen: false })}
@@ -607,7 +540,6 @@ export default function UserProfilePage() {
           amount={totalPrice}
           title="Thanh toán đơn hàng"
           onSuccess={() => {
-            // Wait a bit for modal to close visual logic then execute
             setTimeout(() => executeBooking(), 500);
           }}
         />
@@ -630,7 +562,6 @@ export default function UserProfilePage() {
               <X className="w-6 h-6" />
             </button>
             
-            {/* Prev */}
             {gallery.length > 1 && (
               <button 
                 onClick={(e) => {
@@ -643,7 +574,6 @@ export default function UserProfilePage() {
               </button>
             )}
 
-            {/* Image */}
             <motion.div 
               className="relative w-full h-full max-w-5xl max-h-[85vh] mx-2"
               initial={{ scale: 0.95, opacity: 0 }}
@@ -661,7 +591,6 @@ export default function UserProfilePage() {
               />
             </motion.div>
 
-            {/* Next */}
             {gallery.length > 1 && (
               <button 
                 onClick={(e) => {
@@ -674,7 +603,6 @@ export default function UserProfilePage() {
               </button>
             )}
             
-            {/* Counter */}
             <div className="absolute bottom-8 left-1/2 -translate-x-1/2 px-4 py-2 bg-white/10 backdrop-blur-md rounded-full text-white font-bold text-sm border border-white/10">
               {viewingImageIndex + 1} / {gallery.length}
             </div>

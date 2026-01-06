@@ -3,6 +3,7 @@ import { User } from '@/types';
 export const MOCK_USERS: User[] = [
   {
     id: '1',
+    username: 'minhanh99',
     name: 'Minh Anh',
     age: 25,
     avatar: 'https://images.unsplash.com/photo-1494790108755-2616b612b786?w=400&h=533&fit=crop&crop=face',
@@ -44,6 +45,7 @@ export const MOCK_USERS: User[] = [
   },
   {
     id: '2',
+    username: 'tuankiet',
     name: 'Tuấn Kiệt',
     age: 28,
     avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=400&h=533&fit=crop&crop=face',
@@ -82,6 +84,7 @@ export const MOCK_USERS: User[] = [
   },
   {
     id: '3',
+    username: 'thanhhuong',
     name: 'Thanh Hương',
     age: 24,
     avatar: 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=400&h=533&fit=crop&crop=face',
@@ -122,6 +125,7 @@ export const MOCK_USERS: User[] = [
   },
   {
     id: '4',
+    username: 'ducminh',
     name: 'Đức Minh',
     age: 26,
     avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=400&h=533&fit=crop&crop=face',
@@ -140,6 +144,7 @@ export const MOCK_USERS: User[] = [
   },
   {
     id: '5',
+    username: 'ngoctrinh',
     name: 'Ngọc Trinh',
     age: 23,
     avatar: 'https://images.unsplash.com/photo-1529626455594-4ff0802cfb7e?w=400&h=533&fit=crop&crop=face',
@@ -179,6 +184,7 @@ export const MOCK_USERS: User[] = [
   },
   {
     id: '6',
+    username: 'hoangnam',
     name: 'Hoàng Nam',
     age: 27,
     avatar: 'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=400&h=533&fit=crop&crop=face',
@@ -218,6 +224,7 @@ export const MOCK_USERS: User[] = [
   },
   {
     id: '7',
+    username: 'kimngan',
     name: 'Kim Ngân',
     age: 22,
     avatar: 'https://images.unsplash.com/photo-1488426862026-3ee34a7d66df?w=400&h=533&fit=crop&crop=face',
@@ -252,6 +259,7 @@ export const MOCK_USERS: User[] = [
   },
   {
     id: '8',
+    username: 'quocbao',
     name: 'Quốc Bảo',
     age: 30,
     avatar: 'https://images.unsplash.com/photo-1463453091185-61582044d556?w=400&h=533&fit=crop&crop=face',
@@ -292,6 +300,7 @@ export const MOCK_USERS: User[] = [
 
 export const CURRENT_USER: User = {
   id: 'current',
+  username: 'me',
   name: 'Bạn',
   age: 25,
   avatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=400&h=400&fit=crop&crop=face',

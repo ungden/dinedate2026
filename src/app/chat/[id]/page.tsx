@@ -140,6 +140,8 @@ export default function ChatPage() {
     );
   }
 
+  const profileLink = `/user/${partner.username || partner.id}`;
+
   return (
     <div className="flex flex-col h-[calc(100vh-140px)] md:h-[calc(100vh-120px)] bg-white rounded-2xl border border-gray-100 overflow-hidden shadow-sm animate-fadeIn">
       {/* Header */}
@@ -151,7 +153,7 @@ export default function ChatPage() {
           <ArrowLeft className="w-5 h-5" />
         </button>
 
-        <Link href={`/user/${partner.id}`} className="flex items-center gap-3 flex-1">
+        <Link href={profileLink} className="flex items-center gap-3 flex-1">
           <div className="relative">
             <Image
               src={partner.avatar}

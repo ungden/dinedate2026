@@ -28,8 +28,8 @@ function PartnerCard({ partner, distance }: { partner: UserType; distance?: numb
     <Link href={profileLink} className="block group h-full">
       <div className="relative h-full overflow-hidden rounded-[24px] bg-white shadow-sm border border-gray-100 transition-all duration-300 hover:shadow-lg hover:border-rose-200 hover:-translate-y-1">
         
-        {/* Image Container - Aspect 3:4 for portrait feel */}
-        <div className="relative aspect-[3/4] w-full overflow-hidden bg-gray-100">
+        {/* Image Container - SQUARE (1:1) */}
+        <div className="relative aspect-square w-full overflow-hidden bg-gray-100">
           <Image 
             src={imageSrc} 
             alt={partner.name} 

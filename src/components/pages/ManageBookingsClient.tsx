@@ -56,16 +56,18 @@ export default function ManageBookingsClient() {
       completed_pending: 'bg-green-50 text-green-600 border border-green-200',
       in_progress: 'bg-purple-100 text-purple-700',
       paid: 'bg-green-100 text-green-700',
+      auto_rejected: 'bg-orange-100 text-orange-700',
     };
     const labels: Record<string, string> = {
-      pending: 'Chờ xác nhận',
-      accepted: 'Đã nhận đơn',
-      rejected: 'Đã từ chối',
-      cancelled: 'Đã hủy',
-      completed: 'Hoàn thành',
-      completed_pending: 'Chờ thanh toán',
-      in_progress: 'Đang diễn ra',
-      paid: 'Đã thanh toán',
+      pending: 'Cho xac nhan',
+      accepted: 'Da nhan don',
+      rejected: 'Da tu choi',
+      cancelled: 'Da huy',
+      completed: 'Hoan thanh',
+      completed_pending: 'Cho thanh toan',
+      in_progress: 'Dang dien ra',
+      paid: 'Da thanh toan',
+      auto_rejected: 'Tu dong huy',
     };
     return (
       <span className={cn('px-2.5 py-1 rounded-full text-xs font-bold uppercase', styles[status] || 'bg-gray-100 text-gray-700')}>

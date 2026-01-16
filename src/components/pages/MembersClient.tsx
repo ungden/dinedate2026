@@ -18,9 +18,13 @@ import { ActivityType, User } from '@/types';
 import { cn, formatCurrency } from '@/lib/utils';
 import PartnerCard from '@/components/PartnerCard';
 import SmartFilter from '@/components/SmartFilter';
+import FeaturedPartnerSection from '@/components/FeaturedPartnerSection';
 import { useDbPartners } from '@/hooks/useDbPartners';
+import { useDbFeaturedPartners } from '@/hooks/useDbFeaturedPartners';
 import { useAuth } from '@/contexts/AuthContext';
 import toast from 'react-hot-toast';
+import ProfileCompletionCard from '@/components/ProfileCompletionCard';
+import { useProfileCompletion } from '@/hooks/useProfileCompletion';
 
 const LOCATIONS = [
   'Tất cả',
@@ -49,6 +53,7 @@ function getBaseHourly(u: User) {
 
 export default function MembersClient() {
   const { user: authUser } = useAuth();
+  const { percentage: profileCompletion } = useProfileCompletion(authUser);
 
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedLocation, setSelectedLocation] = useState('Tất cả');
@@ -66,6 +71,12 @@ export default function MembersClient() {
     search: searchQuery,
     location: selectedLocation,
     coords: gpsCoords
+  });
+
+  // Featured partners for homepage
+  const { partners: featuredPartners, loading: featuredLoading } = useDbFeaturedPartners({
+    slotType: 'homepage_top',
+    limit: 10
   });
 
   const handleGetLocation = () => {
@@ -169,6 +180,25 @@ export default function MembersClient() {
 
   return (
     <div className="space-y-6 pb-24 min-h-screen">
+      {/* Profile Completion Reminder */}
+      {authUser && profileCompletion < 80 && (
+        <div className="mb-2">
+          <ProfileCompletionCard
+            variant="compact"
+            showThreshold={80}
+            className="shadow-md"
+          />
+        </div>
+      )}
+
+      {/* Featured Partners Section */}
+      {(featuredPartners.length > 0 || featuredLoading) && (
+        <FeaturedPartnerSection
+          partners={featuredPartners}
+          loading={featuredLoading}
+        />
+      )}
+
       {/* Sticky header controls - Pink Glass Effect */}
       <div className="sticky top-[60px] z-30 -mx-4 px-4 bg-rose-50/80 backdrop-blur-xl border-b border-rose-200/50 py-4 space-y-4 shadow-sm">
         <div className="flex items-center justify-between">

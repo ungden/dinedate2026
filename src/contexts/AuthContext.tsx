@@ -16,6 +16,8 @@ import { mapDbUserToUser } from '@/lib/user-mapper';
 import { mapUserUpdatesToDb } from '@/lib/db-users';
 import toast from 'react-hot-toast';
 import { Session } from '@supabase/supabase-js';
+import { getStoredReferralCode, clearStoredReferralCode, REFERRAL_CODE_KEY } from '@/hooks/useReferral';
+import { captureException, addBreadcrumb, setUser as setErrorTrackingUser } from '@/lib/error-tracking';
 
 interface AuthContextType {
   user: User | null;
@@ -37,7 +39,7 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-const publicRoutes = ['/login', '/register', '/', '/discover', '/search', '/about', '/safety'];
+const publicRoutes = ['/login', '/register', '/', '/discover', '/search', '/about', '/safety', '/referral'];
 const authRoutes = ['/login', '/register'];
 
 // Helper: Tạo User tạm từ Session trong khi chờ DB
@@ -96,29 +98,82 @@ async function ensureUsersRow(params: {
     if (existErr) {
         console.error("[Auth] Check user exist error:", existErr);
     }
-    
+
     if (existing?.id) return;
 
     console.log("[Auth] Creating new user row for:", id);
 
+    // Check for referral code
+    let referredBy: string | null = null;
+    const storedReferralCode = getStoredReferralCode();
+
+    if (storedReferralCode) {
+      console.log("[Auth] Found stored referral code:", storedReferralCode);
+
+      // Look up referrer by code
+      const { data: referrer, error: referrerErr } = await supabase
+        .from('users')
+        .select('id')
+        .eq('referral_code', storedReferralCode.toUpperCase())
+        .single();
+
+      if (referrerErr) {
+        console.warn("[Auth] Could not find referrer:", referrerErr);
+      } else if (referrer && referrer.id !== id) {
+        // Make sure user isn't referring themselves
+        referredBy = referrer.id;
+        console.log("[Auth] User referred by:", referredBy);
+      }
+
+      // Clear the stored code
+      clearStoredReferralCode();
+    }
+
     const payload: any = {
       id,
-      name: name || 'Người dùng mới',
+      name: name || 'Nguoi dung moi',
       phone: null,
       avatar: avatar_url || 'https://images.unsplash.com/photo-1518199266791-5375a83190b7?w=400&h=400&fit=crop&crop=faces',
       bio: '',
-      location: 'Hà Nội',
+      location: 'Ha Noi',
       role: 'user',
       is_online: true,
       last_seen: new Date().toISOString(),
       wallet_balance: 0,
       wallet_escrow: 0,
+      referred_by: referredBy,
     };
 
     const { error: insertErr } = await supabase.from('users').upsert(payload, { onConflict: 'id' });
     if (insertErr) {
         console.error("[Auth] Insert user error:", insertErr);
-        toast.error(`Lỗi tạo hồ sơ: ${insertErr.message}`);
+        toast.error(`Loi tao ho so: ${insertErr.message}`);
+    }
+
+    // Create pending referral reward if referred
+    if (referredBy) {
+      const { error: rewardErr } = await supabase.from('referral_rewards').insert({
+        referrer_id: referredBy,
+        referred_id: id,
+        referrer_reward: 50000,
+        referred_reward: 30000,
+        status: 'pending',
+      });
+
+      if (rewardErr) {
+        console.error("[Auth] Error creating referral reward:", rewardErr);
+      } else {
+        console.log("[Auth] Created pending referral reward");
+
+        // Notify the referrer
+        await supabase.from('notifications').insert({
+          user_id: referredBy,
+          type: 'system',
+          title: 'Thanh vien moi!',
+          message: `${name || 'Mot nguoi dung'} da dang ky qua ma gioi thieu cua ban!`,
+          read: false,
+        });
+      }
     }
   } catch (error) {
     console.error('[Auth] Error ensuring user row:', error);
@@ -161,7 +216,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
         if (currentSession?.user) {
           console.log("[Auth] Session found for:", currentSession.user.email);
-          
+
+          // Set error tracking user context
+          setErrorTrackingUser({
+            id: currentSession.user.id,
+            email: currentSession.user.email || undefined,
+            name: (currentSession.user.user_metadata as any)?.name,
+          });
+          addBreadcrumb('auth', 'Session restored', { userId: currentSession.user.id });
+
           // 2. Set user tạm thời
           const tempUser = createTempUserFromSession(currentSession);
           setUser(tempUser);
@@ -240,12 +303,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const isPublicProfile = pathname.startsWith('/user/');
     const isPublicReview = pathname.startsWith('/reviews/');
     const isPublicRequest = pathname.startsWith('/request/');
-    
+    const isReferralLanding = pathname.startsWith('/ref/');
+
     const isPublicRoute =
       publicRoutes.includes(pathname) ||
       isPublicProfile ||
       isPublicReview ||
-      isPublicRequest;
+      isPublicRequest ||
+      isReferralLanding;
 
     if (user && isAuthRoute) {
       router.push('/');
@@ -256,60 +321,104 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [user, isLoading, pathname, router]);
 
   const login = async (email: string, password: string) => {
+    addBreadcrumb('auth', 'Login attempt', { email });
     try {
       const { data, error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) {
           console.error("[Auth] Login error:", error);
+          addBreadcrumb('auth', 'Login failed', { error: error.message });
+          await captureException(error, {
+            component: 'AuthContext',
+            action: 'login',
+            extra: { email },
+          });
           return { error: error.message };
       }
+      addBreadcrumb('auth', 'Login successful', { userId: data.user?.id });
       return {};
     } catch (e: any) {
       console.error("[Auth] Login exception:", e);
+      await captureException(e, {
+        component: 'AuthContext',
+        action: 'login',
+        extra: { email },
+      });
       return { error: e.message || 'Đã xảy ra lỗi khi đăng nhập' };
     }
   };
 
   const register = async (email: string, password: string, name: string) => {
+    addBreadcrumb('auth', 'Register attempt', { email, name });
     try {
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
-        options: { 
-            data: { 
+        options: {
+            data: {
                 name,
                 avatar_url: 'https://images.unsplash.com/photo-1518199266791-5375a83190b7?w=400&h=400&fit=crop&crop=faces'
-            } 
+            }
         },
       });
       if (error) {
           console.error("[Auth] Register error:", error);
+          addBreadcrumb('auth', 'Register failed', { error: error.message });
+          await captureException(error, {
+            component: 'AuthContext',
+            action: 'register',
+            extra: { email, name },
+          });
           return { error: error.message };
       }
+      addBreadcrumb('auth', 'Register successful', { userId: data.user?.id });
       return {};
     } catch (e: any) {
       console.error("[Auth] Register exception:", e);
+      await captureException(e, {
+        component: 'AuthContext',
+        action: 'register',
+        extra: { email, name },
+      });
       return { error: e.message || 'Đã xảy ra lỗi khi đăng ký' };
     }
   };
 
   const signInWithGoogle = async () => {
+    addBreadcrumb('auth', 'Google sign-in attempt');
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: { redirectTo: `${window.location.origin}/` },
     });
-    if (error) return { error: error.message };
+    if (error) {
+      addBreadcrumb('auth', 'Google sign-in failed', { error: error.message });
+      await captureException(error, {
+        component: 'AuthContext',
+        action: 'signInWithGoogle',
+      });
+      return { error: error.message };
+    }
+    addBreadcrumb('auth', 'Google sign-in redirecting');
     return {};
   };
 
   const logout = async () => {
+    addBreadcrumb('auth', 'Logout attempt');
     setIsLoading(true);
     const { error } = await supabase.auth.signOut();
-    if (error) console.error("[Auth] Logout error:", error);
-    
+    if (error) {
+      console.error("[Auth] Logout error:", error);
+      await captureException(error, {
+        component: 'AuthContext',
+        action: 'logout',
+      });
+    }
+
+    setErrorTrackingUser(null);
     setUser(null);
     setSession(null);
     localStorage.clear();
     setIsLoading(false);
+    addBreadcrumb('auth', 'Logout completed');
     router.push('/login');
   };
 

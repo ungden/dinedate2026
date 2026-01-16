@@ -24,6 +24,7 @@ import {
 } from '@/lib/payment';
 import { formatCurrency, cn } from '@/lib/utils';
 import { useDbWalletBalance } from '@/hooks/useDbWalletBalance';
+import { captureException, addBreadcrumb, captureMessage } from '@/lib/error-tracking';
 
 interface TopupModalProps {
   isOpen: boolean;
@@ -86,13 +87,16 @@ export default function TopupModal({
   const createRequestIfNeeded = useCallback(async () => {
     if (localRequestId && localCode) return;
 
+    addBreadcrumb('payment', 'Creating topup request', { amount });
     setIsCreating(true);
     setFatalError(null);
 
     const { data: authData, error: authErr } = await supabase.auth.getUser();
     if (authErr || !authData?.user?.id) {
       setIsCreating(false);
-      setFatalError('Phiên đăng nhập không hợp lệ. Vui lòng đăng nhập lại.');
+      const errorMsg = 'Phiên đăng nhập không hợp lệ. Vui lòng đăng nhập lại.';
+      setFatalError(errorMsg);
+      await captureMessage(errorMsg, 'warning');
       return;
     }
 
@@ -120,10 +124,16 @@ export default function TopupModal({
       } else {
         setFatalError(`Không thể tạo yêu cầu nạp tiền: ${error.message}`);
       }
+      await captureException(error, {
+        component: 'TopupModal',
+        action: 'createTopupRequest',
+        extra: { amount, userId },
+      });
       setIsCreating(false);
       return;
     }
 
+    addBreadcrumb('payment', 'Topup request created', { requestId: data.id, code: data.transfer_code });
     setLocalRequestId(data.id);
     setLocalCode(data.transfer_code);
     setIsCreating(false);
@@ -132,12 +142,13 @@ export default function TopupModal({
   const markSuccess = useCallback(() => {
     if (pollingRef.current) clearInterval(pollingRef.current);
     setPaymentStatus('confirmed');
+    addBreadcrumb('payment', 'Payment confirmed', { requestId: localRequestId, amount });
     // Don't close immediately, let user see success
     setTimeout(() => {
       onSuccess?.();
       onClose(); // Auto close after success
     }, 1500);
-  }, [onClose, onSuccess]);
+  }, [onClose, onSuccess, localRequestId, amount]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -173,8 +184,14 @@ export default function TopupModal({
       } catch (err) {
         if (cancelled) return;
         setConfig(null);
-        setFatalError(toNiceMessage(err, 'Không tải được cấu hình thanh toán'));
+        const errorMsg = toNiceMessage(err, 'Không tải được cấu hình thanh toán');
+        setFatalError(errorMsg);
         setIsBooting(false);
+        await captureException(err, {
+          component: 'TopupModal',
+          action: 'loadPaymentConfig',
+          extra: { amount },
+        });
       }
     };
 

@@ -5,7 +5,10 @@ import { AuthProvider } from '@/contexts/AuthContext';
 import { Toaster } from 'react-hot-toast';
 import toast from 'react-hot-toast';
 import SyncAuthToDateStore from '@/components/SyncAuthToDateStore';
+import PushNotificationPrompt from '@/components/PushNotificationPrompt';
+import ErrorTrackingProvider from '@/components/ErrorTrackingProvider';
 import { toError } from '@/lib/errors';
+import { captureException } from '@/lib/error-tracking';
 
 export default function Providers({ children }: { children: ReactNode }) {
   useEffect(() => {
@@ -14,6 +17,13 @@ export default function Providers({ children }: { children: ReactNode }) {
       event.preventDefault();
       const err = toError(event.reason, 'Promise rejected');
       console.error('Unhandled promise rejection:', event.reason);
+
+      // Log to error tracking
+      captureException(err, {
+        component: 'global',
+        action: 'unhandledRejection',
+      });
+
       toast.error(err.message);
     };
 
@@ -23,9 +33,12 @@ export default function Providers({ children }: { children: ReactNode }) {
 
   return (
     <AuthProvider>
-      <SyncAuthToDateStore />
-      <Toaster position="top-center" />
-      {children}
+      <ErrorTrackingProvider>
+        <SyncAuthToDateStore />
+        <Toaster position="top-center" />
+        <PushNotificationPrompt />
+        {children}
+      </ErrorTrackingProvider>
     </AuthProvider>
   );
 }

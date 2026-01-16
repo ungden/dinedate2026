@@ -87,6 +87,8 @@ export function mapDbUserToUser(row: DbUserRow): User {
     totalSpending: Number(row.total_spending || 0),
     images: gallery.length > 0 ? gallery : row.avatar ? [row.avatar] : [],
     phone: row.phone ?? undefined,
+    phoneVerified: !!row.phone_verified,
+    phoneVerifiedAt: row.phone_verified_at ?? undefined,
     email: row.email ?? undefined,
     occupation: row.occupation ?? undefined,
     rating: rating,
@@ -107,5 +109,7 @@ export function mapDbUserToUser(row: DbUserRow): User {
     partner_agreed_version: row.partner_agreed_version ?? undefined,
     createdAt: row.created_at ?? undefined,
     bankInfo: row.bank_info || undefined,
+    onboardingCompleted: row.onboarding_completed ?? false,
+    onboardingCompletedAt: row.onboarding_completed_at ?? undefined,
   };
 }

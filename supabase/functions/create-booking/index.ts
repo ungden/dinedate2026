@@ -1,6 +1,12 @@
 // @ts-nocheck
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0'
+import {
+  checkRateLimitDb,
+  getClientIP,
+  createRateLimitResponse,
+  addRateLimitHeaders,
+} from '../_shared/rate-limit.ts'
 
 const allowedOrigins = (Deno.env.get('ALLOWED_ORIGINS') || 'https://www.dinedate.vn').split(',');
 
@@ -36,6 +42,7 @@ type CreateBookingBody = {
   location: string
   message?: string
   durationHours?: number
+  promoCodeId?: string // Optional promo code ID (pre-validated)
 }
 
 function toIso(date: string, time: string) {
@@ -68,6 +75,15 @@ serve(async (req: Request) => {
   const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey, {
     auth: { persistSession: false },
   })
+
+  // Rate limit check - use IP + user token hash as identifier
+  const clientIP = getClientIP(req)
+  const rateLimitId = `${clientIP}:${token.substring(0, 16)}`
+  const rateLimitResult = await checkRateLimitDb(supabaseAdmin, rateLimitId, 'booking')
+
+  if (!rateLimitResult.allowed) {
+    return createRateLimitResponse(rateLimitResult, corsHeaders)
+  }
 
   const supabaseUserClient = createClient(supabaseUrl, supabaseAnonKey, {
     auth: { persistSession: false },
@@ -142,14 +158,88 @@ serve(async (req: Request) => {
     return new Response(JSON.stringify({ error: 'Invalid service price' }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
   }
 
-  // For now, 1 booking = 1 unit (1 session or 1 day). 
+  // For now, 1 booking = 1 unit (1 session or 1 day).
   // If we want to support multiple days/sessions later, we'd multiply here.
   const subTotal = Math.round(unitPrice)
-  
-  // Apply fee logic
-  const platformFee = Math.round(subTotal * effectiveFeeRate)
-  const partnerEarning = Math.round(subTotal - platformFee)
-  const totalCharge = subTotal 
+
+  // Handle promo code discount
+  let promoDiscount = 0
+  let promoCodeData = null
+
+  if (body.promoCodeId) {
+    // Fetch and validate promo code
+    const { data: promoCode, error: promoErr } = await supabaseAdmin
+      .from('promo_codes')
+      .select('*')
+      .eq('id', body.promoCodeId)
+      .single()
+
+    if (!promoErr && promoCode && promoCode.is_active) {
+      // Verify the promo code is still valid
+      const now = new Date()
+      const validFrom = promoCode.valid_from ? new Date(promoCode.valid_from) : null
+      const validUntil = promoCode.valid_until ? new Date(promoCode.valid_until) : null
+
+      const isDateValid = (!validFrom || validFrom <= now) && (!validUntil || validUntil >= now)
+      const isUsageLimitValid = promoCode.usage_limit === 0 || promoCode.used_count < promoCode.usage_limit
+      const isMinOrderValid = promoCode.min_order_amount === 0 || subTotal >= promoCode.min_order_amount
+
+      // Check per-user limit
+      let userUsageValid = true
+      if (promoCode.user_limit > 0) {
+        const { count } = await supabaseAdmin
+          .from('promo_code_usages')
+          .select('*', { count: 'exact', head: true })
+          .eq('promo_code_id', promoCode.id)
+          .eq('user_id', userId)
+
+        if (count !== null && count >= promoCode.user_limit) {
+          userUsageValid = false
+        }
+      }
+
+      // Check first_booking_only
+      let firstBookingValid = true
+      if (promoCode.first_booking_only) {
+        const { count: bookingCount } = await supabaseAdmin
+          .from('bookings')
+          .select('*', { count: 'exact', head: true })
+          .eq('user_id', userId)
+          .not('status', 'in', '("rejected","auto_rejected","cancelled")')
+
+        if (bookingCount !== null && bookingCount > 0) {
+          firstBookingValid = false
+        }
+      }
+
+      if (isDateValid && isUsageLimitValid && isMinOrderValid && userUsageValid && firstBookingValid) {
+        promoCodeData = promoCode
+
+        // Calculate discount
+        if (promoCode.discount_type === 'percentage') {
+          promoDiscount = Math.round((subTotal * promoCode.discount_value) / 100)
+          if (promoCode.max_discount_amount > 0 && promoDiscount > promoCode.max_discount_amount) {
+            promoDiscount = promoCode.max_discount_amount
+          }
+        } else {
+          promoDiscount = promoCode.discount_value
+        }
+
+        // Ensure discount doesn't exceed order amount
+        if (promoDiscount > subTotal) {
+          promoDiscount = subTotal
+        }
+      }
+    }
+  }
+
+  // Calculate final amounts after discount
+  const discountedSubTotal = subTotal - promoDiscount
+
+  // Apply fee logic (fee calculated on discounted amount)
+  const platformFee = Math.round(discountedSubTotal * effectiveFeeRate)
+  const partnerEarning = Math.round(discountedSubTotal - platformFee)
+  const totalCharge = discountedSubTotal 
 
   // 2) Fetch booker wallet
   const { data: bookerRow, error: bookerErr } = await supabaseAdmin
@@ -183,8 +273,11 @@ serve(async (req: Request) => {
       meeting_location: body.location,
       meeting_lat: null,
       meeting_lng: null,
-      hourly_rate: null, 
-      total_amount: subTotal,
+      hourly_rate: null,
+      original_amount: subTotal, // Original price before discount
+      promo_code_id: promoCodeData?.id || null,
+      promo_discount: promoDiscount,
+      total_amount: discountedSubTotal, // Amount after discount
       platform_fee: platformFee,
       partner_earning: partnerEarning,
       status: 'pending',
@@ -227,8 +320,37 @@ serve(async (req: Request) => {
     console.error("Tx log failed", txErr);
   }
 
-  return new Response(JSON.stringify({ bookingId: bookingRow.id }), {
+  // 6) Record promo code usage if applicable
+  if (promoCodeData && promoDiscount > 0) {
+    // Insert usage record
+    const { error: usageErr } = await supabaseAdmin
+      .from('promo_code_usages')
+      .insert({
+        promo_code_id: promoCodeData.id,
+        user_id: userId,
+        booking_id: bookingRow.id,
+        discount_amount: promoDiscount,
+      })
+
+    if (usageErr) {
+      console.error("Promo usage log failed", usageErr);
+    }
+
+    // Increment used_count on promo_codes
+    const { error: updatePromoErr } = await supabaseAdmin
+      .from('promo_codes')
+      .update({
+        used_count: promoCodeData.used_count + 1,
+      })
+      .eq('id', promoCodeData.id)
+
+    if (updatePromoErr) {
+      console.error("Promo count update failed", updatePromoErr);
+    }
+  }
+
+  return new Response(JSON.stringify({ bookingId: bookingRow.id, promoDiscount }), {
     status: 200,
-    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    headers: addRateLimitHeaders({ ...corsHeaders, 'Content-Type': 'application/json' }, rateLimitResult, 'booking'),
   })
 })

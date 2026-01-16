@@ -19,6 +19,13 @@ type MotionArticleProps = HTMLMotionProps<'article'> & ComponentProps<'article'>
 type MotionHeaderProps = HTMLMotionProps<'header'> & ComponentProps<'header'>;
 type MotionFooterProps = HTMLMotionProps<'footer'> & ComponentProps<'footer'>;
 type MotionImgProps = HTMLMotionProps<'img'> & ComponentProps<'img'>;
+type MotionInputProps = HTMLMotionProps<'input'> & ComponentProps<'input'>;
+type MotionFormProps = HTMLMotionProps<'form'> & ComponentProps<'form'>;
+type MotionSvgProps = HTMLMotionProps<'svg'> & ComponentProps<'svg'>;
+type MotionCircleProps = HTMLMotionProps<'circle'> & ComponentProps<'circle'>;
+type MotionPathProps = HTMLMotionProps<'path'> & ComponentProps<'path'>;
+type MotionLabelProps = HTMLMotionProps<'label'> & ComponentProps<'label'>;
+type MotionTextareaProps = HTMLMotionProps<'textarea'> & ComponentProps<'textarea'>;
 
 // Re-export motion with better types
 export const motion = {
@@ -39,6 +46,13 @@ export const motion = {
     header: framerMotion.header as React.FC<MotionHeaderProps>,
     footer: framerMotion.footer as React.FC<MotionFooterProps>,
     img: framerMotion.img as React.FC<MotionImgProps>,
+    input: framerMotion.input as React.FC<MotionInputProps>,
+    form: framerMotion.form as React.FC<MotionFormProps>,
+    svg: framerMotion.svg as React.FC<MotionSvgProps>,
+    circle: framerMotion.circle as React.FC<MotionCircleProps>,
+    path: framerMotion.path as React.FC<MotionPathProps>,
+    label: framerMotion.label as React.FC<MotionLabelProps>,
+    textarea: framerMotion.textarea as React.FC<MotionTextareaProps>,
 };
 
 // Re-export everything else from framer-motion

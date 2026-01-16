@@ -2,25 +2,37 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { 
-  LayoutDashboard, 
-  Users, 
-  CreditCard, 
-  Calendar, 
+import {
+  LayoutDashboard,
+  Users,
+  CreditCard,
+  Calendar,
   LogOut,
   Star,
-  ArrowDownLeft
+  ArrowDownLeft,
+  AlertTriangle,
+  MessageSquareWarning,
+  Tag,
+  BarChart3,
+  HelpCircle,
+  Bug,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
 
 const NAV_ITEMS = [
-  { href: '/admin', label: 'Tổng quan', icon: LayoutDashboard },
-  { href: '/admin/users', label: 'Người dùng', icon: Users },
+  { href: '/admin', label: 'Tong quan', icon: LayoutDashboard },
+  { href: '/admin/finance', label: 'Tai chinh', icon: BarChart3 },
+  { href: '/admin/users', label: 'Nguoi dung', icon: Users },
   { href: '/admin/bookings', label: 'Bookings', icon: Calendar },
-  { href: '/admin/reviews', label: 'Đánh giá', icon: Star },
-  { href: '/admin/withdrawals', label: 'Rút tiền', icon: ArrowDownLeft },
-  { href: '/admin/payment', label: 'Cấu hình & Ví', icon: CreditCard },
+  { href: '/admin/promo-codes', label: 'Ma giam gia', icon: Tag },
+  { href: '/admin/support', label: 'Ho tro', icon: HelpCircle },
+  { href: '/admin/disputes', label: 'Khieu nai', icon: MessageSquareWarning },
+  { href: '/admin/reports', label: 'Bao cao', icon: AlertTriangle },
+  { href: '/admin/reviews', label: 'Danh gia', icon: Star },
+  { href: '/admin/withdrawals', label: 'Rut tien', icon: ArrowDownLeft },
+  { href: '/admin/errors', label: 'Loi he thong', icon: Bug },
+  { href: '/admin/payment', label: 'Cau hinh & Vi', icon: CreditCard },
 ];
 
 export function AdminSidebar() {

@@ -168,6 +168,8 @@ export interface User {
   totalSpending?: number; // New field
   images?: string[];
   phone?: string;
+  phoneVerified?: boolean;
+  phoneVerifiedAt?: string;
   email?: string;
   isBanned?: boolean;
   role?: 'user' | 'partner' | 'admin';
@@ -187,8 +189,10 @@ export interface User {
   birthYear?: number;
   partner_agreed_at?: string;
   partner_agreed_version?: string;
-  createdAt?: string; 
-  bankInfo?: BankInfo; 
+  createdAt?: string;
+  bankInfo?: BankInfo;
+  onboardingCompleted?: boolean;
+  onboardingCompletedAt?: string;
 }
 
 export interface DateRequest {
@@ -333,12 +337,15 @@ export interface ServiceBooking {
   time: string;
   location: string;
   message: string;
-  status: 'pending' | 'accepted' | 'rejected' | 'completed' | 'paid' | 'in_progress';
+  status: 'pending' | 'accepted' | 'rejected' | 'completed' | 'paid' | 'in_progress' | 'completed_pending' | 'auto_rejected' | 'disputed';
   isPaid: boolean;
   escrowAmount: number;
   providerPhone?: string;
   createdAt: string;
+  updatedAt?: string;
   completedAt?: string;
+  autoCompleted?: boolean;
+  autoRejected?: boolean;
 }
 
 export interface Report {
@@ -356,4 +363,60 @@ export interface UserBan {
   reason: string;
   bannedAt: string;
   expiresAt?: string;
+}
+
+// Phone OTP Verification Types
+export interface PhoneVerification {
+  id: string;
+  userId: string;
+  phone: string;
+  otpCode: string;
+  expiresAt: string;
+  verified: boolean;
+  attempts: number;
+  createdAt: string;
+}
+
+export interface SendOtpRequest {
+  phone: string;
+}
+
+export interface SendOtpResponse {
+  success: boolean;
+  message: string;
+  expiresAt?: string;
+}
+
+export interface VerifyOtpRequest {
+  phone: string;
+  otpCode: string;
+}
+
+export interface VerifyOtpResponse {
+  success: boolean;
+  message: string;
+  verified?: boolean;
+}
+
+export type PhoneVerificationStatus = 'idle' | 'sending' | 'sent' | 'verifying' | 'verified' | 'error';
+
+// Dispute Types
+export type DisputeStatus = 'pending' | 'investigating' | 'resolved';
+export type DisputeResolution = 'refund_full' | 'refund_partial' | 'release_to_partner' | 'no_action';
+
+export interface Dispute {
+  id: string;
+  bookingId: string;
+  userId: string;
+  reason: string;
+  description: string;
+  evidenceUrls: string[];
+  status: DisputeStatus;
+  resolution?: DisputeResolution;
+  resolutionAmount?: number;
+  resolutionNotes?: string;
+  resolvedBy?: string;
+  resolvedAt?: string;
+  createdAt: string;
+  updatedAt?: string;
 }

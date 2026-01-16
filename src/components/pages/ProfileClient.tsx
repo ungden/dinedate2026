@@ -16,17 +16,25 @@ import {
   Bell,
   Star,
   Users,
-  Briefcase
+  Briefcase,
+  AlertCircle,
+  Sparkles,
+  HelpCircle,
 } from 'lucide-react';
 import { useDateStore } from '@/hooks/useDateStore';
 import { useAuth } from '@/contexts/AuthContext';
 import { formatCurrency, getVIPBadgeColor, cn } from '@/lib/utils';
 import { useDbChat } from '@/hooks/useDbChat';
+import { useMyFeaturedStatus } from '@/hooks/useDbFeaturedPartners';
+import ProfileCompletionCard from '@/components/ProfileCompletionCard';
+import { useProfileCompletion } from '@/hooks/useProfileCompletion';
 
 export default function ProfileClient() {
   const { logout, user: authUser } = useAuth();
   const { getMyRequests, getMyApplications, getMyNotifications } = useDateStore();
   const { conversations } = useDbChat();
+  const { percentage, missingFields, isCompleteEnoughForBooking, requiredFieldsMissing } = useProfileCompletion(authUser);
+  const { slot: featuredSlot, isActive: isFeatured } = useMyFeaturedStatus(authUser?.id);
 
   if (!authUser) {
     return (
@@ -140,6 +148,39 @@ export default function ProfileClient() {
         </div>
       </div>
 
+      {/* Profile Completion Card */}
+      {percentage < 100 && (
+        <div className="px-4 mt-6">
+          <ProfileCompletionCard
+            showThreshold={100}
+            variant="full"
+          />
+        </div>
+      )}
+
+      {/* Booking Restriction Warning */}
+      {!isCompleteEnoughForBooking && (
+        <div className="px-4 mt-4">
+          <div className="bg-red-50 border border-red-200 rounded-2xl p-4 flex items-start gap-3">
+            <div className="w-10 h-10 bg-red-100 rounded-xl flex items-center justify-center flex-shrink-0">
+              <AlertCircle className="w-5 h-5 text-red-600" />
+            </div>
+            <div>
+              <p className="font-bold text-red-800 text-sm">Khong the dat lich</p>
+              <p className="text-xs text-red-700 mt-1">
+                Ban can hoan thien: {requiredFieldsMissing.join(', ')} de co the dat lich hen voi Partner.
+              </p>
+              <Link
+                href="/profile/edit"
+                className="inline-block mt-2 px-4 py-2 bg-red-600 text-white rounded-xl text-xs font-bold hover:bg-red-700 transition-colors"
+              >
+                Cap nhat ngay
+              </Link>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Menu */}
       <div className="px-4 mt-6 space-y-6 pb-32">
         <Link href="/wallet">
@@ -182,6 +223,39 @@ export default function ProfileClient() {
               </div>
               <ChevronRight className="w-4 h-4 text-gray-300" />
             </Link>
+
+            {isPartner && (
+              <Link href="/boost-profile" className="flex items-center justify-between p-4 hover:bg-gray-50 transition tap-highlight">
+                <div className="flex items-center gap-3">
+                  <div className={cn(
+                    "w-10 h-10 rounded-xl flex items-center justify-center shadow-md",
+                    isFeatured
+                      ? "bg-gradient-to-br from-amber-400 to-orange-500 text-white"
+                      : "bg-amber-50 text-amber-600"
+                  )}>
+                    <Sparkles className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <p className="font-medium text-gray-900">Tăng lượt xem</p>
+                    {isFeatured && featuredSlot ? (
+                      <p className="text-[11px] text-green-600 font-medium">
+                        Đang nổi bật đến {new Date(featuredSlot.end_date).toLocaleDateString('vi-VN')}
+                      </p>
+                    ) : (
+                      <p className="text-[11px] text-gray-400 font-medium">Hiển thị nổi bật hồ sơ</p>
+                    )}
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  {isFeatured && (
+                    <span className="px-2 py-0.5 bg-green-100 text-green-600 text-[10px] font-bold rounded-full">
+                      ACTIVE
+                    </span>
+                  )}
+                  <ChevronRight className="w-4 h-4 text-gray-300" />
+                </div>
+              </Link>
+            )}
           </div>
         </div>
 
@@ -270,7 +344,17 @@ export default function ProfileClient() {
                 <div className="w-10 h-10 bg-green-50 text-green-600 rounded-xl flex items-center justify-center">
                   <ShieldCheck className="w-5 h-5" />
                 </div>
-                <span className="font-medium text-gray-900">Trung tâm an toàn</span>
+                <span className="font-medium text-gray-900">Trung tam an toan</span>
+              </div>
+              <ChevronRight className="w-4 h-4 text-gray-300" />
+            </Link>
+
+            <Link href="/support" className="flex items-center justify-between p-4 hover:bg-gray-50 transition tap-highlight">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-primary-50 text-primary-600 rounded-xl flex items-center justify-center">
+                  <HelpCircle className="w-5 h-5" />
+                </div>
+                <span className="font-medium text-gray-900">Ho tro khach hang</span>
               </div>
               <ChevronRight className="w-4 h-4 text-gray-300" />
             </Link>

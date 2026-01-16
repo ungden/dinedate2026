@@ -3,15 +3,20 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { useAuth } from '@/contexts/AuthContext';
-import { ArrowLeft, Bell, Lock, LogOut, ChevronRight, User, Trash2, AtSign, Loader2, Check } from 'lucide-react';
+import { ArrowLeft, Bell, Lock, LogOut, ChevronRight, User, Trash2, AtSign, Loader2, Check, Phone, ShieldCheck, ShieldAlert, HelpCircle } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { supabase } from '@/integrations/supabase/client';
+import PhoneVerification from '@/components/PhoneVerification';
+import { usePhoneVerifiedStatus } from '@/hooks/usePhoneVerification';
+import { cn } from '@/lib/utils';
 
 export default function SettingsClient() {
   const { user, logout, updateUser } = useAuth();
   const [username, setUsername] = useState(user?.username || '');
   const [isChecking, setIsChecking] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [showPhoneVerification, setShowPhoneVerification] = useState(false);
+  const { phone, isPhoneVerified } = usePhoneVerifiedStatus();
 
   const handleUpdateUsername = async () => {
     if (!username.trim()) return;
@@ -122,7 +127,7 @@ export default function SettingsClient() {
             </Link>
           </div>
 
-          <button 
+          <button
             onClick={handleChangePassword}
             className="w-full p-4 flex items-center justify-between hover:bg-gray-50 transition text-left"
           >
@@ -130,18 +135,60 @@ export default function SettingsClient() {
               <div className="w-10 h-10 bg-orange-50 text-orange-600 rounded-xl flex items-center justify-center">
                 <Lock className="w-5 h-5" />
               </div>
-              <span className="font-medium text-gray-900">Đổi mật khẩu</span>
+              <span className="font-medium text-gray-900">Doi mat khau</span>
             </div>
             <ChevronRight className="w-5 h-5 text-gray-300" />
           </button>
+
+          {/* Phone Verification Section */}
+          <div className="p-4 flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className={cn(
+                "w-10 h-10 rounded-xl flex items-center justify-center",
+                isPhoneVerified ? "bg-green-50 text-green-600" : "bg-yellow-50 text-yellow-600"
+              )}>
+                <Phone className="w-5 h-5" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <p className="font-medium text-gray-900">So dien thoai</p>
+                  {isPhoneVerified ? (
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-green-100 text-green-700 text-xs font-bold rounded-full">
+                      <ShieldCheck className="w-3 h-3" />
+                      Da xac minh
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-yellow-100 text-yellow-700 text-xs font-bold rounded-full">
+                      <ShieldAlert className="w-3 h-3" />
+                      Chua xac minh
+                    </span>
+                  )}
+                </div>
+                <p className="text-sm text-gray-500">
+                  {phone || 'Chua cap nhat so dien thoai'}
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={() => setShowPhoneVerification(true)}
+              className={cn(
+                "px-3 py-1.5 rounded-lg font-medium text-sm transition",
+                isPhoneVerified
+                  ? "text-gray-600 hover:bg-gray-100"
+                  : "text-primary-600 bg-primary-50 hover:bg-primary-100"
+              )}
+            >
+              {isPhoneVerified ? 'Doi so' : 'Xac minh'}
+            </button>
+          </div>
         </div>
       </div>
 
       <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
         <div className="p-4 border-b border-gray-100 bg-gray-50">
-          <p className="text-xs font-bold text-gray-500 uppercase tracking-wider">Ứng dụng</p>
+          <p className="text-xs font-bold text-gray-500 uppercase tracking-wider">Ung dung</p>
         </div>
-        
+
         <div className="divide-y divide-gray-100">
           <div className="p-4 flex items-center justify-between">
             <div className="flex items-center gap-3">
@@ -149,8 +196,8 @@ export default function SettingsClient() {
                 <Bell className="w-5 h-5" />
               </div>
               <div>
-                <p className="font-medium text-gray-900">Thông báo đẩy</p>
-                <p className="text-xs text-gray-500">Nhận thông báo về tin nhắn, booking</p>
+                <p className="font-medium text-gray-900">Thong bao day</p>
+                <p className="text-xs text-gray-500">Nhan thong bao ve tin nhan, booking</p>
               </div>
             </div>
             <div className="relative inline-block w-12 mr-2 align-middle select-none transition duration-200 ease-in">
@@ -158,6 +205,23 @@ export default function SettingsClient() {
               <label htmlFor="toggle" className="toggle-label block overflow-hidden h-6 rounded-full bg-gray-300 cursor-pointer checked:bg-green-400"></label>
             </div>
           </div>
+
+          {/* Support Link */}
+          <Link
+            href="/support"
+            className="p-4 flex items-center justify-between hover:bg-gray-50 transition"
+          >
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-primary-50 text-primary-600 rounded-xl flex items-center justify-center">
+                <HelpCircle className="w-5 h-5" />
+              </div>
+              <div>
+                <p className="font-medium text-gray-900">Ho tro khach hang</p>
+                <p className="text-xs text-gray-500">Gui yeu cau ho tro, xem trang thai</p>
+              </div>
+            </div>
+            <ChevronRight className="w-5 h-5 text-gray-300" />
+          </Link>
         </div>
       </div>
 
@@ -180,8 +244,18 @@ export default function SettingsClient() {
       </div>
 
       <div className="text-center">
-        <p className="text-xs text-gray-400">Phiên bản 1.0.0 (Beta)</p>
+        <p className="text-xs text-gray-400">Phien ban 1.0.0 (Beta)</p>
       </div>
+
+      {/* Phone Verification Modal */}
+      <PhoneVerification
+        isOpen={showPhoneVerification}
+        onClose={() => setShowPhoneVerification(false)}
+        onVerified={(verifiedPhone) => {
+          toast.success(`So ${verifiedPhone} da duoc xac minh!`);
+        }}
+        initialPhone={phone || ''}
+      />
     </div>
   );
 }

@@ -1,16 +1,20 @@
 'use client';
 
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from '@/lib/motion';
 import Header from './Header';
 import BottomNavigation from './BottomNavigation';
+import OnboardingTutorial from './OnboardingTutorial';
 import { useAuth } from '@/contexts/AuthContext';
+import { useOnboarding } from '@/hooks/useOnboarding';
 import { useEffect } from 'react';
 import toast from 'react-hot-toast';
 
 export default function ClientLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const { isLoading, logout } = useAuth();
+  const router = useRouter();
+  const { isLoading, logout, user, isAuthenticated } = useAuth();
+  const { showOnboarding, completeOnboarding, dismissOnboarding } = useOnboarding();
   
   // Các trang không hiển thị Header/Footer
   const isAuthPage = pathname === '/login' || pathname === '/register';
@@ -76,6 +80,22 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
     );
   }
 
+  // Handle onboarding skip - redirect to profile edit if profile is incomplete
+  const handleOnboardingSkip = () => {
+    dismissOnboarding();
+    // Check if profile is incomplete (no name set properly or no avatar)
+    const isProfileIncomplete = !user?.name || user.name === 'Nguoi dung moi' || !user?.bio;
+    if (isProfileIncomplete && isAuthenticated) {
+      router.push('/profile/edit');
+    }
+  };
+
+  // Handle onboarding complete - always redirect to profile edit
+  const handleOnboardingComplete = async () => {
+    await completeOnboarding();
+    // Router push is handled in the OnboardingTutorial component
+  };
+
   // Layout chính cho các trang trong ứng dụng
   return (
     <div className="min-h-screen bg-gray-50/50">
@@ -93,6 +113,13 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
         </motion.main>
       </AnimatePresence>
       <BottomNavigation />
+
+      {/* Onboarding Tutorial for new users */}
+      <OnboardingTutorial
+        isOpen={showOnboarding && isAuthenticated && !isAuthPage}
+        onComplete={handleOnboardingComplete}
+        onSkip={handleOnboardingSkip}
+      />
     </div>
   );
 }

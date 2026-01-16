@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState, useRef } from 'react';
+import { useMemo, useState, useRef, useEffect } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
@@ -26,7 +26,9 @@ import {
   QrCode,
   Mic2,
   MessageCircle,
-  Info
+  Info,
+  Flag,
+  ShieldOff
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { cn, formatCurrency, getVIPBadgeColor, getActivityIcon, isNewPartner, isQualityPartner } from '@/lib/utils';
@@ -38,6 +40,13 @@ import { createBookingViaEdge } from '@/lib/booking';
 import { motion, AnimatePresence } from '@/lib/motion';
 import TopupModal from '@/components/TopupModal';
 import VoiceIntro from '@/components/VoiceIntro';
+import ReportUserModal from '@/components/ReportUserModal';
+import BlockUserModal from '@/components/BlockUserModal';
+import PromoCodeInput from '@/components/PromoCodeInput';
+import { useBlockedUsers } from '@/hooks/useBlockedUsers';
+import { useProfileCompletion } from '@/hooks/useProfileCompletion';
+import { usePromoCode, PromoValidationResult } from '@/hooks/usePromoCode';
+import { supabase } from '@/integrations/supabase/client';
 
 const SESSION_HOURS = 3;
 
@@ -48,6 +57,9 @@ export default function UserProfilePage() {
 
   const { user: authUser } = useAuth();
   const { user, services: dbServices, reviews, rating, loading } = useDbUserProfile(userId);
+  const { isBlocked, blockUser, unblockUser } = useBlockedUsers();
+  const { isCompleteEnoughForBooking, requiredFieldsMissing } = useProfileCompletion(authUser);
+  const { validatePromoCode, appliedPromo, clearPromo, setAppliedPromo, loading: promoLoading } = usePromoCode();
 
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [isLightboxOpen, setIsLightboxOpen] = useState(false);
@@ -58,6 +70,27 @@ export default function UserProfilePage() {
   }, [dbServices]);
 
   const isCurrentUser = !!authUser && !!user && authUser.id === user.id;
+
+  // Track profile view when page loads (don't track own profile view)
+  useEffect(() => {
+    const trackProfileView = async () => {
+      if (!user?.id) return;
+      if (isCurrentUser) return; // Don't track own profile view
+
+      try {
+        await supabase.from('profile_views').insert({
+          viewer_id: authUser?.id || null, // null for anonymous viewers
+          viewed_id: user.id,
+          source: 'direct',
+        });
+      } catch (error) {
+        // Silently fail - tracking shouldn't affect user experience
+        console.error('Failed to track profile view:', error);
+      }
+    };
+
+    trackProfileView();
+  }, [user?.id, authUser?.id, isCurrentUser]);
 
   const [selectedServiceId, setSelectedServiceId] = useState<string | null>(null);
   // Removed explicit date/time/location form state. 
@@ -75,6 +108,12 @@ export default function UserProfilePage() {
     isOpen: false,
     actionType: 'generic',
   });
+
+  const [showReportModal, setShowReportModal] = useState(false);
+  const [showBlockModal, setShowBlockModal] = useState(false);
+
+  // Check if current user has blocked this profile
+  const userIsBlocked = user ? isBlocked(user.id) : false;
 
   if (loading) {
     return (
@@ -119,28 +158,42 @@ export default function UserProfilePage() {
 
   const openBookingForService = (serviceId: string) => {
     if (isCurrentUser) return;
-    
+
     // Check login
     if (!authUser) {
         setAuthModal({ isOpen: true, actionType: 'book' });
         return;
     }
 
-    // Check phone
+    // Check profile completion (required fields)
+    if (!isCompleteEnoughForBooking) {
+        const missingList = requiredFieldsMissing.join(', ');
+        toast.error(
+          `Vui long hoan thien ho so truoc khi dat lich. Con thieu: ${missingList}`,
+          {
+            duration: 4000,
+            icon: '📝',
+          }
+        );
+        setTimeout(() => router.push('/profile/edit'), 2000);
+        return;
+    }
+
+    // Check phone (redundant but keeping for backwards compatibility)
     if (!authUser.phone) {
-        toast.error('Vui lòng cập nhật số điện thoại trước khi đặt lịch');
+        toast.error('Vui long cap nhat so dien thoai truoc khi dat lich');
         setTimeout(() => router.push('/profile/edit'), 1500);
         return;
     }
 
     setSelectedServiceId(serviceId);
-    setBookingMessage(''); 
+    setBookingMessage('');
   };
 
   const executeBooking = async () => {
     if (!authUser || !selectedServiceId) return;
     setIsBooking(true);
-    
+
     // Default placeholders since we removed the form
     const now = new Date();
     const dateStr = now.toISOString().split('T')[0];
@@ -152,22 +205,25 @@ export default function UserProfilePage() {
         serviceId: selectedServiceId,
         date: dateStr, // Placeholder: Today
         time: timeStr, // Placeholder: Now
-        location: 'Thỏa thuận qua chat', // Explicit marker
+        location: 'Thoa thuan qua chat', // Explicit marker
         message: bookingMessage,
         durationHours: SESSION_HOURS,
+        promoCodeId: appliedPromo?.promoCodeId, // Pass promo code if applied
       });
       if (res?.bookingId) {
-        toast.success('Thanh toán thành công! Đang kết nối...');
+        const discountMsg = res.promoDiscount ? ` (Da giam ${formatCurrency(res.promoDiscount)})` : '';
+        toast.success(`Thanh toan thanh cong!${discountMsg} Dang ket noi...`);
         setSelectedServiceId(null);
         setShowPaymentModal(false);
+        clearPromo(); // Clear promo after successful booking
         router.push('/manage-bookings'); // Redirect to manage to see status
       }
     } catch (err: any) {
       const msg = (err?.context?.body?.message || err?.message || '').toString();
       if (msg.includes('INSUFFICIENT_FUNDS')) {
-        alert('Số dư không đủ. Vui lòng nạp thêm tiền.');
+        alert('So du khong du. Vui long nap them tien.');
       } else {
-        alert('Lỗi: ' + msg);
+        alert('Loi: ' + msg);
       }
     } finally {
       setIsBooking(false);
@@ -180,14 +236,16 @@ export default function UserProfilePage() {
   };
 
   const selectedService = services.find((s) => s.id === selectedServiceId);
-  const totalPrice = selectedService?.price || 0;
+  const originalPrice = selectedService?.price || 0;
+  const discountAmount = appliedPromo?.discountAmount || 0;
+  const totalPrice = originalPrice - discountAmount;
 
   return (
     <div className="max-w-5xl mx-auto pb-28 px-0 md:px-4">
       {/* Desktop Nav */}
       <div className="hidden md:flex items-center justify-between mb-4">
         <button onClick={() => router.back()} className="flex items-center gap-2 text-gray-600 hover:text-gray-900 font-bold transition">
-            <ArrowLeft className="w-5 h-5" /> Quay lại
+            <ArrowLeft className="w-5 h-5" /> Quay lai
         </button>
         <div className="flex gap-2">
             <button className="p-2.5 bg-white border border-gray-200 rounded-xl hover:bg-gray-50 text-gray-700 transition">
@@ -196,15 +254,60 @@ export default function UserProfilePage() {
             <button className="p-2.5 bg-white border border-gray-200 rounded-xl hover:bg-gray-50 text-gray-700 transition">
                 <Heart className="w-5 h-5" />
             </button>
+            {/* Report & Block buttons - only show for other users */}
+            {authUser && !isCurrentUser && (
+                <>
+                    <button
+                        onClick={() => setShowReportModal(true)}
+                        className="p-2.5 bg-white border border-gray-200 rounded-xl hover:bg-amber-50 hover:border-amber-200 text-gray-500 hover:text-amber-600 transition"
+                        title="Bao cao"
+                    >
+                        <Flag className="w-5 h-5" />
+                    </button>
+                    <button
+                        onClick={() => userIsBlocked ? unblockUser(user!.id) : setShowBlockModal(true)}
+                        className={cn(
+                            "p-2.5 border rounded-xl transition",
+                            userIsBlocked
+                                ? "bg-red-50 border-red-200 text-red-600 hover:bg-red-100"
+                                : "bg-white border-gray-200 text-gray-500 hover:bg-red-50 hover:border-red-200 hover:text-red-600"
+                        )}
+                        title={userIsBlocked ? "Bo chan" : "Chan"}
+                    >
+                        <ShieldOff className="w-5 h-5" />
+                    </button>
+                </>
+            )}
         </div>
       </div>
+
+      {/* Blocked User Banner */}
+      {userIsBlocked && (
+        <div className="mb-4 mx-4 md:mx-0 p-4 bg-red-50 border border-red-100 rounded-2xl">
+            <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-red-100 rounded-xl flex items-center justify-center">
+                    <ShieldOff className="w-5 h-5 text-red-600" />
+                </div>
+                <div className="flex-1">
+                    <p className="font-bold text-red-800">Da chan nguoi nay</p>
+                    <p className="text-sm text-red-700">Ban va nguoi nay se khong nhin thay nhau trong tim kiem.</p>
+                </div>
+                <button
+                    onClick={() => unblockUser(user!.id)}
+                    className="px-4 py-2 bg-white border border-red-200 text-red-600 rounded-xl font-bold text-sm hover:bg-red-50 transition"
+                >
+                    Bo chan
+                </button>
+            </div>
+        </div>
+      )}
 
       {/* --- SQUARE CAROUSEL --- */}
       <div className="relative w-full md:max-w-md md:mx-auto aspect-square rounded-b-[32px] md:rounded-[32px] overflow-hidden bg-gray-100 shadow-xl group">
         {/* Navigation Overlay (Mobile) */}
         <div className="md:hidden absolute top-0 left-0 right-0 p-4 z-20 flex justify-between items-start bg-gradient-to-b from-black/40 to-transparent pointer-events-none">
-            <button 
-                onClick={() => router.back()} 
+            <button
+                onClick={() => router.back()}
                 className="pointer-events-auto p-2 bg-white/20 backdrop-blur-md border border-white/20 text-white rounded-full hover:bg-white/40 transition"
             >
                 <ArrowLeft className="w-6 h-6" />
@@ -216,6 +319,28 @@ export default function UserProfilePage() {
                 <button className="p-2 bg-white/20 backdrop-blur-md border border-white/20 text-white rounded-full hover:bg-white/40 transition">
                     <Heart className="w-5 h-5" />
                 </button>
+                {/* Mobile Report & Block buttons */}
+                {authUser && !isCurrentUser && (
+                    <>
+                        <button
+                            onClick={() => setShowReportModal(true)}
+                            className="p-2 bg-white/20 backdrop-blur-md border border-white/20 text-white rounded-full hover:bg-amber-500/40 transition"
+                        >
+                            <Flag className="w-5 h-5" />
+                        </button>
+                        <button
+                            onClick={() => userIsBlocked ? unblockUser(user!.id) : setShowBlockModal(true)}
+                            className={cn(
+                                "p-2 backdrop-blur-md border border-white/20 rounded-full transition",
+                                userIsBlocked
+                                    ? "bg-red-500/60 text-white"
+                                    : "bg-white/20 text-white hover:bg-red-500/40"
+                            )}
+                        >
+                            <ShieldOff className="w-5 h-5" />
+                        </button>
+                    </>
+                )}
             </div>
         </div>
 
@@ -478,17 +603,44 @@ export default function UserProfilePage() {
               exit={{ y: 200, opacity: 0 }}
             >
               <div className="p-5 border-b border-gray-100 flex items-center justify-between bg-white/50 backdrop-blur-md">
-                <h3 className="text-lg font-black text-gray-900">Xác nhận thanh toán</h3>
-                <button onClick={() => setShowPaymentModal(false)} className="p-2 hover:bg-gray-100 rounded-full transition">
+                <h3 className="text-lg font-black text-gray-900">Xac nhan thanh toan</h3>
+                <button onClick={() => { setShowPaymentModal(false); clearPromo(); }} className="p-2 hover:bg-gray-100 rounded-full transition">
                   <X className="w-5 h-5 text-gray-500" />
                 </button>
               </div>
 
-              <div className="p-6 space-y-6">
-                <div className="text-center">
-                  <p className="text-gray-500 text-xs font-bold uppercase tracking-wider mb-1">Tổng tiền (Escrow)</p>
-                  <p className="text-4xl font-black text-gray-900 tracking-tight">{formatCurrency(totalPrice)}</p>
+              <div className="p-6 space-y-5">
+                {/* Price Summary */}
+                <div className="bg-gray-50 rounded-2xl p-4 space-y-2">
+                  <div className="flex justify-between items-center text-sm">
+                    <span className="text-gray-600">Gia dich vu:</span>
+                    <span className={cn("font-bold", discountAmount > 0 ? "line-through text-gray-400" : "text-gray-900")}>
+                      {formatCurrency(originalPrice)}
+                    </span>
+                  </div>
+                  {discountAmount > 0 && (
+                    <div className="flex justify-between items-center text-sm text-green-600">
+                      <span>Giam gia ({appliedPromo?.code}):</span>
+                      <span className="font-bold">-{formatCurrency(discountAmount)}</span>
+                    </div>
+                  )}
+                  <div className="border-t border-gray-200 pt-2 mt-2">
+                    <div className="flex justify-between items-center">
+                      <span className="font-bold text-gray-900">Tong thanh toan (Escrow):</span>
+                      <span className="text-2xl font-black text-primary-600">{formatCurrency(totalPrice)}</span>
+                    </div>
+                  </div>
                 </div>
+
+                {/* Promo Code Input */}
+                <PromoCodeInput
+                  orderAmount={originalPrice}
+                  onValidate={validatePromoCode}
+                  onApply={(result) => setAppliedPromo(result)}
+                  onClear={clearPromo}
+                  appliedPromo={appliedPromo}
+                  loading={promoLoading}
+                />
 
                 <div className="space-y-3">
                   <button
@@ -501,8 +653,8 @@ export default function UserProfilePage() {
                         <Wallet className="w-6 h-6" />
                       </div>
                       <div className="text-left">
-                        <p className="font-bold text-gray-900">Ví của tôi</p>
-                        <p className="text-xs text-gray-500 font-medium mt-0.5">Số dư: <span className="font-bold text-gray-700">{formatCurrency(authUser?.wallet.balance || 0)}</span></p>
+                        <p className="font-bold text-gray-900">Vi cua toi</p>
+                        <p className="text-xs text-gray-500 font-medium mt-0.5">So du: <span className="font-bold text-gray-700">{formatCurrency(authUser?.wallet.balance || 0)}</span></p>
                       </div>
                     </div>
                     {isBooking ? <Loader2 className="w-5 h-5 animate-spin text-primary-500" /> : <ChevronRight className="w-5 h-5 text-gray-300 group-hover:text-primary-500" />}
@@ -520,8 +672,8 @@ export default function UserProfilePage() {
                         <QrCode className="w-6 h-6" />
                       </div>
                       <div className="text-left">
-                        <p className="font-bold text-gray-900">Quét mã QR</p>
-                        <p className="text-xs text-gray-500 font-medium mt-0.5">Chuyển khoản & Tự động book</p>
+                        <p className="font-bold text-gray-900">Quet ma QR</p>
+                        <p className="text-xs text-gray-500 font-medium mt-0.5">Chuyen khoan & Tu dong book</p>
                       </div>
                     </div>
                     <ChevronRight className="w-5 h-5 text-gray-300 group-hover:text-green-500" />
@@ -549,9 +701,9 @@ export default function UserProfilePage() {
       {/* Lightbox Overlay */}
       <AnimatePresence>
         {isLightboxOpen && (
-            <motion.div 
-                initial={{ opacity: 0 }} 
-                animate={{ opacity: 1 }} 
+            <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
                 className="fixed inset-0 z-[100] bg-black flex items-center justify-center touch-none"
                 onClick={() => setIsLightboxOpen(false)}
@@ -560,8 +712,8 @@ export default function UserProfilePage() {
                     <button onClick={() => setIsLightboxOpen(false)} className="absolute top-4 right-4 p-3 bg-white/10 rounded-full text-white z-20">
                         <X className="w-6 h-6" />
                     </button>
-                    
-                    <button 
+
+                    <button
                         onClick={(e) => { e.stopPropagation(); handlePrevImage(e as any); }}
                         className="absolute left-4 p-3 bg-white/10 rounded-full text-white z-20 hidden md:block"
                     >
@@ -572,7 +724,7 @@ export default function UserProfilePage() {
                         <Image src={gallery[currentImageIndex]} alt="Zoom" fill className="object-contain" />
                     </div>
 
-                    <button 
+                    <button
                         onClick={(e) => { e.stopPropagation(); handleNextImage(e as any); }}
                         className="absolute right-4 p-3 bg-white/10 rounded-full text-white z-20 hidden md:block"
                     >
@@ -582,6 +734,30 @@ export default function UserProfilePage() {
             </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Report User Modal */}
+      {user && (
+        <ReportUserModal
+          isOpen={showReportModal}
+          onClose={() => setShowReportModal(false)}
+          reportedUserId={user.id}
+          reportedUserName={user.name}
+        />
+      )}
+
+      {/* Block User Modal */}
+      {user && (
+        <BlockUserModal
+          isOpen={showBlockModal}
+          onClose={() => setShowBlockModal(false)}
+          userId={user.id}
+          userName={user.name}
+          onBlock={async () => {
+            const success = await blockUser(user.id);
+            return success;
+          }}
+        />
+      )}
     </div>
   );
 }

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from '@/lib/motion';
 import Image from 'next/image';
 import {
@@ -17,7 +17,9 @@ import {
     Info,
     ShieldCheck,
     EyeOff,
-    MessageCircle
+    MessageCircle,
+    AlertTriangle,
+    Timer
 } from 'lucide-react';
 import { ServiceBooking } from '@/types';
 import { formatCurrency, cn, getActivityLabel } from '@/lib/utils';
@@ -28,6 +30,21 @@ import { useAuth } from '@/contexts/AuthContext';
 import toast from 'react-hot-toast';
 import { getOrCreateConversation } from '@/hooks/useDbChat';
 import { useRouter } from 'next/navigation';
+import DisputeModal from '@/components/DisputeModal';
+
+// Auto-action deadline constants (in hours)
+const AUTO_REJECT_HOURS = 4;  // Partner has 4 hours to accept
+const AUTO_COMPLETE_HOURS = 24;  // User has 24 hours to confirm before auto-complete
+
+// Helper function to format countdown time
+function formatCountdown(ms: number): string {
+    if (ms <= 0) return '0:00:00';
+    const totalSeconds = Math.floor(ms / 1000);
+    const hours = Math.floor(totalSeconds / 3600);
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
+    const seconds = totalSeconds % 60;
+    return `${hours}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+}
 
 interface BookingProgressProps {
     booking: ServiceBooking;
@@ -37,7 +54,7 @@ interface BookingProgressProps {
     className?: string;
 }
 
-type BookingStage = 'pending' | 'accepted' | 'arrived' | 'in_progress' | 'completed_pending' | 'completed';
+type BookingStage = 'pending' | 'accepted' | 'arrived' | 'in_progress' | 'completed_pending' | 'completed' | 'disputed';
 
 export default function BookingProgress({
     booking,
@@ -64,11 +81,50 @@ export default function BookingProgress({
     const [isReviewing, setIsReviewing] = useState(false);
     const [hasReviewed, setHasReviewed] = useState(false);
 
+    // Dispute State
+    const [isDisputeModalOpen, setIsDisputeModalOpen] = useState(false);
+
+    // Countdown State
+    const [countdownMs, setCountdownMs] = useState(0);
+
+    // Calculate deadline based on booking status
+    const deadline = useMemo(() => {
+        if (booking.status === 'pending' && booking.createdAt) {
+            // Auto-reject deadline: 4 hours from creation
+            const created = new Date(booking.createdAt).getTime();
+            return created + (AUTO_REJECT_HOURS * 60 * 60 * 1000);
+        }
+        if (booking.status === 'completed_pending' && booking.updatedAt) {
+            // Auto-complete deadline: 24 hours from updated_at
+            const updated = new Date(booking.updatedAt).getTime();
+            return updated + (AUTO_COMPLETE_HOURS * 60 * 60 * 1000);
+        }
+        return null;
+    }, [booking.status, booking.createdAt, booking.updatedAt]);
+
     useEffect(() => {
         setStage(booking.status as BookingStage);
         setIsTimerRunning(booking.status === 'in_progress');
         checkReviewStatus();
     }, [booking.status]);
+
+    // Countdown timer effect
+    useEffect(() => {
+        if (!deadline) {
+            setCountdownMs(0);
+            return;
+        }
+
+        const updateCountdown = () => {
+            const remaining = deadline - Date.now();
+            setCountdownMs(Math.max(0, remaining));
+        };
+
+        updateCountdown();
+        const interval = setInterval(updateCountdown, 1000);
+
+        return () => clearInterval(interval);
+    }, [deadline]);
 
     useEffect(() => {
         let interval: NodeJS.Timeout;
@@ -292,6 +348,60 @@ export default function BookingProgress({
                 </div>
             </div>
 
+            {/* Countdown Timer Banner */}
+            {(stage === 'pending' || stage === 'completed_pending') && countdownMs > 0 && (
+                <motion.div
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: 'auto' }}
+                    className={cn(
+                        "px-6 py-3 flex items-center justify-between border-b",
+                        stage === 'pending'
+                            ? "bg-amber-50 border-amber-100"
+                            : "bg-blue-50 border-blue-100"
+                    )}
+                >
+                    <div className="flex items-center gap-2">
+                        <Timer className={cn(
+                            "w-4 h-4",
+                            stage === 'pending' ? "text-amber-600" : "text-blue-600"
+                        )} />
+                        <span className={cn(
+                            "text-sm font-medium",
+                            stage === 'pending' ? "text-amber-800" : "text-blue-800"
+                        )}>
+                            {stage === 'pending'
+                                ? (isPartner ? "Con lai de chap nhan" : "Cho Partner phan hoi")
+                                : (isUser ? "Tu dong thanh toan sau" : "Tu dong nhan tien sau")
+                            }
+                        </span>
+                    </div>
+                    <div className={cn(
+                        "font-mono font-bold text-lg tabular-nums",
+                        stage === 'pending' ? "text-amber-700" : "text-blue-700",
+                        countdownMs < 30 * 60 * 1000 && "text-red-600 animate-pulse" // Red when < 30 min
+                    )}>
+                        {formatCountdown(countdownMs)}
+                    </div>
+                </motion.div>
+            )}
+
+            {/* Countdown Warning when expired */}
+            {(stage === 'pending' || stage === 'completed_pending') && countdownMs === 0 && deadline && (
+                <motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    className="px-6 py-3 bg-red-50 border-b border-red-100 flex items-center gap-2"
+                >
+                    <AlertTriangle className="w-4 h-4 text-red-600" />
+                    <span className="text-sm font-medium text-red-800">
+                        {stage === 'pending'
+                            ? "Da het han. Don hang se tu dong huy."
+                            : "Da het han. Tien se tu dong chuyen cho Partner."
+                        }
+                    </span>
+                </motion.div>
+            )}
+
             {/* Info Section */}
             <div className="px-6 py-4 bg-gray-50 border-y border-gray-100">
                 <div className="flex items-center gap-4">
@@ -420,11 +530,19 @@ export default function BookingProgress({
                                 whileTap={{ scale: 0.98 }}
                             >
                                 {isProcessing ? <Loader2 className="w-5 h-5 animate-spin" /> : <Square className="w-5 h-5" />}
-                                <span>Hoàn thành công việc</span>
+                                <span>Hoan thanh cong viec</span>
                             </motion.button>
                         ) : (
-                            <div className="p-4 bg-blue-50 text-blue-800 text-sm rounded-xl text-center">
-                                Buổi hẹn đang diễn ra. Chúc bạn vui vẻ!
+                            <div className="space-y-3">
+                                <div className="p-4 bg-blue-50 text-blue-800 text-sm rounded-xl text-center">
+                                    Buoi hen dang dien ra. Chuc ban vui ve!
+                                </div>
+                                <button
+                                    onClick={() => setIsDisputeModalOpen(true)}
+                                    className="w-full text-sm text-gray-500 font-medium hover:text-red-500 transition-colors"
+                                >
+                                    Co van de? Khieu nai
+                                </button>
                             </div>
                         )}
                     </div>
@@ -455,8 +573,11 @@ export default function BookingProgress({
                                 >
                                     {isProcessing ? "Đang xử lý..." : "Xác nhận & Thanh toán"}
                                 </motion.button>
-                                <button className="text-sm text-gray-500 font-medium hover:text-red-500 transition-colors">
-                                    Có vấn đề? Báo cáo khiếu nại
+                                <button
+                                    onClick={() => setIsDisputeModalOpen(true)}
+                                    className="text-sm text-gray-500 font-medium hover:text-red-500 transition-colors"
+                                >
+                                    Co van de? Khieu nai
                                 </button>
                             </div>
                         ) : (
@@ -550,12 +671,44 @@ export default function BookingProgress({
 
                         {hasReviewed && (
                             <div className="p-4 bg-gray-50 rounded-xl text-center text-sm text-gray-500 italic">
-                                Cảm ơn bạn đã gửi đánh giá!
+                                Cam on ban da gui danh gia!
                             </div>
                         )}
                     </div>
                 )}
+
+                {/* Disputed State */}
+                {stage === 'disputed' && (
+                    <div className="space-y-4">
+                        <div className="bg-amber-50 p-5 rounded-2xl border border-amber-100 text-center">
+                            <div className="w-12 h-12 bg-amber-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                                <AlertTriangle className="w-6 h-6 text-amber-600" />
+                            </div>
+                            <h4 className="font-bold text-amber-900 text-lg">Don hang dang bi khieu nai</h4>
+                            <p className="text-sm text-amber-700 mt-1">
+                                {isUser
+                                    ? "Khieu nai cua ban dang duoc xem xet. Chung toi se phan hoi trong 24-48h."
+                                    : "Khach hang da gui khieu nai. Vui long cho admin xem xet va xu ly."
+                                }
+                            </p>
+                        </div>
+                        <div className="p-4 bg-gray-50 rounded-xl text-center text-xs text-gray-500">
+                            Qua trinh tu dong thanh toan da tam dung cho den khi khieu nai duoc xu ly.
+                        </div>
+                    </div>
+                )}
             </div>
+
+            {/* Dispute Modal */}
+            <DisputeModal
+                isOpen={isDisputeModalOpen}
+                onClose={() => setIsDisputeModalOpen(false)}
+                bookingId={booking.id}
+                partnerName={booking.provider?.name || 'Partner'}
+                onSuccess={() => {
+                    setStage('disputed');
+                }}
+            />
         </div>
     );
 }

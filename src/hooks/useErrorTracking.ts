@@ -26,7 +26,7 @@ export function useErrorTracking(componentName?: string) {
       setUser({
         id: user.id,
         email: user.email || undefined,
-        name: user.user_metadata?.name || user.user_metadata?.full_name,
+        name: (user as any).user_metadata?.name || (user as any).user_metadata?.full_name,
       });
     } else {
       setUser(null);
@@ -55,7 +55,7 @@ export function useErrorTracking(componentName?: string) {
     async (error: unknown, context?: Omit<ErrorContext, 'component'>) => {
       await captureException(error, {
         ...context,
-        component: componentName || context?.component,
+        component: componentName || (context as any)?.component,
       });
     },
     [componentName]

@@ -274,7 +274,7 @@ export function initializeErrorTracking(): void {
   // Track fetch errors
   const originalFetch = window.fetch;
   window.fetch = async (...args: Parameters<typeof fetch>) => {
-    const url = typeof args[0] === 'string' ? args[0] : args[0]?.url || 'unknown';
+    const url = typeof args[0] === 'string' ? args[0] : (args[0] as any)?.url || 'unknown';
 
     try {
       const response = await originalFetch(...args);

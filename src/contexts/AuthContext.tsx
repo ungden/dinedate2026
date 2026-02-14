@@ -14,6 +14,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { User } from '@/types';
 import { mapDbUserToUser } from '@/lib/user-mapper';
 import { mapUserUpdatesToDb } from '@/lib/db-users';
+import { getDiceBearAvatar } from '@/lib/dicebear';
 import toast from 'react-hot-toast';
 import { Session } from '@supabase/supabase-js';
 import { getStoredReferralCode, clearStoredReferralCode, REFERRAL_CODE_KEY } from '@/hooks/useReferral';
@@ -49,14 +50,13 @@ function createTempUserFromSession(session: Session): User {
     id: session.user.id,
     name: metadata.name || session.user.email?.split('@')[0] || 'Người dùng',
     email: session.user.email,
-    avatar: metadata.avatar_url || 'https://images.unsplash.com/photo-1518199266791-5375a83190b7?w=400&h=400&fit=crop&crop=faces',
+    avatar: getDiceBearAvatar(session.user.id),
     bio: '',
     location: 'Hà Nội',
     role: 'user',
     wallet: { balance: 0, escrowBalance: 0, currency: 'VND' },
     vipStatus: { tier: 'free', benefits: [] },
     onlineStatus: { isOnline: true },
-    isServiceProvider: false,
     age: 0
   };
 }
@@ -133,7 +133,7 @@ async function ensureUsersRow(params: {
       id,
       name: name || 'Nguoi dung moi',
       phone: null,
-      avatar: avatar_url || 'https://images.unsplash.com/photo-1518199266791-5375a83190b7?w=400&h=400&fit=crop&crop=faces',
+      avatar: getDiceBearAvatar(id),
       bio: '',
       location: 'Ha Noi',
       role: 'user',
@@ -356,7 +356,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         options: {
             data: {
                 name,
-                avatar_url: 'https://images.unsplash.com/photo-1518199266791-5375a83190b7?w=400&h=400&fit=crop&crop=faces'
+                avatar_url: getDiceBearAvatar('temp')
             }
         },
       });
@@ -427,12 +427,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
         const dbUpdates = mapUserUpdatesToDb(updates);
         const { error } = await supabase.from('users').update(dbUpdates).eq('id', user.id);
-        if (error) throw error;
+        if (error) {
+          const msg = error.message || error.hint || 'Lỗi không xác định';
+          throw new Error(String(msg));
+        }
         await refreshProfile();
     } catch (error: any) {
         console.error('[Auth] Update user error:', error);
-        toast.error('Cập nhật thất bại: ' + (error.message || 'Lỗi không xác định'));
-        throw error;
+        const message = error instanceof Error ? error.message : 'Lỗi không xác định';
+        toast.error('Cập nhật thất bại: ' + message);
+        throw error instanceof Error ? error : new Error(message);
     }
   };
 

@@ -2,6 +2,13 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0'
 
+/**
+ * Process Referral Reward
+ *
+ * Triggered on first completed date order (not booking).
+ * Reward amounts: referrer 50k, referred 30k.
+ */
+
 const allowedOrigins = (Deno.env.get('ALLOWED_ORIGINS') || 'https://www.dinedate.vn').split(',');
 
 function getCorsHeaders(req: Request) {
@@ -82,7 +89,29 @@ serve(async (req: Request) => {
       );
     }
 
-    // 4. Check if reward already processed
+    // 4. Check if this is the user's first completed date order
+    const { count: creatorCount } = await admin
+      .from('date_orders')
+      .select('*', { count: 'exact', head: true })
+      .eq('creator_id', referredId)
+      .eq('status', 'completed');
+
+    const { count: applicantCount } = await admin
+      .from('date_orders')
+      .select('*', { count: 'exact', head: true })
+      .eq('matched_user_id', referredId)
+      .eq('status', 'completed');
+
+    const totalCompleted = (creatorCount || 0) + (applicantCount || 0);
+
+    if (totalCompleted < 1) {
+      return new Response(
+        JSON.stringify({ success: false, message: 'User has not completed any date orders yet' }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // 5. Check if reward already processed
     const { data: existingReward, error: rewardErr } = await admin
       .from('referral_rewards')
       .select('*')
@@ -106,7 +135,7 @@ serve(async (req: Request) => {
       );
     }
 
-    // 5. Get current wallet balances
+    // 6. Get current wallet balances
     const { data: referrerData } = await admin
       .from('users')
       .select('wallet_balance, name')
@@ -122,7 +151,7 @@ serve(async (req: Request) => {
     const referrerBalance = Number(referrerData?.wallet_balance || 0);
     const referredBalance = Number(referredData?.wallet_balance || 0);
 
-    // 6. Add rewards to wallets
+    // 7. Add rewards to wallets
     await admin
       .from('users')
       .update({ wallet_balance: referrerBalance + REFERRER_REWARD })
@@ -133,7 +162,7 @@ serve(async (req: Request) => {
       .update({ wallet_balance: referredBalance + REFERRED_REWARD })
       .eq('id', referredId);
 
-    // 7. Update or create reward record
+    // 8. Update or create reward record
     let rewardId = existingReward?.id;
 
     if (existingReward) {
@@ -161,7 +190,7 @@ serve(async (req: Request) => {
       rewardId = newReward?.id;
     }
 
-    // 8. Create transaction records
+    // 9. Create transaction records
     await admin.from('transactions').insert([
       {
         user_id: referrerId,
@@ -181,21 +210,21 @@ serve(async (req: Request) => {
       },
     ]);
 
-    // 9. Create notifications
+    // 10. Create notifications
     await admin.from('notifications').insert([
       {
         user_id: referrerId,
         type: 'system',
         title: 'Thuong gioi thieu!',
-        message: `Ban nhan duoc ${REFERRER_REWARD.toLocaleString()}d vi ${referredUser.name || 'ban be'} da hoan thanh booking dau tien!`,
-        read: false,
+        message: `Ban nhan duoc ${REFERRER_REWARD.toLocaleString()}d vi ${referredUser.name || 'ban be'} da hoan thanh date dau tien!`,
+        is_read: false,
       },
       {
         user_id: referredId,
         type: 'system',
         title: 'Thuong dang ky!',
         message: `Ban nhan duoc ${REFERRED_REWARD.toLocaleString()}d tu chuong trinh gioi thieu. Cam on ban da tham gia DineDate!`,
-        read: false,
+        is_read: false,
       },
     ]);
 

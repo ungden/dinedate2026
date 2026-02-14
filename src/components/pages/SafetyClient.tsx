@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, Shield, AlertTriangle, Phone, Lock, Eye, Flag, ChevronDown, ChevronUp } from 'lucide-react';
+import { ArrowLeft, Shield, AlertTriangle, Phone, Lock, Eye, Flag, ChevronDown, ChevronUp, MapPin, Users } from 'lucide-react';
 import { motion, AnimatePresence } from '@/lib/motion';
 
 const SafetyTip = ({ title, content, icon: Icon }: { title: string; content: string; icon: any }) => {
@@ -48,7 +48,7 @@ export default function SafetyClient() {
         <Link href="/profile" className="p-2 hover:bg-gray-100 rounded-lg transition">
           <ArrowLeft className="w-5 h-5" />
         </Link>
-        <h1 className="text-2xl font-bold text-gray-900">Trung tâm An toàn</h1>
+        <h1 className="text-2xl font-bold text-gray-900">Trung tam An toan</h1>
       </div>
 
       {/* Hero Banner */}
@@ -58,59 +58,69 @@ export default function SafetyClient() {
             <Shield className="w-6 h-6 text-white" />
           </div>
           <div>
-            <h2 className="text-lg font-bold">An toàn là trên hết</h2>
-            <p className="text-white/90 text-sm">Chúng tôi cam kết bảo vệ cộng đồng DineDate.</p>
+            <h2 className="text-lg font-bold">An toan la tren het</h2>
+            <p className="text-white/90 text-sm">DineDate cam ket bao ve ban trong moi buoi hen.</p>
           </div>
         </div>
         <div className="bg-white/10 rounded-xl p-4 backdrop-blur-sm border border-white/10">
           <p className="text-sm leading-relaxed">
-            Mọi người dùng trên DineDate đều phải tuân thủ Quy tắc Cộng đồng. Nếu bạn thấy hành vi đáng ngờ, hãy báo cáo ngay cho chúng tôi.
+            Tat ca buoi hen blind date deu dien ra tai nha hang doi tac da xac minh cua DineDate. Ban khong can gap o noi vang ve hay xa la. He thong escrow bao ve tai chinh cua ban.
           </p>
         </div>
       </div>
 
       {/* Emergency Section */}
       <div className="space-y-3">
-        <h3 className="font-bold text-gray-900 px-2">Hỗ trợ khẩn cấp</h3>
+        <h3 className="font-bold text-gray-900 px-2">Ho tro khan cap</h3>
         <div className="bg-red-50 border border-red-100 rounded-2xl p-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 bg-white rounded-full flex items-center justify-center shadow-sm">
               <Phone className="w-5 h-5 text-red-500" />
             </div>
             <div>
-              <p className="font-bold text-red-700">Tổng đài CSKH 24/7</p>
-              <p className="text-xs text-red-600">Dành cho các vấn đề gấp</p>
+              <p className="font-bold text-red-700">Tong dai CSKH 24/7</p>
+              <p className="text-xs text-red-600">Danh cho cac van de gap</p>
             </div>
           </div>
           <a href="tel:19001234" className="px-4 py-2 bg-red-600 text-white rounded-xl font-bold text-sm hover:bg-red-700 transition shadow-sm">
-            Gọi ngay
+            Goi ngay
           </a>
         </div>
       </div>
 
       {/* Tips */}
       <div className="space-y-3">
-        <h3 className="font-bold text-gray-900 px-2">Lời khuyên an toàn</h3>
+        <h3 className="font-bold text-gray-900 px-2">Loi khuyen an toan cho blind date</h3>
         <div className="space-y-2">
           <SafetyTip
-            title="Luôn gặp ở nơi công cộng"
+            title="Luon gap tai nha hang doi tac"
+            icon={MapPin}
+            content="Tat ca buoi hen DineDate deu dien ra tai nha hang da duoc xac minh. Khong bao gio dong y gap o dia diem khac ngoai nha hang da dat. Nha hang co nhan vien va camera, dam bao an toan cho ban."
+          />
+          <SafetyTip
+            title="Khong chia se thong tin ca nhan truoc khi gap"
             icon={Eye}
-            content="Trong những lần hẹn đầu tiên, hãy luôn chọn địa điểm đông người như quán cafe, nhà hàng, trung tâm thương mại. Tránh những nơi vắng vẻ, riêng tư hoặc tại nhà riêng."
+            content="DineDate su dung avatar anime de bao ve danh tinh cua ban. Dung chia se so dien thoai, dia chi, hoac mang xa hoi truoc khi gap mat. Chi khi ca hai danh gia 'muon gap lai' sau buoi hen, ban moi duoc ket noi va xem anh that."
           />
           <SafetyTip
-            title="Không chuyển tiền riêng"
+            title="Thanh toan qua he thong DineDate"
             icon={Lock}
-            content="Tuyệt đối không chuyển khoản trực tiếp cho đối tác. Hãy sử dụng hệ thống thanh toán của DineDate để được bảo vệ bởi chính sách Escrow (giữ tiền đảm bảo)."
+            content="Tuyet doi khong chuyen tien truc tiep cho doi phuong. He thong escrow cua DineDate giu tien an toan. Chi thanh toan khi buoi hen dien ra thanh cong. Neu co van de, ban se duoc hoan tien."
           />
           <SafetyTip
-            title="Giữ liên lạc với người thân"
+            title="Thong bao nguoi than"
             icon={Phone}
-            content="Hãy cho bạn bè hoặc người thân biết bạn đi đâu, gặp ai và khi nào về. Bạn có thể sử dụng tính năng chia sẻ vị trí của Zalo/Messenger."
+            content="Hay cho ban be hoac nguoi than biet ban di hen tai nha hang nao, thoi gian nao. Ban co the chia se vi tri qua Zalo/Messenger de nguoi than an tam."
           />
           <SafetyTip
-            title="Báo cáo hành vi xấu"
+            title="Bao cao hanh vi khong phu hop"
             icon={Flag}
-            content="Nếu ai đó có hành vi thô lỗ, quấy rối, hoặc vi phạm pháp luật, hãy sử dụng tính năng 'Báo cáo' trong hồ sơ của họ. Chúng tôi sẽ xử lý nghiêm khắc."
+            content="Neu doi phuong co hanh vi tho lo, quay roi, hoac khong phu hop, hay su dung tinh nang 'Bao cao' ngay. DineDate se xu ly nghiem khac va co the cam tai khoan vinh vien."
+          />
+          <SafetyTip
+            title="Khong ep uong ruou bia"
+            icon={Users}
+            content="Buoi hen la de giao luu va tan huong am thuc. Khong nen ep doi phuong uong ruou bia. Neu cam thay khong thoai mai, ban co quyen ket thuc buoi hen bat cu luc nao."
           />
         </div>
       </div>
@@ -119,7 +129,7 @@ export default function SafetyClient() {
       <div className="pt-4">
         <button className="w-full py-4 bg-gray-100 text-gray-700 font-bold rounded-2xl flex items-center justify-center gap-2 hover:bg-gray-200 transition">
           <AlertTriangle className="w-5 h-5" />
-          Báo cáo vấn đề an toàn
+          Bao cao van de an toan
         </button>
       </div>
     </div>

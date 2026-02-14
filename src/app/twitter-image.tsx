@@ -80,7 +80,7 @@ export default function TwitterImage() {
                   color: 'rgba(255,255,255,0.9)',
                 }}
               >
-                Hẹn hò & Booking dịch vụ đồng hành
+                Hen Ho Mu x Kham Pha Am Thuc
               </div>
             </div>
           </div>
@@ -93,7 +93,7 @@ export default function TwitterImage() {
               lineHeight: 1.25,
             }}
           >
-            Tìm Partner gần bạn. Tạo deal công khai. Chat & booking trong một app.
+            Dat ban, chon combo, gap mat blind. Trai nghiem hen ho doc dao nhat Viet Nam.
           </div>
 
           <div
@@ -104,7 +104,7 @@ export default function TwitterImage() {
               flexWrap: 'wrap',
             }}
           >
-            {['Escrow', 'An toàn', 'Nhanh', 'Việt Nam'].map((t) => (
+            {['Blind Date', 'Nha hang', 'Combo', 'Viet Nam'].map((t) => (
               <div
                 key={t}
                 style={{

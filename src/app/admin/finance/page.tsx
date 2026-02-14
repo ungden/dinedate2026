@@ -17,16 +17,12 @@ import {
   OverviewMetrics,
   DailyRevenue,
   TransactionBreakdown,
-  TopPartner,
   TopUser,
-  PendingWithdrawal,
   exportToCSV
 } from '@/hooks/useFinancialReports';
 import { RevenueChart } from '@/components/admin/RevenueChart';
 import { TransactionSummary } from '@/components/admin/TransactionSummary';
-import { TopPartnersTable } from '@/components/admin/TopPartnersTable';
 import { TopUsersTable } from '@/components/admin/TopUsersTable';
-import { WithdrawalQueue } from '@/components/admin/WithdrawalQueue';
 
 const PERIOD_OPTIONS: { value: FinancePeriod; label: string }[] = [
   { value: 'today', label: 'Hom nay' },
@@ -45,19 +41,13 @@ export default function AdminFinancePage() {
   const [metrics, setMetrics] = useState<OverviewMetrics | null>(null);
   const [revenueData, setRevenueData] = useState<DailyRevenue[]>([]);
   const [transactionBreakdown, setTransactionBreakdown] = useState<TransactionBreakdown[]>([]);
-  const [topPartners, setTopPartners] = useState<TopPartner[]>([]);
   const [topUsers, setTopUsers] = useState<TopUser[]>([]);
-  const [pendingWithdrawals, setPendingWithdrawals] = useState<PendingWithdrawal[]>([]);
 
   const {
     fetchOverviewMetrics,
     fetchRevenueData,
     fetchTransactionBreakdown,
-    fetchTopPartners,
     fetchTopUsers,
-    fetchPendingWithdrawals,
-    approveWithdrawal,
-    rejectWithdrawal,
   } = useFinancialReports();
 
   const loadAllData = useCallback(async (showRefreshSpinner = false) => {
@@ -72,31 +62,25 @@ export default function AdminFinancePage() {
         metricsData,
         revenueResult,
         txBreakdown,
-        partnersData,
         usersData,
-        withdrawalsData,
       ] = await Promise.all([
         fetchOverviewMetrics(period),
         fetchRevenueData(period),
         fetchTransactionBreakdown(period),
-        fetchTopPartners(period, 10),
         fetchTopUsers(period, 10),
-        fetchPendingWithdrawals(),
       ]);
 
       setMetrics(metricsData);
       setRevenueData(revenueResult);
       setTransactionBreakdown(txBreakdown);
-      setTopPartners(partnersData);
       setTopUsers(usersData);
-      setPendingWithdrawals(withdrawalsData);
     } catch (error) {
       console.error('Error loading financial data:', error);
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [period, fetchOverviewMetrics, fetchRevenueData, fetchTransactionBreakdown, fetchTopPartners, fetchTopUsers, fetchPendingWithdrawals]);
+  }, [period, fetchOverviewMetrics, fetchRevenueData, fetchTransactionBreakdown, fetchTopUsers]);
 
   useEffect(() => {
     loadAllData();
@@ -127,19 +111,6 @@ export default function AdminFinancePage() {
         { key: 'totalWithdrawals', label: 'Tong rut tien' },
       ]);
     }
-  };
-
-  const refreshWithdrawals = async () => {
-    const data = await fetchPendingWithdrawals();
-    setPendingWithdrawals(data);
-  };
-
-  const handleApproveWithdrawal = async (withdrawal: PendingWithdrawal) => {
-    await approveWithdrawal(withdrawal);
-  };
-
-  const handleRejectWithdrawal = async (withdrawal: PendingWithdrawal, reason: string) => {
-    await rejectWithdrawal(withdrawal, reason);
   };
 
   // Metric cards data
@@ -264,20 +235,8 @@ export default function AdminFinancePage() {
         <TransactionSummary data={transactionBreakdown} loading={loading} />
       </div>
 
-      {/* Withdrawal Queue */}
-      <WithdrawalQueue
-        data={pendingWithdrawals}
-        loading={loading}
-        onApprove={handleApproveWithdrawal}
-        onReject={handleRejectWithdrawal}
-        onRefresh={refreshWithdrawals}
-      />
-
-      {/* Top Partners & Users */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <TopPartnersTable data={topPartners} loading={loading} />
-        <TopUsersTable data={topUsers} loading={loading} />
-      </div>
+      {/* Top Users */}
+      <TopUsersTable data={topUsers} loading={loading} />
 
       {/* Footer note */}
       <div className="text-center py-6 text-sm text-gray-400">

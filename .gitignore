@@ -34,5 +34,11 @@ next-env.d.ts
 *.swp
 *.swo
 
+# Supabase
+supabase/.temp/
+
+# Expo
+mobile/.expo/
+
 # misc
 *.pem

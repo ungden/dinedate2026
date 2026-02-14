@@ -3,13 +3,13 @@ import { serve } from "https://deno.land/std@0.190.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0'
 
 /**
- * Auto-Reject Bookings Function
+ * Auto-Expire Date Orders
  *
  * This function runs on a schedule (every hour) and:
- * 1. Finds all bookings with status = 'pending'
- * 2. Where created_at is more than 4 hours ago
- * 3. For each: executes refund logic (same as reject-booking)
- * 4. Creates notification: "Partner khong phan hoi. Da hoan tien."
+ * 1. Finds date_orders where status = 'active' AND expires_at < NOW()
+ * 2. Auto-expires them
+ * 3. Refunds creator's escrow if any was held
+ * 4. Sends notification to creator
  */
 
 const allowedOrigins = (Deno.env.get('ALLOWED_ORIGINS') || 'https://www.dinedate.vn').split(',');
@@ -23,10 +23,6 @@ function getCorsHeaders(req: Request) {
     'Access-Control-Allow-Methods': 'POST, OPTIONS',
   };
 }
-
-// Auto-reject threshold: 4 hours in milliseconds
-const AUTO_REJECT_HOURS = 4;
-const AUTO_REJECT_MS = AUTO_REJECT_HOURS * 60 * 60 * 1000;
 
 serve(async (req: Request) => {
   const corsHeaders = getCorsHeaders(req);
@@ -48,56 +44,55 @@ serve(async (req: Request) => {
   const admin = createClient(supabaseUrl, supabaseServiceKey)
 
   try {
-    // Calculate the cutoff time (4 hours ago)
-    const cutoffTime = new Date(Date.now() - AUTO_REJECT_MS).toISOString();
+    const now = new Date().toISOString();
 
-    console.log(`[AUTO-REJECT] Running auto-reject job. Cutoff time: ${cutoffTime}`);
+    console.log(`[AUTO-EXPIRE] Running auto-expire job. Current time: ${now}`);
 
-    // Find all bookings that need auto-rejection
-    const { data: bookings, error: fetchError } = await admin
-      .from('bookings')
+    // Find all active date_orders that have expired
+    const { data: dateOrders, error: fetchError } = await admin
+      .from('date_orders')
       .select('*')
-      .eq('status', 'pending')
-      .lt('created_at', cutoffTime);
+      .eq('status', 'active')
+      .lt('expires_at', now);
 
     if (fetchError) {
-      console.error('[AUTO-REJECT] Error fetching bookings:', fetchError);
-      return new Response(JSON.stringify({ error: 'Failed to fetch bookings', details: fetchError.message }), {
+      console.error('[AUTO-EXPIRE] Error fetching date orders:', fetchError);
+      return new Response(JSON.stringify({ error: 'Failed to fetch date orders', details: fetchError.message }), {
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       })
     }
 
-    if (!bookings || bookings.length === 0) {
-      console.log('[AUTO-REJECT] No bookings to auto-reject.');
-      return new Response(JSON.stringify({ success: true, message: 'No bookings to auto-reject', processed: 0 }), {
+    if (!dateOrders || dateOrders.length === 0) {
+      console.log('[AUTO-EXPIRE] No date orders to auto-expire.');
+      return new Response(JSON.stringify({ success: true, message: 'No date orders to auto-expire', processed: 0 }), {
         status: 200,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       })
     }
 
-    console.log(`[AUTO-REJECT] Found ${bookings.length} bookings to auto-reject.`);
+    console.log(`[AUTO-EXPIRE] Found ${dateOrders.length} date orders to auto-expire.`);
 
     let processedCount = 0;
     let errorCount = 0;
     const errors: string[] = [];
 
-    for (const booking of bookings) {
+    for (const dateOrder of dateOrders) {
       try {
-        await processAutoReject(admin, booking);
+        await processAutoExpire(admin, dateOrder);
         processedCount++;
-        console.log(`[AUTO-REJECT] Successfully processed booking ${booking.id}`);
+        console.log(`[AUTO-EXPIRE] Successfully processed date order ${dateOrder.id}`);
       } catch (err: any) {
         errorCount++;
-        const errorMsg = `Booking ${booking.id}: ${err.message}`;
+        const errorMsg = `Date order ${dateOrder.id}: ${err.message}`;
         errors.push(errorMsg);
-        console.error(`[AUTO-REJECT] Error processing booking ${booking.id}:`, err);
+        console.error(`[AUTO-EXPIRE] Error processing date order ${dateOrder.id}:`, err);
       }
     }
 
     return new Response(JSON.stringify({
       success: true,
-      message: `Auto-reject job finished. Processed: ${processedCount}, Errors: ${errorCount}`,
+      message: `Auto-expire job finished. Processed: ${processedCount}, Errors: ${errorCount}`,
       processed: processedCount,
       errors: errorCount > 0 ? errors : undefined
     }), {
@@ -106,7 +101,7 @@ serve(async (req: Request) => {
     })
 
   } catch (err: any) {
-    console.error('[AUTO-REJECT] Unexpected error:', err);
+    console.error('[AUTO-EXPIRE] Unexpected error:', err);
     return new Response(JSON.stringify({ error: 'Unexpected error', details: err.message }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
@@ -115,88 +110,76 @@ serve(async (req: Request) => {
 })
 
 /**
- * Process auto-rejection for a single booking
- * Same logic as reject-booking edge function
+ * Process auto-expiry for a single date order
  */
-async function processAutoReject(admin: any, booking: any) {
-  const refundAmount = Number(booking.total_amount || 0);
-  const bookerId = booking.user_id;
-  const partnerId = booking.partner_id;
-  const bookingId = booking.id;
+async function processAutoExpire(admin: any, dateOrder: any) {
+  const creatorId = dateOrder.creator_id;
+  const dateOrderId = dateOrder.id;
 
-  // 1. Fetch Booker Wallet
-  const { data: bookerWallet, error: bookerError } = await admin
-    .from('users')
-    .select('wallet_balance, wallet_escrow')
-    .eq('id', bookerId)
-    .single();
+  // Refund creator's escrow if any was held (e.g. pre-hold on creation)
+  const creatorRefund = Number(dateOrder.creator_charge || 0);
 
-  if (bookerError || !bookerWallet) {
-    throw new Error(`Failed to fetch booker wallet: ${bookerError?.message || 'Not found'}`);
+  if (creatorRefund > 0) {
+    const { data: creatorWallet, error: creatorError } = await admin
+      .from('users')
+      .select('wallet_balance, wallet_escrow')
+      .eq('id', creatorId)
+      .single();
+
+    if (creatorError || !creatorWallet) {
+      throw new Error(`Failed to fetch creator wallet: ${creatorError?.message || 'Not found'}`);
+    }
+
+    const currentBalance = Number(creatorWallet.wallet_balance || 0);
+    const currentEscrow = Number(creatorWallet.wallet_escrow || 0);
+
+    const { error: walletUpdateError } = await admin
+      .from('users')
+      .update({
+        wallet_balance: currentBalance + creatorRefund,
+        wallet_escrow: Math.max(0, currentEscrow - creatorRefund),
+      })
+      .eq('id', creatorId);
+
+    if (walletUpdateError) {
+      throw new Error(`Failed to update creator wallet: ${walletUpdateError.message}`);
+    }
+
+    // Log refund transaction
+    await admin.from('transactions').insert({
+      user_id: creatorId,
+      type: 'refund',
+      amount: creatorRefund,
+      status: 'completed',
+      description: `[Tu dong] Hoan tien do date order het han`,
+      related_id: dateOrderId,
+      payment_method: 'wallet',
+      created_at: new Date().toISOString(),
+    });
   }
 
-  const currentBalance = Number(bookerWallet.wallet_balance || 0);
-  const currentEscrow = Number(bookerWallet.wallet_escrow || 0);
-
-  // 2. Return Money (Balance + Refund, Escrow - Refund)
-  const { error: walletUpdateError } = await admin
-    .from('users')
+  // Update date_order status to expired
+  const { error: dateOrderUpdateError } = await admin
+    .from('date_orders')
     .update({
-      wallet_balance: currentBalance + refundAmount,
-      wallet_escrow: Math.max(0, currentEscrow - refundAmount)
-    })
-    .eq('id', bookerId);
-
-  if (walletUpdateError) {
-    throw new Error(`Failed to update booker wallet: ${walletUpdateError.message}`);
-  }
-
-  // 3. Update Booking Status
-  const { error: bookingUpdateError } = await admin
-    .from('bookings')
-    .update({
-      status: 'auto_rejected',
+      status: 'expired',
       updated_at: new Date().toISOString(),
-      auto_rejected: true // Mark as auto-rejected
     })
-    .eq('id', bookingId);
+    .eq('id', dateOrderId);
 
-  if (bookingUpdateError) {
-    throw new Error(`Failed to update booking status: ${bookingUpdateError.message}`);
+  if (dateOrderUpdateError) {
+    throw new Error(`Failed to update date order status: ${dateOrderUpdateError.message}`);
   }
 
-  // 4. Log Transaction
-  await admin.from('transactions').insert({
-    user_id: bookerId,
-    type: 'refund',
-    amount: refundAmount,
-    status: 'completed',
-    description: `[Tu dong] Hoan tien do Partner khong phan hoi: ${booking.activity}`,
-    related_id: bookingId,
-    payment_method: 'wallet',
-    created_at: new Date().toISOString()
-  });
-
-  // 5. Create Notifications for both parties
-  // Notify User (Booker)
+  // Notify creator
   await admin.from('notifications').insert({
-    user_id: bookerId,
-    type: 'booking_rejected',
-    title: 'Don hang tu dong huy',
-    message: `Partner khong phan hoi trong 4 gio. Da hoan ${refundAmount.toLocaleString('vi-VN')} VND ve vi cua ban.`,
-    data: { bookingId },
-    is_read: false
+    user_id: creatorId,
+    type: 'date_expired',
+    title: 'Date order da het han',
+    message: `Date order cua ban da het han ma khong co ai duoc chon.${creatorRefund > 0 ? ` Da hoan ${creatorRefund.toLocaleString('vi-VN')} VND ve vi.` : ''}`,
+    data: { dateOrderId },
+    is_read: false,
   });
 
-  // Notify Partner
-  await admin.from('notifications').insert({
-    user_id: partnerId,
-    type: 'booking_expired',
-    title: 'Don hang da het han',
-    message: `Ban da bo lo don hang "${booking.activity}" do khong phan hoi trong 4 gio. Don hang da tu dong huy.`,
-    data: { bookingId },
-    is_read: false
-  });
-
-  console.log(`[AUTO-REJECT] Booking ${bookingId} auto-rejected successfully. Refunded: ${refundAmount}`);
+  console.log(`[AUTO-EXPIRE] Date order ${dateOrderId} expired. Refunded creator: ${creatorRefund}`);
 }

@@ -5,12 +5,14 @@ import {
   Bell,
   Check,
   Heart,
-  MessageCircle,
+  UtensilsCrossed,
   Calendar,
   Star,
   CreditCard,
   CheckCheck,
   AlertCircle,
+  Users,
+  Sparkles,
 } from 'lucide-react';
 import { useDbNotifications } from '@/hooks/useDbNotifications';
 import { formatRelativeTime, cn } from '@/lib/utils';
@@ -43,22 +45,24 @@ const itemVariants = {
 
 const getNotificationIcon = (type: NotificationType | string) => {
   switch (type) {
-    case 'application':
-      return { icon: Heart, color: 'bg-pink-100 text-pink-600' };
-    case 'accepted':
-      return { icon: Check, color: 'bg-green-100 text-green-600' };
-    case 'rejected':
+    case 'date_order_application':
+      return { icon: Users, color: 'bg-pink-100 text-pink-600' };
+    case 'date_order_matched':
+      return { icon: Heart, color: 'bg-green-100 text-green-600' };
+    case 'date_order_expired':
       return { icon: AlertCircle, color: 'bg-red-100 text-red-600' };
-    case 'message':
-      return { icon: MessageCircle, color: 'bg-blue-100 text-blue-600' };
-    case 'booking':
-    case 'booking_accepted':
-    case 'booking_rejected':
-      return { icon: Calendar, color: 'bg-purple-100 text-purple-600' };
+    case 'table_confirmed':
+      return { icon: UtensilsCrossed, color: 'bg-purple-100 text-purple-600' };
     case 'review_request':
       return { icon: Star, color: 'bg-yellow-100 text-yellow-600' };
+    case 'mutual_connection':
+      return { icon: Sparkles, color: 'bg-pink-100 text-pink-600' };
     case 'payment':
       return { icon: CreditCard, color: 'bg-green-100 text-green-600' };
+    case 'refund':
+      return { icon: CreditCard, color: 'bg-blue-100 text-blue-600' };
+    case 'vip':
+      return { icon: Star, color: 'bg-amber-100 text-amber-600' };
     default:
       return { icon: Bell, color: 'bg-gray-100 text-gray-600' };
   }
@@ -121,12 +125,17 @@ export default function NotificationsClient() {
 
               // Determine redirect link based on type
               let link = '#';
-              if (notification.type === 'application' && notification.data?.requestId) {
-                link = `/request/${notification.data.requestId}`;
-              } else if (notification.type === 'message' && notification.data?.conversationId) {
-                link = `/chat/${notification.data.conversationId}`;
-              } else if (notification.type.includes('booking') && notification.data?.bookingId) {
-                link = '/manage-bookings'; // Or detail page
+              if (
+                (notification.type === 'date_order_application' ||
+                  notification.type === 'date_order_matched' ||
+                  notification.type === 'table_confirmed') &&
+                notification.data?.orderId
+              ) {
+                link = `/date-order/${notification.data.orderId}`;
+              } else if (notification.type === 'review_request' && notification.data?.orderId) {
+                link = `/date-order/${notification.data.orderId}`;
+              } else if (notification.type === 'mutual_connection') {
+                link = '/connections';
               }
 
               const Content = (

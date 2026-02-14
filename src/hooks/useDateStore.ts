@@ -3,25 +3,27 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import {
-  DateRequest,
-  Application,
-  ActivityType,
+  DateOrder,
+  DateOrderApplication,
   User,
   Notification,
-  Conversation,
-  Message,
-  Review,
-  ServiceBooking,
-  ServiceOffering,
+  PersonReview,
   Transaction,
   PaymentMethod,
-  VIPTier,
+  Restaurant,
+  Combo,
 } from '@/types';
-import { MOCK_DATE_REQUESTS } from '@/mocks/dateRequests';
-import { CURRENT_USER, MOCK_USERS } from '@/mocks/users';
-import { MOCK_REVIEWS } from '@/mocks/reviews';
+import { MOCK_DATE_ORDERS } from '@/mocks/dateRequests';
+import { MOCK_RESTAURANTS, MOCK_COMBOS } from '@/mocks/restaurants';
+import { MOCK_USERS } from '@/mocks/users';
+import { MOCK_PERSON_REVIEWS } from '@/mocks/reviews';
 
-const REQUEST_TTL_MINUTES = 15;
+const CURRENT_USER = MOCK_USERS[0];
+
+const isExpired = (expiresAt?: string) => {
+  if (!expiresAt) return false;
+  return new Date(expiresAt).getTime() <= Date.now();
+};
 
 const addMinutesIso = (minutes: number) => {
   const d = new Date();
@@ -29,67 +31,53 @@ const addMinutesIso = (minutes: number) => {
   return d.toISOString();
 };
 
-const isExpired = (expiresAt?: string) => {
-  if (!expiresAt) return false;
-  return new Date(expiresAt).getTime() <= Date.now();
-};
-
 interface DateStore {
   // State
-  dateRequests: DateRequest[];
-  applications: Application[];
+  dateOrders: DateOrder[];
+  dateOrderApplications: DateOrderApplication[];
+  restaurants: Restaurant[];
+  combos: Combo[];
   currentUser: User;
   users: User[];
-  bookings: ServiceBooking[];
   notifications: Notification[];
-  conversations: Conversation[];
-  messages: Record<string, Message[]>;
-  reviews: Review[];
+  reviews: PersonReview[];
   transactions: Transaction[];
   isLoaded: boolean;
 
-  // New: Sync from Auth
+  // Sync from Auth
   setCurrentUserFromAuth: (user: User) => void;
 
-  // Actions - Date Requests
-  createDateRequest: (
-    request: Omit<
-      DateRequest,
-      | 'id'
-      | 'userId'
-      | 'user'
-      | 'currentParticipants'
-      | 'applicants'
-      | 'status'
-      | 'createdAt'
-      | 'expiresAt'
+  // Actions - Date Orders
+  createDateOrder: (
+    order: Omit<
+      DateOrder,
+      'id' | 'creatorId' | 'creator' | 'status' | 'applicantCount' | 'createdAt'
     >
-  ) => DateRequest;
-  deleteRequest: (requestId: string) => void;
-  updateRequest: (requestId: string, updates: Partial<DateRequest>) => void;
-  applyToRequest: (requestId: string, message: string) => void;
-  selectApplicant: (requestId: string, applicantUserId: string) => void;
-  expireRequestsIfNeeded: () => void;
+  ) => DateOrder;
+  cancelDateOrder: (orderId: string) => void;
+  updateDateOrder: (orderId: string, updates: Partial<DateOrder>) => void;
+  expireOrdersIfNeeded: () => void;
 
-  getRequestsByActivity: (activity?: ActivityType) => DateRequest[];
-  getMyRequests: () => DateRequest[];
-  getMyApplications: () => Application[];
-  getApplicationsForRequest: (requestId: string) => Application[];
+  getActiveDateOrders: () => DateOrder[];
+  getMyDateOrders: () => DateOrder[];
+  getDateOrderById: (orderId: string) => DateOrder | undefined;
+
+  // Actions - Applications
+  applyToDateOrder: (orderId: string, message: string) => void;
   acceptApplication: (applicationId: string) => void;
   rejectApplication: (applicationId: string) => void;
+  getApplicationsForOrder: (orderId: string) => DateOrderApplication[];
+  getMyApplications: () => DateOrderApplication[];
+
+  // Actions - Restaurants
+  getRestaurants: () => Restaurant[];
+  getRestaurantById: (id: string) => Restaurant | undefined;
+  getCombosForRestaurant: (restaurantId: string) => Combo[];
 
   // Actions - User
   updateProfile: (updates: Partial<User>) => void;
   getAllUsers: () => User[];
   getUserById: (userId: string) => User | undefined;
-
-  // Actions - Messages
-  sendMessage: (conversationId: string, text: string) => void;
-  getMyConversations: () => Conversation[];
-  getMessages: (conversationId: string) => Message[];
-
-  // New: strict 1-1 conversation helper
-  getOrCreateConversationWithUser: (otherUserId: string) => string | null;
 
   // Actions - Notifications
   markNotificationAsRead: (notificationId: string) => void;
@@ -97,59 +85,33 @@ interface DateStore {
   getMyNotifications: () => Notification[];
 
   // Actions - Reviews
-  getUserReviews: (userId: string) => Review[];
+  getUserReviews: (userId: string) => PersonReview[];
   getUserAverageRating: (userId: string) => number;
-  addReview: (review: Omit<Review, 'id' | 'createdAt'>) => Review;
-
-  // Actions - Bookings
-  createBooking: (
-    providerId: string,
-    serviceId: string,
-    date: string,
-    time: string,
-    location: string,
-    message: string
-  ) => ServiceBooking | undefined;
-  acceptBooking: (bookingId: string) => void;
-  rejectBooking: (bookingId: string) => void;
-  getMyBookings: () => ServiceBooking[];
-  getReceivedBookings: () => ServiceBooking[];
-
-  // Actions - Services
-  addServiceToProfile: (service: Omit<ServiceOffering, 'id'>) => ServiceOffering;
-  updateService: (serviceId: string, updates: Partial<ServiceOffering>) => void;
-  removeService: (serviceId: string) => void;
+  addReview: (review: Omit<PersonReview, 'id' | 'createdAt'>) => PersonReview;
 
   // Actions - Wallet
   topUpWallet: (amount: number, method: PaymentMethod) => Transaction;
-  
-  // NOTE: Purchase VIP is removed as it's now spending-based
-  // purchaseVIP: (tier: VIPTier) => Transaction | null;
-  
-  payForBooking: (bookingId: string) => Transaction | null;
+  payForDateOrder: (orderId: string, amount: number) => Transaction | null;
   getMyTransactions: () => Transaction[];
-  // getVIPPrice: (tier: VIPTier) => number;
 }
 
 export const useDateStore = create<DateStore>()(
   persist(
     (set, get) => ({
       // Initial State
-      dateRequests: MOCK_DATE_REQUESTS,
-      applications: [],
+      dateOrders: MOCK_DATE_ORDERS,
+      dateOrderApplications: [],
+      restaurants: MOCK_RESTAURANTS,
+      combos: MOCK_COMBOS,
       currentUser: CURRENT_USER,
       users: MOCK_USERS,
-      bookings: [],
       notifications: [],
-      conversations: [],
-      messages: {},
-      reviews: MOCK_REVIEWS,
+      reviews: MOCK_PERSON_REVIEWS,
       transactions: [],
       isLoaded: true,
 
       setCurrentUserFromAuth: (user) => {
         set((state) => {
-          // Deep-merge wallet + vipStatus so numbers from DB overwrite persisted mock values.
           const nextCurrentUser: User = {
             ...state.currentUser,
             ...user,
@@ -161,7 +123,6 @@ export const useDateStore = create<DateStore>()(
               ...state.currentUser.vipStatus,
               ...user.vipStatus,
             },
-            // Keep images if Auth user has it, else fallback to existing
             images: user.images ?? state.currentUser.images,
           };
 
@@ -189,11 +150,13 @@ export const useDateStore = create<DateStore>()(
         });
       },
 
-      expireRequestsIfNeeded: () => {
-        const { dateRequests } = get();
+      // --- Date Order Actions ---
+
+      expireOrdersIfNeeded: () => {
+        const { dateOrders } = get();
         const now = Date.now();
 
-        const hasAnyToExpire = dateRequests.some(
+        const hasAnyToExpire = dateOrders.some(
           (r) =>
             r.status === 'active' &&
             r.expiresAt &&
@@ -203,7 +166,7 @@ export const useDateStore = create<DateStore>()(
         if (!hasAnyToExpire) return;
 
         set((state) => ({
-          dateRequests: state.dateRequests.map((r) => {
+          dateOrders: state.dateOrders.map((r) => {
             if (r.status !== 'active') return r;
             if (!r.expiresAt) return r;
             if (new Date(r.expiresAt).getTime() > now) return r;
@@ -212,69 +175,88 @@ export const useDateStore = create<DateStore>()(
         }));
       },
 
-      // Date Request Actions
-      createDateRequest: (request) => {
+      createDateOrder: (order) => {
         const { currentUser } = get();
 
-        const newRequest: DateRequest = {
-          ...request,
+        const newOrder: DateOrder = {
+          ...order,
           id: Date.now().toString(),
-          userId: currentUser.id,
-          user: currentUser,
-          currentParticipants: 1,
-          applicants: [],
+          creatorId: currentUser.id,
+          creator: currentUser,
           status: 'active',
+          applicantCount: 0,
           createdAt: new Date().toISOString(),
-          expiresAt: addMinutesIso(REQUEST_TTL_MINUTES),
         };
 
         set((state) => ({
-          dateRequests: [newRequest, ...state.dateRequests],
+          dateOrders: [newOrder, ...state.dateOrders],
         }));
 
-        return newRequest;
+        return newOrder;
       },
 
-      deleteRequest: (requestId) => {
+      cancelDateOrder: (orderId) => {
         set((state) => ({
-          dateRequests: state.dateRequests.filter((r) => r.id !== requestId),
-          applications: state.applications.filter((app) => app.requestId !== requestId),
-        }));
-      },
-
-      updateRequest: (requestId, updates) => {
-        set((state) => ({
-          dateRequests: state.dateRequests.map((r) =>
-            r.id === requestId ? { ...r, ...updates } : r
+          dateOrders: state.dateOrders.map((o) =>
+            o.id === orderId && o.status === 'active'
+              ? { ...o, status: 'cancelled' as const, cancelledAt: new Date().toISOString() }
+              : o
           ),
         }));
       },
 
-      applyToRequest: (requestId, message) => {
-        const { dateRequests, currentUser } = get();
-        const request = dateRequests.find((r) => r.id === requestId);
-        if (!request) return;
+      updateDateOrder: (orderId, updates) => {
+        set((state) => ({
+          dateOrders: state.dateOrders.map((o) =>
+            o.id === orderId ? { ...o, ...updates } : o
+          ),
+        }));
+      },
 
-        // Disallow apply to non-active/expired/matched requests
-        if (request.status !== 'active') return;
-        if (isExpired(request.expiresAt)) {
+      getActiveDateOrders: () => {
+        const { dateOrders } = get();
+        return dateOrders.filter((o) => o.status === 'active' && !isExpired(o.expiresAt));
+      },
+
+      getMyDateOrders: () => {
+        const { dateOrders, currentUser } = get();
+        return dateOrders.filter(
+          (o) => o.creatorId === currentUser.id || o.matchedUserId === currentUser.id
+        );
+      },
+
+      getDateOrderById: (orderId) => {
+        const { dateOrders } = get();
+        return dateOrders.find((o) => o.id === orderId);
+      },
+
+      // --- Application Actions ---
+
+      applyToDateOrder: (orderId, message) => {
+        const { dateOrders, currentUser, dateOrderApplications } = get();
+        const order = dateOrders.find((o) => o.id === orderId);
+        if (!order) return;
+        if (order.status !== 'active') return;
+        if (isExpired(order.expiresAt)) {
           set((state) => ({
-            dateRequests: state.dateRequests.map((r) =>
-              r.id === requestId ? { ...r, status: 'expired' as const } : r
+            dateOrders: state.dateOrders.map((o) =>
+              o.id === orderId ? { ...o, status: 'expired' as const } : o
             ),
           }));
           return;
         }
 
         // Prevent duplicate apply
-        const alreadyApplied = request.applicants.some((u) => u.id === currentUser.id);
+        const alreadyApplied = dateOrderApplications.some(
+          (a) => a.orderId === orderId && a.applicantId === currentUser.id
+        );
         if (alreadyApplied) return;
 
-        const application: Application = {
+        const application: DateOrderApplication = {
           id: Date.now().toString(),
-          requestId,
-          userId: currentUser.id,
-          user: currentUser,
+          orderId,
+          applicantId: currentUser.id,
+          applicant: currentUser,
           message,
           status: 'pending',
           createdAt: new Date().toISOString(),
@@ -282,194 +264,121 @@ export const useDateStore = create<DateStore>()(
 
         const notification: Notification = {
           id: Date.now().toString(),
-          userId: request.userId,
-          type: 'application',
-          title: 'Có người muốn đi cùng bạn',
-          message: `${currentUser.name} muốn tham gia "${request.title}"`,
-          data: { requestId, applicationId: application.id },
+          userId: order.creatorId,
+          type: 'date_order_application',
+          title: 'Co nguoi ung tuyen',
+          message: `${currentUser.name} muon di an cung ban tai "${order.restaurant?.name || 'nha hang'}"`,
+          data: { orderId, applicationId: application.id },
           read: false,
           createdAt: new Date().toISOString(),
         };
 
         set((state) => ({
-          applications: [...state.applications, application],
-          dateRequests: state.dateRequests.map((req) =>
-            req.id === requestId
-              ? { ...req, applicants: [...req.applicants, currentUser] }
-              : req
+          dateOrderApplications: [...state.dateOrderApplications, application],
+          dateOrders: state.dateOrders.map((o) =>
+            o.id === orderId
+              ? { ...o, applicantCount: o.applicantCount + 1 }
+              : o
           ),
           notifications: [notification, ...state.notifications],
         }));
-      },
-
-      selectApplicant: (requestId, applicantUserId) => {
-        const { dateRequests, currentUser, conversations, users } = get();
-        const request = dateRequests.find((r) => r.id === requestId);
-        if (!request) return;
-
-        if (request.userId !== currentUser.id) return;
-        if (request.status !== 'active') return;
-
-        if (isExpired(request.expiresAt)) {
-          set((state) => ({
-            dateRequests: state.dateRequests.map((r) =>
-              r.id === requestId ? { ...r, status: 'expired' as const } : r
-            ),
-          }));
-          return;
-        }
-
-        const applicant =
-          request.applicants.find((u) => u.id === applicantUserId) ||
-          users.find((u) => u.id === applicantUserId);
-
-        if (!applicant) return;
-
-        const existingConversation = conversations.find(
-          (c) =>
-            c.participants.some((p) => p.id === applicant.id) &&
-            c.participants.some((p) => p.id === currentUser.id)
-        );
-
-        const newConversation: Conversation | null = existingConversation
-          ? null
-          : {
-              id: Date.now().toString(),
-              participants: [currentUser, applicant],
-              updatedAt: new Date().toISOString(),
-            };
-
-        const notification: Notification = {
-          id: Date.now().toString(),
-          userId: applicant.id,
-          type: 'accepted',
-          title: 'Bạn đã được chọn',
-          message: `${currentUser.name} đã chọn bạn cho "${request.title}". Hai bạn đã match!`,
-          data: { requestId, conversationId: newConversation?.id || existingConversation?.id },
-          read: false,
-          createdAt: new Date().toISOString(),
-        };
-
-        set((state) => ({
-          dateRequests: state.dateRequests.map((r) =>
-            r.id === requestId ? { ...r, status: 'matched' as const } : r
-          ),
-          applications: state.applications.map((app) => {
-            if (app.requestId !== requestId) return app;
-            if (app.userId === applicant.id) return { ...app, status: 'accepted' as const };
-            return { ...app, status: 'rejected' as const };
-          }),
-          conversations: newConversation
-            ? [newConversation, ...state.conversations]
-            : state.conversations.map((c) =>
-                c.id === existingConversation?.id
-                  ? { ...c, updatedAt: new Date().toISOString() }
-                  : c
-              ),
-          notifications: [notification, ...state.notifications],
-        }));
-      },
-
-      getRequestsByActivity: (activity) => {
-        const { dateRequests } = get();
-        if (!activity) return dateRequests;
-        return dateRequests.filter((request) => request.activity === activity);
-      },
-
-      getMyRequests: () => {
-        const { dateRequests, currentUser } = get();
-        return dateRequests.filter((request) => request.userId === currentUser.id);
-      },
-
-      getMyApplications: () => {
-        const { applications, currentUser } = get();
-        return applications.filter((app) => app.userId === currentUser.id);
-      },
-
-      getApplicationsForRequest: (requestId) => {
-        const { applications } = get();
-        return applications.filter((app) => app.requestId === requestId);
       },
 
       acceptApplication: (applicationId) => {
-        const { applications, dateRequests, currentUser, conversations } = get();
-        const application = applications.find((a) => a.id === applicationId);
+        const { dateOrderApplications, dateOrders, currentUser } = get();
+        const application = dateOrderApplications.find((a) => a.id === applicationId);
         if (!application) return;
 
-        const request = dateRequests.find((r) => r.id === application.requestId);
+        const order = dateOrders.find((o) => o.id === application.orderId);
+        if (!order) return;
 
         const notification: Notification = {
           id: Date.now().toString(),
-          userId: application.userId,
-          type: 'accepted',
-          title: 'Ứng tuyển được chấp nhận',
-          message: `${currentUser.name} đã chấp nhận ứng tuyển của bạn cho "${request?.title}"`,
-          data: { requestId: request?.id, applicationId },
+          userId: application.applicantId,
+          type: 'date_order_matched',
+          title: 'Da ghep doi!',
+          message: `Ban da duoc chon cho buoi hen tai "${order.restaurant?.name || 'nha hang'}". Chuan bi gap mat nhe!`,
+          data: { orderId: order.id },
           read: false,
           createdAt: new Date().toISOString(),
         };
 
-        const existingConversation = conversations.find(
-          (c) =>
-            c.participants.some((p) => p.id === application.userId) &&
-            c.participants.some((p) => p.id === currentUser.id)
-        );
-
-        const newConversation: Conversation | null = existingConversation
-          ? null
-          : {
-              id: Date.now().toString(),
-              participants: [currentUser, application.user],
-              updatedAt: new Date().toISOString(),
-            };
-
         set((state) => ({
-          applications: state.applications.map((app) =>
-            app.id === applicationId ? { ...app, status: 'accepted' as const } : app
-          ),
-          dateRequests: state.dateRequests.map((req) =>
-            req.id === application.requestId
+          dateOrderApplications: state.dateOrderApplications.map((a) => {
+            if (a.orderId !== application.orderId) return a;
+            if (a.id === applicationId) return { ...a, status: 'accepted' as const };
+            return { ...a, status: 'rejected' as const };
+          }),
+          dateOrders: state.dateOrders.map((o) =>
+            o.id === application.orderId
               ? {
-                  ...req,
-                  currentParticipants: req.currentParticipants + 1,
+                  ...o,
                   status: 'matched' as const,
+                  matchedUserId: application.applicantId,
+                  matchedUser: application.applicant,
+                  matchedAt: new Date().toISOString(),
                 }
-              : req
+              : o
           ),
           notifications: [notification, ...state.notifications],
-          conversations: newConversation
-            ? [newConversation, ...state.conversations]
-            : state.conversations,
         }));
       },
 
       rejectApplication: (applicationId) => {
-        const { applications, dateRequests, currentUser } = get();
-        const application = applications.find((a) => a.id === applicationId);
+        const { dateOrderApplications, dateOrders, currentUser } = get();
+        const application = dateOrderApplications.find((a) => a.id === applicationId);
         if (!application) return;
 
-        const request = dateRequests.find((r) => r.id === application.requestId);
+        const order = dateOrders.find((o) => o.id === application.orderId);
 
         const notification: Notification = {
           id: Date.now().toString(),
-          userId: application.userId,
-          type: 'rejected',
-          title: 'Ứng tuyển bị từ chối',
-          message: `${currentUser.name} đã từ chối ứng tuyển của bạn cho "${request?.title}"`,
-          data: { requestId: request?.id, applicationId },
+          userId: application.applicantId,
+          type: 'system',
+          title: 'Ung tuyen khong duoc chon',
+          message: `Nguoi tao date order tai "${order?.restaurant?.name || 'nha hang'}" da chon nguoi khac.`,
+          data: { orderId: order?.id },
           read: false,
           createdAt: new Date().toISOString(),
         };
 
         set((state) => ({
-          applications: state.applications.map((app) =>
-            app.id === applicationId ? { ...app, status: 'rejected' as const } : app
+          dateOrderApplications: state.dateOrderApplications.map((a) =>
+            a.id === applicationId ? { ...a, status: 'rejected' as const } : a
           ),
           notifications: [notification, ...state.notifications],
         }));
       },
 
-      // User Actions
+      getApplicationsForOrder: (orderId) => {
+        const { dateOrderApplications } = get();
+        return dateOrderApplications.filter((a) => a.orderId === orderId);
+      },
+
+      getMyApplications: () => {
+        const { dateOrderApplications, currentUser } = get();
+        return dateOrderApplications.filter((a) => a.applicantId === currentUser.id);
+      },
+
+      // --- Restaurant Actions ---
+
+      getRestaurants: () => {
+        const { restaurants } = get();
+        return restaurants.filter((r) => r.status === 'active');
+      },
+
+      getRestaurantById: (id) => {
+        const { restaurants } = get();
+        return restaurants.find((r) => r.id === id);
+      },
+
+      getCombosForRestaurant: (restaurantId) => {
+        const { combos } = get();
+        return combos.filter((c) => c.restaurantId === restaurantId && c.isAvailable);
+      },
+
+      // --- User Actions ---
+
       updateProfile: (updates) => {
         set((state) => ({
           currentUser: { ...state.currentUser, ...updates },
@@ -489,100 +398,8 @@ export const useDateStore = create<DateStore>()(
         return users.find((u) => u.id === userId);
       },
 
-      // Messages
-      getOrCreateConversationWithUser: (otherUserId) => {
-        const { currentUser, users, conversations } = get();
-        if (!otherUserId) return null;
-        if (otherUserId === currentUser.id) return null;
+      // --- Notification Actions ---
 
-        const otherUser = users.find((u) => u.id === otherUserId);
-        if (!otherUser) return null;
-
-        const existing = conversations.find(
-          (c) =>
-            c.participants.some((p) => p.id === currentUser.id) &&
-            c.participants.some((p) => p.id === otherUserId) &&
-            c.participants.length === 2
-        );
-
-        if (existing) {
-          set((state) => ({
-            conversations: state.conversations.map((c) =>
-              c.id === existing.id ? { ...c, updatedAt: new Date().toISOString() } : c
-            ),
-          }));
-          return existing.id;
-        }
-
-        const newConversation: Conversation = {
-          id: Date.now().toString(),
-          participants: [currentUser, otherUser],
-          updatedAt: new Date().toISOString(),
-        };
-
-        set((state) => ({
-          conversations: [newConversation, ...state.conversations],
-        }));
-
-        return newConversation.id;
-      },
-
-      sendMessage: (conversationId, text) => {
-        const { conversations, currentUser } = get();
-        const conversation = conversations.find((c) => c.id === conversationId);
-        if (!conversation) return;
-
-        const receiver = conversation.participants.find((p) => p.id !== currentUser.id);
-        if (!receiver) return;
-
-        const newMessage: Message = {
-          id: Date.now().toString(),
-          conversationId,
-          senderId: currentUser.id,
-          receiverId: receiver.id,
-          text,
-          createdAt: new Date().toISOString(),
-          read: false,
-        };
-
-        const notification: Notification = {
-          id: Date.now().toString(),
-          userId: receiver.id,
-          type: 'message',
-          title: 'Tin nhắn mới',
-          message: `${currentUser.name}: "${text}"`,
-          data: { conversationId, messageId: newMessage.id },
-          read: false,
-          createdAt: new Date().toISOString(),
-        };
-
-        set((state) => ({
-          messages: {
-            ...state.messages,
-            [conversationId]: [...(state.messages[conversationId] || []), newMessage],
-          },
-          conversations: state.conversations.map((c) =>
-            c.id === conversationId
-              ? { ...c, lastMessage: newMessage, updatedAt: new Date().toISOString() }
-              : c
-          ),
-          notifications: [notification, ...state.notifications],
-        }));
-      },
-
-      getMyConversations: () => {
-        const { conversations, currentUser } = get();
-        return conversations
-          .filter((c) => c.participants.some((p) => p.id === currentUser.id))
-          .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
-      },
-
-      getMessages: (conversationId) => {
-        const { messages } = get();
-        return messages[conversationId] || [];
-      },
-
-      // Notification Actions
       markNotificationAsRead: (notificationId) => {
         set((state) => ({
           notifications: state.notifications.map((n) =>
@@ -602,24 +419,25 @@ export const useDateStore = create<DateStore>()(
         return notifications.filter((n) => n.userId === currentUser.id);
       },
 
-      // Review Actions
+      // --- Review Actions ---
+
       getUserReviews: (userId) => {
         const { reviews } = get();
         return reviews
-          .filter((r) => r.userId === userId)
+          .filter((r) => r.reviewedId === userId)
           .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
       },
 
       getUserAverageRating: (userId) => {
         const { reviews } = get();
-        const userReviews = reviews.filter((r) => r.userId === userId);
+        const userReviews = reviews.filter((r) => r.reviewedId === userId);
         if (userReviews.length === 0) return 0;
         const sum = userReviews.reduce((acc, r) => acc + r.rating, 0);
         return sum / userReviews.length;
       },
 
       addReview: (review) => {
-        const newReview: Review = {
+        const newReview: PersonReview = {
           ...review,
           id: Date.now().toString(),
           createdAt: new Date().toISOString(),
@@ -630,193 +448,8 @@ export const useDateStore = create<DateStore>()(
         return newReview;
       },
 
-      // Booking Actions
-      createBooking: (providerId, serviceId, date, time, location, message) => {
-        const { users, currentUser } = get();
-        const provider = users.find((u) => u.id === providerId);
-        if (!provider) return undefined;
+      // --- Wallet Actions ---
 
-        const service = provider.services?.find((s) => s.id === serviceId);
-        if (!service) return undefined;
-
-        const newBooking: ServiceBooking = {
-          id: Date.now().toString(),
-          serviceId,
-          providerId,
-          provider,
-          bookerId: currentUser.id,
-          booker: currentUser,
-          service,
-          date,
-          time,
-          location,
-          message,
-          status: 'pending',
-          isPaid: false,
-          escrowAmount: service.price,
-          createdAt: new Date().toISOString(),
-        };
-
-        const notification: Notification = {
-          id: Date.now().toString(),
-          userId: providerId,
-          type: 'booking',
-          title: 'Booking mới',
-          message: `${currentUser.name} muốn book dịch vụ "${service.title}"`,
-          data: { bookingId: newBooking.id },
-          read: false,
-          createdAt: new Date().toISOString(),
-        };
-
-        set((state) => ({
-          bookings: [newBooking, ...state.bookings],
-          notifications: [notification, ...state.notifications],
-        }));
-
-        return newBooking;
-      },
-
-      acceptBooking: (bookingId) => {
-        const { bookings, currentUser, conversations } = get();
-        const booking = bookings.find((b) => b.id === bookingId);
-        if (!booking) return;
-
-        const notification: Notification = {
-          id: Date.now().toString(),
-          userId: booking.bookerId,
-          type: 'booking_accepted',
-          title: 'Booking được chấp nhận',
-          message: `${currentUser.name} đã chấp nhận booking "${booking.service.title}" của bạn`,
-          data: { bookingId },
-          read: false,
-          createdAt: new Date().toISOString(),
-        };
-
-        const existingConversation = conversations.find(
-          (c) =>
-            c.participants.some((p) => p.id === booking.bookerId) &&
-            c.participants.some((p) => p.id === currentUser.id)
-        );
-
-        const newConversation: Conversation | null = existingConversation
-          ? null
-          : {
-              id: Date.now().toString(),
-              participants: [currentUser, booking.booker],
-              updatedAt: new Date().toISOString(),
-            };
-
-        set((state) => ({
-          bookings: state.bookings.map((b) =>
-            b.id === bookingId ? { ...b, status: 'accepted' as const } : b
-          ),
-          notifications: [notification, ...state.notifications],
-          conversations: newConversation
-            ? [newConversation, ...state.conversations]
-            : state.conversations,
-        }));
-      },
-
-      rejectBooking: (bookingId) => {
-        const { bookings, currentUser } = get();
-        const booking = bookings.find((b) => b.id === bookingId);
-        if (!booking) return;
-
-        const notification: Notification = {
-          id: Date.now().toString(),
-          userId: booking.bookerId,
-          type: 'booking_rejected',
-          title: 'Booking bị từ chối',
-          message: `${currentUser.name} đã từ chối booking "${booking.service.title}" của bạn`,
-          data: { bookingId },
-          read: false,
-          createdAt: new Date().toISOString(),
-        };
-
-        set((state) => ({
-          bookings: state.bookings.map((b) =>
-            b.id === bookingId ? { ...b, status: 'rejected' as const } : b
-          ),
-          notifications: [notification, ...state.notifications],
-        }));
-      },
-
-      getMyBookings: () => {
-        const { bookings, currentUser } = get();
-        return bookings.filter((b) => b.bookerId === currentUser.id);
-      },
-
-      getReceivedBookings: () => {
-        const { bookings, currentUser } = get();
-        return bookings.filter((b) => b.providerId === currentUser.id);
-      },
-
-      // Service Actions
-      addServiceToProfile: (service) => {
-        const newService: ServiceOffering = {
-          ...service,
-          id: Date.now().toString(),
-        };
-
-        set((state) => ({
-          currentUser: {
-            ...state.currentUser,
-            isServiceProvider: true,
-            services: [...(state.currentUser.services || []), newService],
-          },
-          users: state.users.map((u) =>
-            u.id === state.currentUser.id
-              ? {
-                  ...u,
-                  isServiceProvider: true,
-                  services: [...(u.services || []), newService],
-                }
-              : u
-          ),
-        }));
-
-        return newService;
-      },
-
-      updateService: (serviceId, updates) => {
-        set((state) => ({
-          currentUser: {
-            ...state.currentUser,
-            services: state.currentUser.services?.map((s) =>
-              s.id === serviceId ? { ...s, ...updates } : s
-            ),
-          },
-          users: state.users.map((u) =>
-            u.id === state.currentUser.id
-              ? {
-                  ...u,
-                  services: u.services?.map((s) =>
-                    s.id === serviceId ? { ...s, ...updates } : s
-                  ),
-                }
-              : u
-          ),
-        }));
-      },
-
-      removeService: (serviceId) => {
-        set((state) => ({
-          currentUser: {
-            ...state.currentUser,
-            services: state.currentUser.services?.filter((s) => s.id !== serviceId),
-          },
-          users: state.users.map((u) =>
-            u.id === state.currentUser.id
-              ? {
-                  ...u,
-                  services: u.services?.filter((s) => s.id !== serviceId),
-                }
-              : u
-          ),
-        }));
-      },
-
-      // Wallet Actions
       topUpWallet: (amount, method) => {
         const { currentUser } = get();
         const transaction: Transaction = {
@@ -825,7 +458,7 @@ export const useDateStore = create<DateStore>()(
           type: 'top_up',
           amount,
           status: 'completed',
-          description: `Nạp tiền vào ví qua ${method}`,
+          description: `Nap tien vao vi qua ${method}`,
           paymentMethod: method,
           createdAt: new Date().toISOString(),
           completedAt: new Date().toISOString(),
@@ -853,12 +486,11 @@ export const useDateStore = create<DateStore>()(
         return transaction;
       },
 
-      payForBooking: (bookingId) => {
-        const { bookings, currentUser } = get();
-        const booking = bookings.find((b) => b.id === bookingId);
-        if (!booking) return null;
+      payForDateOrder: (orderId, amount) => {
+        const { dateOrders, currentUser } = get();
+        const order = dateOrders.find((o) => o.id === orderId);
+        if (!order) return null;
 
-        const amount = booking.service.price;
         if (currentUser.wallet.balance < amount) {
           return null;
         }
@@ -866,30 +498,18 @@ export const useDateStore = create<DateStore>()(
         const transaction: Transaction = {
           id: Date.now().toString(),
           userId: currentUser.id,
-          type: 'booking_payment',
+          type: 'date_order_payment',
           amount,
           status: 'completed',
-          description: `Thanh toán booking: ${booking.service.title}`,
-          relatedId: bookingId,
+          description: `Thanh toan date order: ${order.restaurant?.name || 'Nha hang'} - ${order.combo?.name || 'Combo'}`,
+          relatedId: orderId,
           paymentMethod: 'wallet',
           createdAt: new Date().toISOString(),
           completedAt: new Date().toISOString(),
         };
 
-        const providerTransaction: Transaction = {
-          id: (Date.now() + 1).toString(),
-          userId: booking.providerId,
-          type: 'booking_earning',
-          amount,
-          status: 'completed',
-          description: `Thu nhập từ booking: ${booking.service.title}`,
-          relatedId: bookingId,
-          createdAt: new Date().toISOString(),
-          completedAt: new Date().toISOString(),
-        };
-
         set((state) => ({
-          transactions: [transaction, providerTransaction, ...state.transactions],
+          transactions: [transaction, ...state.transactions],
           currentUser: {
             ...state.currentUser,
             wallet: {
@@ -897,21 +517,14 @@ export const useDateStore = create<DateStore>()(
               balance: state.currentUser.wallet.balance - amount,
             },
           },
-          users: state.users.map((u) => {
-            if (u.id === state.currentUser.id) {
-              return {
-                ...u,
-                wallet: { ...u.wallet, balance: u.wallet.balance - amount },
-              };
-            }
-            if (u.id === booking.providerId) {
-              return {
-                ...u,
-                wallet: { ...u.wallet, balance: u.wallet.balance + amount },
-              };
-            }
-            return u;
-          }),
+          users: state.users.map((u) =>
+            u.id === state.currentUser.id
+              ? {
+                  ...u,
+                  wallet: { ...u.wallet, balance: u.wallet.balance - amount },
+                }
+              : u
+          ),
         }));
 
         return transaction;
@@ -927,14 +540,11 @@ export const useDateStore = create<DateStore>()(
     {
       name: 'dinedate-storage',
       partialize: (state) => ({
-        dateRequests: state.dateRequests,
-        applications: state.applications,
+        dateOrders: state.dateOrders,
+        dateOrderApplications: state.dateOrderApplications,
         currentUser: state.currentUser,
         users: state.users,
-        bookings: state.bookings,
         notifications: state.notifications,
-        conversations: state.conversations,
-        messages: state.messages,
         reviews: state.reviews,
         transactions: state.transactions,
       }),

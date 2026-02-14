@@ -2,31 +2,8 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { Review, ServiceOffering, User } from '@/types';
+import { PersonReview, User } from '@/types';
 import { mapDbUserToUser } from '@/lib/user-mapper';
-
-type DbServiceRow = {
-  id: string;
-  user_id: string;
-  activity: string;
-  title: string;
-  description: string;
-  price: number;
-  available: boolean;
-  duration?: string;
-};
-
-function mapDbServiceToService(row: DbServiceRow): ServiceOffering {
-  return {
-    id: row.id,
-    activity: row.activity as any,
-    title: row.title,
-    description: row.description ?? '',
-    price: Number(row.price ?? 0),
-    available: !!row.available,
-    duration: (row.duration as any) === 'day' ? 'day' : 'session',
-  };
-}
 
 function isUUID(str: string) {
   const regex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -35,8 +12,7 @@ function isUUID(str: string) {
 
 export function useDbUserProfile(slug?: string) {
   const [user, setUser] = useState<User | null>(null);
-  const [services, setServices] = useState<ServiceOffering[]>([]);
-  const [reviews, setReviews] = useState<Review[]>([]);
+  const [reviews, setReviews] = useState<PersonReview[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -73,51 +49,30 @@ export function useDbUserProfile(slug?: string) {
       }
 
       const mappedUser = mapDbUserToUser(userRow as any);
-      const userId = mappedUser.id; // Get actual UUID for subsequent queries
-
-      const { data: servicesRows, error: servicesErr } = await supabase
-        .from('services')
-        .select('*')
-        .eq('user_id', userId)
-        .order('created_at', { ascending: false });
-
-      if (servicesErr) console.error(servicesErr);
-
-      const mappedServices = (servicesRows || []).map((r: any) => mapDbServiceToService(r as DbServiceRow));
+      const userId = mappedUser.id;
 
       const { data: reviewRows, error: reviewErr } = await supabase
-        .from('reviews')
+        .from('person_reviews')
         .select('*')
-        .eq('reviewee_id', userId)
+        .eq('reviewed_id', userId)
         .order('created_at', { ascending: false });
 
       if (reviewErr) console.error(reviewErr);
 
-      // For now: reviewer object isn't joined; keep minimal mapping
-      const mappedReviews: Review[] = (reviewRows || []).map((r: any) => ({
+      const mappedReviews: PersonReview[] = (reviewRows || []).map((r: any) => ({
         id: r.id,
-        userId: r.reviewee_id,
+        dateOrderId: r.date_order_id,
         reviewerId: r.reviewer_id,
-        revieweeId: r.reviewee_id,
-        reviewer: {
-          id: r.reviewer_id,
-          name: 'Người dùng',
-          age: 25,
-          avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${r.reviewer_id}`,
-          bio: '',
-          location: 'Việt Nam',
-          wallet: { balance: 0, escrowBalance: 0, currency: 'VND' },
-          vipStatus: { tier: 'free', benefits: [] },
-        },
+        reviewedId: r.reviewed_id,
         rating: r.rating,
         comment: r.comment ?? '',
+        wantToMeetAgain: r.want_to_meet_again ?? false,
         createdAt: r.created_at,
       }));
 
       if (cancelled) return;
 
-      setUser({ ...mappedUser, services: mappedServices });
-      setServices(mappedServices);
+      setUser(mappedUser);
       setReviews(mappedReviews);
       setLoading(false);
     };
@@ -136,5 +91,5 @@ export function useDbUserProfile(slug?: string) {
     return avg;
   }, [reviews, user?.rating]);
 
-  return { user, services, reviews, rating, loading };
+  return { user, reviews, rating, loading };
 }

@@ -9,25 +9,26 @@ import { supabase } from '@/integrations/supabase/client';
 import Image from 'next/image';
 
 const DISPUTE_REASONS = [
-  { value: 'partner_no_show', label: 'Partner khong den' },
-  { value: 'poor_service', label: 'Chat luong dich vu kem' },
-  { value: 'bad_attitude', label: 'Thai do khong tot' },
+  { value: 'no_show', label: 'Doi phuong khong den' },
+  { value: 'bad_behavior', label: 'Hanh vi khong phu hop' },
+  { value: 'wrong_restaurant', label: 'Nha hang khong dung' },
+  { value: 'food_quality', label: 'Chat luong mon an kem' },
   { value: 'other', label: 'Khac' },
 ] as const;
 
 interface DisputeModalProps {
   isOpen: boolean;
   onClose: () => void;
-  bookingId: string;
-  partnerName: string;
+  dateOrderId: string;
+  otherUserName: string;
   onSuccess?: () => void;
 }
 
 export default function DisputeModal({
   isOpen,
   onClose,
-  bookingId,
-  partnerName,
+  dateOrderId,
+  otherUserName,
   onSuccess,
 }: DisputeModalProps) {
   const [reason, setReason] = useState<string>('');
@@ -68,7 +69,7 @@ export default function DisputeModal({
         }
 
         const fileExt = file.name.split('.').pop();
-        const fileName = `${authData.user.id}/${bookingId}/${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
+        const fileName = `${authData.user.id}/${dateOrderId}/${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
 
         const { error: uploadError } = await supabase.storage
           .from('dispute-evidence')
@@ -132,7 +133,7 @@ export default function DisputeModal({
     try {
       const { data, error } = await supabase.functions.invoke('create-dispute', {
         body: {
-          bookingId,
+          dateOrderId,
           reason,
           description: description.trim(),
           evidenceUrls,
@@ -198,8 +199,8 @@ export default function DisputeModal({
                   <AlertTriangle className="w-5 h-5 text-amber-600" />
                 </div>
                 <div>
-                  <h3 className="font-bold text-gray-900">Khieu nai don hang</h3>
-                  <p className="text-xs text-gray-500">Partner: {partnerName}</p>
+                  <h3 className="font-bold text-gray-900">Khieu nai don hen</h3>
+                  <p className="text-xs text-gray-500">Doi phuong: {otherUserName}</p>
                 </div>
               </div>
               <button

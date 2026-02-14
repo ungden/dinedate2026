@@ -5,13 +5,12 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0'
 /**
  * Resolve Dispute Edge Function (Admin Only)
  *
- * This function handles dispute resolution:
+ * This function handles dispute resolution for date orders:
  * 1. Validates admin role
  * 2. Executes the chosen resolution:
- *    - refund_full: Return 100% to user, partner gets nothing
- *    - refund_partial: Return specified amount to user, rest to partner
- *    - release_to_partner: Partner gets full payment
- *    - no_action: Cancel dispute, booking returns to previous state
+ *    - refund_full: Return 100% of disputing user's charge back to their wallet
+ *    - refund_partial: Return specified amount to disputing user's wallet
+ *    - no_action: Cancel dispute, date order returns to previous state
  * 3. Updates dispute record
  * 4. Notifies both parties
  */
@@ -30,12 +29,12 @@ function getCorsHeaders(req: Request) {
 
 type ResolveDisputeBody = {
   disputeId: string;
-  resolution: 'refund_full' | 'refund_partial' | 'release_to_partner' | 'no_action';
+  resolution: 'refund_full' | 'refund_partial' | 'no_action';
   resolutionAmount?: number; // For partial refund
   resolutionNotes?: string;
 };
 
-const VALID_RESOLUTIONS = ['refund_full', 'refund_partial', 'release_to_partner', 'no_action'];
+const VALID_RESOLUTIONS = ['refund_full', 'refund_partial', 'no_action'];
 
 serve(async (req: Request) => {
   const corsHeaders = getCorsHeaders(req);
@@ -113,10 +112,10 @@ serve(async (req: Request) => {
     });
   }
 
-  // Fetch dispute with booking details
+  // Fetch dispute
   const { data: dispute, error: disputeErr } = await admin
     .from('disputes')
-    .select('id, booking_id, user_id, status, reason')
+    .select('id, date_order_id, user_id, status, reason')
     .eq('id', body.disputeId)
     .single();
 
@@ -135,67 +134,70 @@ serve(async (req: Request) => {
     });
   }
 
-  // Fetch booking
-  const { data: booking, error: bookingErr } = await admin
-    .from('bookings')
-    .select('id, user_id, partner_id, total_amount, partner_earning, platform_fee, activity, status')
-    .eq('id', dispute.booking_id)
+  // Fetch date_order
+  const { data: dateOrder, error: dateOrderErr } = await admin
+    .from('date_orders')
+    .select('id, creator_id, matched_user_id, combo_price, creator_charge, applicant_charge, creator_platform_fee, applicant_platform_fee, status')
+    .eq('id', dispute.date_order_id)
     .single();
 
-  if (bookingErr || !booking) {
-    return new Response(JSON.stringify({ error: 'Booking not found' }), {
+  if (dateOrderErr || !dateOrder) {
+    return new Response(JSON.stringify({ error: 'Date order not found' }), {
       status: 404,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
     });
   }
 
-  const totalAmount = Number(booking.total_amount);
-  const partnerEarning = Number(booking.partner_earning);
-  const platformFee = Number(booking.platform_fee);
-  const bookerId = booking.user_id;
-  const partnerId = booking.partner_id;
+  // Determine who filed the dispute and what they were charged
+  const disputerId = dispute.user_id;
+  const isDisputerCreator = disputerId === dateOrder.creator_id;
+  const disputerCharge = isDisputerCreator
+    ? Number(dateOrder.creator_charge || 0)
+    : Number(dateOrder.applicant_charge || 0);
+
+  const otherUserId = isDisputerCreator ? dateOrder.matched_user_id : dateOrder.creator_id;
 
   // Execute resolution
   try {
     switch (body.resolution) {
       case 'refund_full': {
-        // Full refund: Return 100% to user from escrow
-        const { data: bookerWallet } = await admin
+        // Full refund: Return disputer's charge back to their wallet
+        const { data: disputerWallet } = await admin
           .from('users')
           .select('wallet_balance, wallet_escrow')
-          .eq('id', bookerId)
+          .eq('id', disputerId)
           .single();
 
-        const currentBalance = Number(bookerWallet?.wallet_balance || 0);
-        const currentEscrow = Number(bookerWallet?.wallet_escrow || 0);
+        const currentBalance = Number(disputerWallet?.wallet_balance || 0);
+        const currentEscrow = Number(disputerWallet?.wallet_escrow || 0);
 
         // Return escrow to balance
         await admin.from('users').update({
-          wallet_balance: currentBalance + totalAmount,
-          wallet_escrow: currentEscrow - totalAmount,
-        }).eq('id', bookerId);
+          wallet_balance: currentBalance + disputerCharge,
+          wallet_escrow: Math.max(0, currentEscrow - disputerCharge),
+        }).eq('id', disputerId);
 
         // Log transaction
         await admin.from('transactions').insert({
-          user_id: bookerId,
+          user_id: disputerId,
           type: 'refund',
-          amount: totalAmount,
+          amount: disputerCharge,
           status: 'completed',
-          description: `Hoan tien 100% - Khieu nai don hang: ${booking.activity}`,
-          related_id: booking.id,
+          description: `Hoan tien 100% - Khieu nai date order`,
+          related_id: dateOrder.id,
         });
 
-        // Update booking status
-        await admin.from('bookings').update({
+        // Update date_order status
+        await admin.from('date_orders').update({
           status: 'cancelled',
-          payout_status: 'refunded',
-        }).eq('id', booking.id);
+          updated_at: new Date().toISOString(),
+        }).eq('id', dateOrder.id);
 
         break;
       }
 
       case 'refund_partial': {
-        const refundAmount = Math.min(Number(body.resolutionAmount || 0), totalAmount);
+        const refundAmount = Math.min(Number(body.resolutionAmount || 0), disputerCharge);
         if (refundAmount <= 0) {
           return new Response(JSON.stringify({ error: 'Invalid refund amount' }), {
             status: 400,
@@ -203,137 +205,48 @@ serve(async (req: Request) => {
           });
         }
 
-        const partnerAmount = totalAmount - refundAmount;
-
-        // Get booker wallet
-        const { data: bookerWallet } = await admin
+        // Get disputer wallet
+        const { data: disputerWallet } = await admin
           .from('users')
           .select('wallet_balance, wallet_escrow')
-          .eq('id', bookerId)
+          .eq('id', disputerId)
           .single();
 
-        const bookerBalance = Number(bookerWallet?.wallet_balance || 0);
-        const bookerEscrow = Number(bookerWallet?.wallet_escrow || 0);
+        const disputerBalance = Number(disputerWallet?.wallet_balance || 0);
+        const disputerEscrow = Number(disputerWallet?.wallet_escrow || 0);
 
-        // Return refund to booker
+        // Return partial refund to disputer
         await admin.from('users').update({
-          wallet_balance: bookerBalance + refundAmount,
-          wallet_escrow: bookerEscrow - totalAmount,
-        }).eq('id', bookerId);
+          wallet_balance: disputerBalance + refundAmount,
+          wallet_escrow: Math.max(0, disputerEscrow - refundAmount),
+        }).eq('id', disputerId);
 
-        // Log booker transaction
+        // Log transaction
         await admin.from('transactions').insert({
-          user_id: bookerId,
+          user_id: disputerId,
           type: 'refund',
           amount: refundAmount,
           status: 'completed',
-          description: `Hoan tien mot phan - Khieu nai don hang: ${booking.activity}`,
-          related_id: booking.id,
+          description: `Hoan tien mot phan - Khieu nai date order`,
+          related_id: dateOrder.id,
         });
 
-        // Give remaining to partner (after platform fee)
-        if (partnerAmount > 0) {
-          // Calculate proportional partner earning
-          const partnerPayout = Math.round(partnerAmount * (partnerEarning / totalAmount));
-
-          const { data: partnerWallet } = await admin
-            .from('users')
-            .select('wallet_balance')
-            .eq('id', partnerId)
-            .single();
-
-          const partnerBalance = Number(partnerWallet?.wallet_balance || 0);
-
-          await admin.from('users').update({
-            wallet_balance: partnerBalance + partnerPayout,
-          }).eq('id', partnerId);
-
-          // Log partner transaction
-          await admin.from('transactions').insert({
-            user_id: partnerId,
-            type: 'booking_earning',
-            amount: partnerPayout,
-            status: 'completed',
-            description: `Thu nhap (sau khieu nai): ${booking.activity}`,
-            related_id: booking.id,
-          });
-        }
-
-        // Update booking status
-        await admin.from('bookings').update({
+        // Update date_order status
+        await admin.from('date_orders').update({
           status: 'completed',
-          payout_status: 'partial_refund',
-        }).eq('id', booking.id);
-
-        break;
-      }
-
-      case 'release_to_partner': {
-        // Release full payment to partner (same as normal completion)
-        const { data: bookerWallet } = await admin
-          .from('users')
-          .select('wallet_escrow, total_spending, vip_tier')
-          .eq('id', bookerId)
-          .single();
-
-        const currentEscrow = Number(bookerWallet?.wallet_escrow || 0);
-        const currentSpending = Number(bookerWallet?.total_spending || 0);
-
-        // Deduct from escrow, add to spending
-        await admin.from('users').update({
-          wallet_escrow: currentEscrow - totalAmount,
-          total_spending: currentSpending + totalAmount,
-        }).eq('id', bookerId);
-
-        // Add to partner balance
-        const { data: partnerWallet } = await admin
-          .from('users')
-          .select('wallet_balance')
-          .eq('id', partnerId)
-          .single();
-
-        const partnerBalance = Number(partnerWallet?.wallet_balance || 0);
-
-        await admin.from('users').update({
-          wallet_balance: partnerBalance + partnerEarning,
-        }).eq('id', partnerId);
-
-        // Log transactions
-        await admin.from('transactions').insert({
-          user_id: bookerId,
-          type: 'booking_payment',
-          amount: totalAmount,
-          status: 'completed',
-          description: `Thanh toan (sau khieu nai): ${booking.activity}`,
-          related_id: booking.id,
-        });
-
-        await admin.from('transactions').insert({
-          user_id: partnerId,
-          type: 'booking_earning',
-          amount: partnerEarning,
-          status: 'completed',
-          description: `Thu nhap (sau khieu nai): ${booking.activity}`,
-          related_id: booking.id,
-        });
-
-        // Update booking status
-        await admin.from('bookings').update({
-          status: 'completed',
-          payout_status: 'paid',
-          completed_at: new Date().toISOString(),
-        }).eq('id', booking.id);
+          updated_at: new Date().toISOString(),
+        }).eq('id', dateOrder.id);
 
         break;
       }
 
       case 'no_action': {
         // No financial action, just close the dispute
-        // Return booking to completed_pending status
-        await admin.from('bookings').update({
-          status: 'completed_pending',
-          dispute_paused_at: null,
-        }).eq('id', booking.id);
+        // Return date_order to 'matched' status
+        await admin.from('date_orders').update({
+          status: 'matched',
+          updated_at: new Date().toISOString(),
+        }).eq('id', dateOrder.id);
 
         break;
       }
@@ -350,58 +263,53 @@ serve(async (req: Request) => {
     }).eq('id', body.disputeId);
 
     // Get user names for notifications
-    const { data: bookerInfo } = await admin
+    const { data: disputerInfo } = await admin
       .from('users')
       .select('name')
-      .eq('id', bookerId)
-      .single();
-
-    const { data: partnerInfo } = await admin
-      .from('users')
-      .select('name')
-      .eq('id', partnerId)
+      .eq('id', disputerId)
       .single();
 
     // Create notifications based on resolution
-    const resolutionMessages: Record<string, { booker: string; partner: string }> = {
+    const resolutionMessages: Record<string, { disputer: string; other: string }> = {
       refund_full: {
-        booker: `Khieu nai cua ban da duoc xu ly. Ban da nhan hoan tien 100% (${totalAmount.toLocaleString('vi-VN')} VND).`,
-        partner: `Khieu nai tu khach hang ${bookerInfo?.name} da duoc xu ly. Don hang khong duoc thanh toan do vi pham.`,
+        disputer: `Khieu nai cua ban da duoc xu ly. Ban da nhan hoan tien 100% (${disputerCharge.toLocaleString('vi-VN')} VND).`,
+        other: `Khieu nai tu ${disputerInfo?.name || 'nguoi dung'} da duoc xu ly. Date order da bi huy.`,
       },
       refund_partial: {
-        booker: `Khieu nai cua ban da duoc xu ly. Ban nhan hoan tien ${body.resolutionAmount?.toLocaleString('vi-VN')} VND.`,
-        partner: `Khieu nai tu khach hang ${bookerInfo?.name} da duoc xu ly. Ban nhan mot phan thanh toan.`,
-      },
-      release_to_partner: {
-        booker: `Khieu nai cua ban da duoc xem xet. Tien da duoc chuyen cho Partner.`,
-        partner: `Khieu nai tu khach hang da duoc xu ly. Ban da nhan day du thanh toan (+${partnerEarning.toLocaleString('vi-VN')} VND).`,
+        disputer: `Khieu nai cua ban da duoc xu ly. Ban nhan hoan tien ${(body.resolutionAmount || 0).toLocaleString('vi-VN')} VND.`,
+        other: `Khieu nai tu ${disputerInfo?.name || 'nguoi dung'} da duoc xu ly voi hoan tien mot phan.`,
       },
       no_action: {
-        booker: `Khieu nai cua ban da duoc xem xet. Khong co hanh dong nao duoc thuc hien. Don hang tiep tuc xu ly binh thuong.`,
-        partner: `Khieu nai tu khach hang ${bookerInfo?.name} da duoc dong. Don hang tiep tuc xu ly binh thuong.`,
+        disputer: `Khieu nai cua ban da duoc xem xet. Khong co hanh dong nao duoc thuc hien. Date tiep tuc xu ly binh thuong.`,
+        other: `Khieu nai tu ${disputerInfo?.name || 'nguoi dung'} da duoc dong. Date tiep tuc xu ly binh thuong.`,
       },
     };
 
     const messages = resolutionMessages[body.resolution];
 
-    await admin.from('notifications').insert([
+    const notifications = [
       {
-        user_id: bookerId,
+        user_id: disputerId,
         type: 'dispute_resolved',
         title: 'Khieu nai da xu ly',
-        message: messages.booker,
-        data: { disputeId: body.disputeId, bookingId: booking.id, resolution: body.resolution },
+        message: messages.disputer,
+        data: { disputeId: body.disputeId, dateOrderId: dateOrder.id, resolution: body.resolution },
         is_read: false,
       },
-      {
-        user_id: partnerId,
+    ];
+
+    if (otherUserId) {
+      notifications.push({
+        user_id: otherUserId,
         type: 'dispute_resolved',
         title: 'Khieu nai da xu ly',
-        message: messages.partner,
-        data: { disputeId: body.disputeId, bookingId: booking.id, resolution: body.resolution },
+        message: messages.other,
+        data: { disputeId: body.disputeId, dateOrderId: dateOrder.id, resolution: body.resolution },
         is_read: false,
-      },
-    ]);
+      });
+    }
+
+    await admin.from('notifications').insert(notifications);
 
     console.log(`[RESOLVE-DISPUTE] Dispute ${body.disputeId} resolved with ${body.resolution} by admin ${adminId}`);
 

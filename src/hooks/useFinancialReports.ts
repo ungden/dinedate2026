@@ -16,7 +16,7 @@ export interface OverviewMetrics {
 export interface DailyRevenue {
   date: string;
   revenue: number;
-  bookings: number;
+  dateOrders: number;
 }
 
 export interface TransactionBreakdown {
@@ -28,13 +28,13 @@ export interface TransactionBreakdown {
   color: string;
 }
 
-export interface TopPartner {
+export interface TopRestaurant {
   id: string;
   name: string;
-  avatar: string;
-  totalBookings: number;
-  totalEarnings: number;
-  rating: number;
+  logoUrl: string;
+  totalOrders: number;
+  totalRevenue: number;
+  averageRating: number;
   reviewCount: number;
 }
 
@@ -42,24 +42,9 @@ export interface TopUser {
   id: string;
   name: string;
   avatar: string;
-  totalBookings: number;
+  totalDateOrders: number;
   totalSpent: number;
   vipTier: string;
-}
-
-export interface PendingWithdrawal {
-  id: string;
-  userId: string;
-  userName: string;
-  userAvatar: string;
-  userEmail?: string;
-  userPhone?: string;
-  amount: number;
-  bankName: string;
-  accountNumber: string;
-  accountName: string;
-  note: string;
-  createdAt: string;
 }
 
 function getPeriodFilter(period: FinancePeriod): string | null {
@@ -114,21 +99,21 @@ export function useFinancialReports() {
       const dateFilter = getPeriodFilter(period);
       const platformFeeRate = 0.15; // 15% platform fee
 
-      // Fetch completed bookings (GMV)
-      let bookingsQuery = supabase
-        .from('bookings')
-        .select('total_amount')
+      // Fetch completed date orders (GMV)
+      let ordersQuery = supabase
+        .from('date_orders')
+        .select('combo_price, platform_fee')
         .eq('status', 'completed');
 
       if (dateFilter) {
-        bookingsQuery = bookingsQuery.gte('completed_at', dateFilter);
+        ordersQuery = ordersQuery.gte('completed_at', dateFilter);
       }
 
-      const { data: bookings, error: bookingsErr } = await bookingsQuery;
-      if (bookingsErr) throw bookingsErr;
+      const { data: orders, error: ordersErr } = await ordersQuery;
+      if (ordersErr) throw new Error(ordersErr.message || 'Failed to fetch orders');
 
-      const totalGMV = bookings?.reduce((sum, b) => sum + Number(b.total_amount || 0), 0) || 0;
-      const platformRevenue = Math.round(totalGMV * platformFeeRate);
+      const totalGMV = orders?.reduce((sum, o) => sum + Number(o.combo_price || 0), 0) || 0;
+      const platformRevenue = orders?.reduce((sum, o) => sum + Number(o.platform_fee || 0), 0) || 0;
 
       // Fetch top-ups
       let topupsQuery = supabase
@@ -142,7 +127,7 @@ export function useFinancialReports() {
       }
 
       const { data: topups, error: topupsErr } = await topupsQuery;
-      if (topupsErr) throw topupsErr;
+      if (topupsErr) throw new Error(topupsErr.message || 'Failed to fetch topups');
 
       const totalTopups = topups?.reduce((sum, t) => sum + Number(t.amount || 0), 0) || 0;
 
@@ -158,7 +143,7 @@ export function useFinancialReports() {
       }
 
       const { data: withdrawals, error: withdrawalsErr } = await withdrawalsQuery;
-      if (withdrawalsErr) throw withdrawalsErr;
+      if (withdrawalsErr) throw new Error(withdrawalsErr.message || 'Failed to fetch withdrawals');
 
       const totalWithdrawals = withdrawals?.reduce((sum, w) => sum + Number(w.amount || 0), 0) || 0;
 
@@ -171,7 +156,7 @@ export function useFinancialReports() {
       };
     } catch (err: any) {
       console.error('Error fetching overview metrics:', err);
-      setError(err.message);
+      setError(err instanceof Error ? err.message : String(err));
       return null;
     }
   }, []);
@@ -180,23 +165,22 @@ export function useFinancialReports() {
     try {
       const dateFilter = getPeriodFilter(period);
       const days = getDaysInPeriod(period);
-      const platformFeeRate = 0.15;
 
-      // Fetch completed bookings
+      // Fetch completed date orders
       let query = supabase
-        .from('bookings')
-        .select('total_amount, completed_at')
+        .from('date_orders')
+        .select('platform_fee, completed_at')
         .eq('status', 'completed');
 
       if (dateFilter) {
         query = query.gte('completed_at', dateFilter);
       }
 
-      const { data: bookings, error: bookingsErr } = await query;
-      if (bookingsErr) throw bookingsErr;
+      const { data: orders, error: ordersErr } = await query;
+      if (ordersErr) throw new Error(ordersErr.message || 'Failed to fetch revenue data');
 
       // Group by date
-      const dailyMap = new Map<string, { revenue: number; bookings: number }>();
+      const dailyMap = new Map<string, { revenue: number; dateOrders: number }>();
 
       // Initialize all days
       const maxDays = Math.min(days, 30); // Limit chart to 30 days max
@@ -204,18 +188,18 @@ export function useFinancialReports() {
         const date = new Date();
         date.setDate(date.getDate() - i);
         const dateStr = date.toISOString().split('T')[0];
-        dailyMap.set(dateStr, { revenue: 0, bookings: 0 });
+        dailyMap.set(dateStr, { revenue: 0, dateOrders: 0 });
       }
 
       // Populate with actual data
-      bookings?.forEach((b) => {
-        if (b.completed_at) {
-          const dateStr = new Date(b.completed_at).toISOString().split('T')[0];
+      orders?.forEach((o) => {
+        if (o.completed_at) {
+          const dateStr = new Date(o.completed_at).toISOString().split('T')[0];
           const existing = dailyMap.get(dateStr);
           if (existing) {
             dailyMap.set(dateStr, {
-              revenue: existing.revenue + Math.round(Number(b.total_amount || 0) * platformFeeRate),
-              bookings: existing.bookings + 1,
+              revenue: existing.revenue + Number(o.platform_fee || 0),
+              dateOrders: existing.dateOrders + 1,
             });
           }
         }
@@ -225,7 +209,7 @@ export function useFinancialReports() {
         .map(([date, data]) => ({
           date,
           revenue: data.revenue,
-          bookings: data.bookings,
+          dateOrders: data.dateOrders,
         }))
         .sort((a, b) => a.date.localeCompare(b.date));
     } catch (err: any) {
@@ -248,11 +232,11 @@ export function useFinancialReports() {
       }
 
       const { data: transactions, error: txErr } = await query;
-      if (txErr) throw txErr;
+      if (txErr) throw new Error(txErr.message || 'Failed to fetch transactions');
 
       // Group by type
       const typeMap = new Map<string, { amount: number; count: number }>();
-      const types = ['top_up', 'booking_payment', 'booking_earning', 'withdrawal', 'refund', 'vip_payment'];
+      const types = ['top_up', 'date_order_payment', 'date_order_refund', 'vip_payment', 'refund', 'restaurant_commission'];
 
       types.forEach(t => typeMap.set(t, { amount: 0, count: 0 }));
 
@@ -268,20 +252,20 @@ export function useFinancialReports() {
 
       const typeLabels: Record<string, string> = {
         top_up: 'Nap tien',
-        booking_payment: 'Thanh toan booking',
-        booking_earning: 'Thu nhap Partner',
-        withdrawal: 'Rut tien',
-        refund: 'Hoan tien',
+        date_order_payment: 'Thanh toan don hen',
+        date_order_refund: 'Hoan tien don hen',
         vip_payment: 'Mua VIP',
+        refund: 'Hoan tien',
+        restaurant_commission: 'Hoa hong nha hang',
       };
 
       const typeColors: Record<string, string> = {
         top_up: '#22c55e',
-        booking_payment: '#3b82f6',
-        booking_earning: '#8b5cf6',
-        withdrawal: '#ef4444',
-        refund: '#f97316',
+        date_order_payment: '#3b82f6',
+        date_order_refund: '#f97316',
         vip_payment: '#eab308',
+        refund: '#ef4444',
+        restaurant_commission: '#8b5cf6',
       };
 
       return Array.from(typeMap.entries())
@@ -301,17 +285,18 @@ export function useFinancialReports() {
     }
   }, []);
 
-  const fetchTopPartners = useCallback(async (period: FinancePeriod, limit: number = 10): Promise<TopPartner[]> => {
+  const fetchTopRestaurants = useCallback(async (period: FinancePeriod, limit: number = 10): Promise<TopRestaurant[]> => {
     try {
       const dateFilter = getPeriodFilter(period);
 
-      // Get completed bookings grouped by partner
+      // Get completed date orders grouped by restaurant
       let query = supabase
-        .from('bookings')
+        .from('date_orders')
         .select(`
-          partner_id,
-          total_amount,
-          partner:users!bookings_partner_id_fkey(id, name, avatar)
+          restaurant_id,
+          combo_price,
+          restaurant_commission,
+          restaurant:restaurants!date_orders_restaurant_id_fkey(id, name, logo_url)
         `)
         .eq('status', 'completed');
 
@@ -319,62 +304,64 @@ export function useFinancialReports() {
         query = query.gte('completed_at', dateFilter);
       }
 
-      const { data: bookings, error: bookingsErr } = await query;
-      if (bookingsErr) throw bookingsErr;
+      const { data: orders, error: ordersErr } = await query;
+      if (ordersErr) throw new Error(ordersErr.message || 'Failed to fetch top restaurants');
 
-      // Group by partner
-      const partnerMap = new Map<string, { name: string; avatar: string; bookings: number; earnings: number }>();
+      // Group by restaurant
+      const restaurantMap = new Map<string, { name: string; logoUrl: string; orders: number; revenue: number }>();
 
-      bookings?.forEach((b: any) => {
-        const partnerId = b.partner_id;
-        const existing = partnerMap.get(partnerId) || {
-          name: b.partner?.name || 'Unknown',
-          avatar: b.partner?.avatar || '/default-avatar.jpg',
-          bookings: 0,
-          earnings: 0,
+      orders?.forEach((o: any) => {
+        const restaurantId = o.restaurant_id;
+        const existing = restaurantMap.get(restaurantId) || {
+          name: o.restaurant?.name || 'Unknown',
+          logoUrl: o.restaurant?.logo_url || '/default-restaurant.jpg',
+          orders: 0,
+          revenue: 0,
         };
-        partnerMap.set(partnerId, {
+        restaurantMap.set(restaurantId, {
           ...existing,
-          bookings: existing.bookings + 1,
-          earnings: existing.earnings + Number(b.total_amount || 0),
+          orders: existing.orders + 1,
+          revenue: existing.revenue + Number(o.combo_price || 0),
         });
       });
 
-      // Get ratings for top partners
-      const partnerIds = Array.from(partnerMap.keys());
+      // Get ratings for top restaurants
+      const restaurantIds = Array.from(restaurantMap.keys());
 
-      const { data: reviews } = await supabase
-        .from('reviews')
-        .select('reviewed_id, rating')
-        .in('reviewed_id', partnerIds);
+      const { data: reviews } = restaurantIds.length > 0
+        ? await supabase
+            .from('restaurant_reviews')
+            .select('restaurant_id, overall_rating')
+            .in('restaurant_id', restaurantIds)
+        : { data: [] };
 
       const ratingMap = new Map<string, { total: number; count: number }>();
-      reviews?.forEach((r) => {
-        const existing = ratingMap.get(r.reviewed_id) || { total: 0, count: 0 };
-        ratingMap.set(r.reviewed_id, {
-          total: existing.total + r.rating,
+      reviews?.forEach((r: any) => {
+        const existing = ratingMap.get(r.restaurant_id) || { total: 0, count: 0 };
+        ratingMap.set(r.restaurant_id, {
+          total: existing.total + r.overall_rating,
           count: existing.count + 1,
         });
       });
 
-      return Array.from(partnerMap.entries())
+      return Array.from(restaurantMap.entries())
         .map(([id, data]) => {
           const ratingData = ratingMap.get(id);
-          const rating = ratingData ? Math.round((ratingData.total / ratingData.count) * 10) / 10 : 0;
+          const averageRating = ratingData ? Math.round((ratingData.total / ratingData.count) * 10) / 10 : 0;
           return {
             id,
             name: data.name,
-            avatar: data.avatar,
-            totalBookings: data.bookings,
-            totalEarnings: data.earnings,
-            rating,
+            logoUrl: data.logoUrl,
+            totalOrders: data.orders,
+            totalRevenue: data.revenue,
+            averageRating,
             reviewCount: ratingData?.count || 0,
           };
         })
-        .sort((a, b) => b.totalEarnings - a.totalEarnings)
+        .sort((a, b) => b.totalRevenue - a.totalRevenue)
         .slice(0, limit);
     } catch (err: any) {
-      console.error('Error fetching top partners:', err);
+      console.error('Error fetching top restaurants:', err);
       return [];
     }
   }, []);
@@ -383,13 +370,13 @@ export function useFinancialReports() {
     try {
       const dateFilter = getPeriodFilter(period);
 
-      // Get completed bookings grouped by user
+      // Get completed date orders grouped by creator
       let query = supabase
-        .from('bookings')
+        .from('date_orders')
         .select(`
-          user_id,
-          total_amount,
-          booker:users!bookings_user_id_fkey(id, name, avatar, vip_tier)
+          creator_id,
+          creator_total,
+          creator:users!date_orders_creator_id_fkey(id, name, avatar, vip_tier)
         `)
         .eq('status', 'completed');
 
@@ -397,25 +384,25 @@ export function useFinancialReports() {
         query = query.gte('completed_at', dateFilter);
       }
 
-      const { data: bookings, error: bookingsErr } = await query;
-      if (bookingsErr) throw bookingsErr;
+      const { data: orders, error: ordersErr } = await query;
+      if (ordersErr) throw new Error(ordersErr.message || 'Failed to fetch top users');
 
       // Group by user
-      const userMap = new Map<string, { name: string; avatar: string; vipTier: string; bookings: number; spent: number }>();
+      const userMap = new Map<string, { name: string; avatar: string; vipTier: string; dateOrders: number; spent: number }>();
 
-      bookings?.forEach((b: any) => {
-        const userId = b.user_id;
+      orders?.forEach((o: any) => {
+        const userId = o.creator_id;
         const existing = userMap.get(userId) || {
-          name: b.booker?.name || 'Unknown',
-          avatar: b.booker?.avatar || '/default-avatar.jpg',
-          vipTier: b.booker?.vip_tier || 'free',
-          bookings: 0,
+          name: o.creator?.name || 'Unknown',
+          avatar: o.creator?.avatar || '/default-avatar.jpg',
+          vipTier: o.creator?.vip_tier || 'free',
+          dateOrders: 0,
           spent: 0,
         };
         userMap.set(userId, {
           ...existing,
-          bookings: existing.bookings + 1,
-          spent: existing.spent + Number(b.total_amount || 0),
+          dateOrders: existing.dateOrders + 1,
+          spent: existing.spent + Number(o.creator_total || 0),
         });
       });
 
@@ -424,7 +411,7 @@ export function useFinancialReports() {
           id,
           name: data.name,
           avatar: data.avatar,
-          totalBookings: data.bookings,
+          totalDateOrders: data.dateOrders,
           totalSpent: data.spent,
           vipTier: data.vipTier,
         }))
@@ -436,123 +423,14 @@ export function useFinancialReports() {
     }
   }, []);
 
-  const fetchPendingWithdrawals = useCallback(async (): Promise<PendingWithdrawal[]> => {
-    try {
-      const { data, error } = await supabase
-        .from('withdrawal_requests')
-        .select(`
-          *,
-          user:users(id, name, avatar, email, phone)
-        `)
-        .eq('status', 'pending')
-        .order('created_at', { ascending: true });
-
-      if (error) throw error;
-
-      return (data || []).map((row: any) => ({
-        id: row.id,
-        userId: row.user_id,
-        userName: row.user?.name || 'Unknown',
-        userAvatar: row.user?.avatar || '/default-avatar.jpg',
-        userEmail: row.user?.email,
-        userPhone: row.user?.phone,
-        amount: Number(row.amount || 0),
-        bankName: row.bank_name || '',
-        accountNumber: row.account_number || '',
-        accountName: row.account_name || '',
-        note: row.note || '',
-        createdAt: row.created_at,
-      }));
-    } catch (err: any) {
-      console.error('Error fetching pending withdrawals:', err);
-      return [];
-    }
-  }, []);
-
-  const approveWithdrawal = useCallback(async (withdrawal: PendingWithdrawal): Promise<boolean> => {
-    try {
-      // 1. Check current balance
-      const { data: userRow } = await supabase
-        .from('users')
-        .select('wallet_balance')
-        .eq('id', withdrawal.userId)
-        .single();
-
-      const currentBalance = Number(userRow?.wallet_balance || 0);
-      if (currentBalance < withdrawal.amount) {
-        throw new Error('User khong du so du de rut!');
-      }
-
-      // 2. Deduct balance
-      const { error: updateWalletErr } = await supabase
-        .from('users')
-        .update({ wallet_balance: currentBalance - withdrawal.amount })
-        .eq('id', withdrawal.userId);
-
-      if (updateWalletErr) throw updateWalletErr;
-
-      // 3. Create Transaction Log
-      await supabase.from('transactions').insert({
-        user_id: withdrawal.userId,
-        type: 'withdrawal',
-        amount: withdrawal.amount,
-        status: 'completed',
-        description: 'Rut tien ve ngan hang (Admin duyet)',
-        related_id: withdrawal.id,
-        payment_method: 'banking',
-        completed_at: new Date().toISOString(),
-      });
-
-      // 4. Update Request Status
-      const { error: updateReqErr } = await supabase
-        .from('withdrawal_requests')
-        .update({
-          status: 'completed',
-          processed_at: new Date().toISOString(),
-          processed_by: (await supabase.auth.getUser()).data.user?.id,
-        })
-        .eq('id', withdrawal.id);
-
-      if (updateReqErr) throw updateReqErr;
-
-      return true;
-    } catch (err: any) {
-      console.error('Error approving withdrawal:', err);
-      throw err;
-    }
-  }, []);
-
-  const rejectWithdrawal = useCallback(async (withdrawal: PendingWithdrawal, reason: string): Promise<boolean> => {
-    try {
-      const { error } = await supabase
-        .from('withdrawal_requests')
-        .update({
-          status: 'rejected',
-          note: `Tu choi: ${reason}. ${withdrawal.note || ''}`,
-          processed_at: new Date().toISOString(),
-          processed_by: (await supabase.auth.getUser()).data.user?.id,
-        })
-        .eq('id', withdrawal.id);
-
-      if (error) throw error;
-      return true;
-    } catch (err: any) {
-      console.error('Error rejecting withdrawal:', err);
-      throw err;
-    }
-  }, []);
-
   return {
     loading,
     error,
     fetchOverviewMetrics,
     fetchRevenueData,
     fetchTransactionBreakdown,
-    fetchTopPartners,
+    fetchTopRestaurants,
     fetchTopUsers,
-    fetchPendingWithdrawals,
-    approveWithdrawal,
-    rejectWithdrawal,
   };
 }
 

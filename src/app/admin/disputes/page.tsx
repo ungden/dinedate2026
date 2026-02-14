@@ -27,7 +27,7 @@ import toast from 'react-hot-toast';
 
 interface DisputeRow {
   id: string;
-  booking_id: string;
+  date_order_id: string;
   user_id: string;
   reason: string;
   description: string;
@@ -39,35 +39,30 @@ interface DisputeRow {
   resolved_by?: string;
   resolved_at?: string;
   created_at: string;
-  booker?: {
+  reporter?: {
     id: string;
     name: string;
     avatar_url: string;
   };
-  partner?: {
+  dateOrder?: {
     id: string;
-    name: string;
-    avatar_url: string;
-  };
-  booking?: {
-    id: string;
-    activity: string;
-    total_amount: number;
-    partner_earning: number;
+    combo_price: number;
+    platform_fee: number;
+    restaurant_name?: string;
   };
 }
 
 const REASON_LABELS: Record<string, string> = {
-  'partner_no_show': 'Partner khong den',
-  'poor_service': 'Chat luong dich vu kem',
-  'bad_attitude': 'Thai do khong tot',
+  'no_show': 'Doi phuong khong den',
+  'bad_behavior': 'Hanh vi khong phu hop',
+  'wrong_restaurant': 'Nha hang khong dung',
+  'food_quality': 'Chat luong mon an kem',
   'other': 'Khac',
 };
 
 const RESOLUTION_LABELS: Record<string, string> = {
   'refund_full': 'Hoan tien 100%',
   'refund_partial': 'Hoan mot phan',
-  'release_to_partner': 'Chuyen cho Partner',
   'no_action': 'Khong hanh dong',
 };
 
@@ -113,12 +108,11 @@ export default function AdminDisputesPage() {
     setLoading(true);
 
     try {
-      // Fetch disputes
       const { data, error } = await supabase
         .from('disputes')
         .select(`
           id,
-          booking_id,
+          date_order_id,
           user_id,
           reason,
           description,
@@ -144,42 +138,44 @@ export default function AdminDisputesPage() {
         return;
       }
 
-      // Get unique user IDs and booking IDs
+      // Get unique user IDs and date order IDs
       const userIds = [...new Set(data.map((d: any) => d.user_id))];
-      const bookingIds = [...new Set(data.map((d: any) => d.booking_id))];
+      const dateOrderIds = [...new Set(data.map((d: any) => d.date_order_id))];
 
-      // Fetch bookings
-      const { data: bookings } = await supabase
-        .from('bookings')
-        .select('id, user_id, partner_id, activity, total_amount, partner_earning')
-        .in('id', bookingIds);
+      // Fetch date orders
+      const { data: dateOrders } = await supabase
+        .from('date_orders')
+        .select('id, combo_price, platform_fee, restaurant_id')
+        .in('id', dateOrderIds);
 
-      const bookingsMap = new Map((bookings || []).map((b: any) => [b.id, b]));
+      const dateOrdersMap = new Map((dateOrders || []).map((o: any) => [o.id, o]));
 
-      // Get all user IDs including partners
-      const partnerIds = [...new Set((bookings || []).map((b: any) => b.partner_id))];
-      const allUserIds = [...new Set([...userIds, ...partnerIds])];
+      // Fetch restaurant names
+      const restaurantIds = [...new Set((dateOrders || []).map((o: any) => o.restaurant_id).filter(Boolean))];
+      const { data: restaurants } = restaurantIds.length > 0
+        ? await supabase.from('restaurants').select('id, name').in('id', restaurantIds)
+        : { data: [] };
+      const restaurantsMap = new Map((restaurants || []).map((r: any) => [r.id, r.name]));
 
       // Fetch users
       const { data: users } = await supabase
         .from('users')
         .select('id, name, avatar_url')
-        .in('id', allUserIds);
+        .in('id', userIds);
 
       const usersMap = new Map((users || []).map((u: any) => [u.id, u]));
 
       // Enrich disputes
       const enrichedDisputes = data.map((dispute: any) => {
-        const booking = bookingsMap.get(dispute.booking_id);
+        const dateOrder = dateOrdersMap.get(dispute.date_order_id);
         return {
           ...dispute,
-          booker: usersMap.get(dispute.user_id),
-          partner: booking ? usersMap.get(booking.partner_id) : null,
-          booking: booking ? {
-            id: booking.id,
-            activity: booking.activity,
-            total_amount: booking.total_amount,
-            partner_earning: booking.partner_earning,
+          reporter: usersMap.get(dispute.user_id),
+          dateOrder: dateOrder ? {
+            id: dateOrder.id,
+            combo_price: dateOrder.combo_price,
+            platform_fee: dateOrder.platform_fee,
+            restaurant_name: restaurantsMap.get(dateOrder.restaurant_id) || undefined,
           } : null,
         };
       });
@@ -270,8 +266,7 @@ export default function AdminDisputesPage() {
 
   const filteredDisputes = disputes.filter((dispute) => {
     const matchesSearch =
-      dispute.booker?.name?.toLowerCase().includes(search.toLowerCase()) ||
-      dispute.partner?.name?.toLowerCase().includes(search.toLowerCase()) ||
+      dispute.reporter?.name?.toLowerCase().includes(search.toLowerCase()) ||
       dispute.description?.toLowerCase().includes(search.toLowerCase());
 
     if (filterStatus === 'all') return matchesSearch;
@@ -356,14 +351,14 @@ export default function AdminDisputesPage() {
                   <div className="p-6">
                     <div className="flex items-start justify-between gap-4">
                       <div className="flex-1 min-w-0">
-                        {/* Booker & Partner */}
+                        {/* Reporter */}
                         <div className="flex items-center gap-3 mb-3">
                           <div className="flex items-center gap-2">
                             <div className="w-8 h-8 rounded-full overflow-hidden bg-gray-100 relative flex-shrink-0">
-                              {dispute.booker?.avatar_url ? (
+                              {dispute.reporter?.avatar_url ? (
                                 <Image
-                                  src={dispute.booker.avatar_url}
-                                  alt={dispute.booker.name || 'Booker'}
+                                  src={dispute.reporter.avatar_url}
+                                  alt={dispute.reporter.name || 'User'}
                                   fill
                                   className="object-cover"
                                 />
@@ -378,32 +373,12 @@ export default function AdminDisputesPage() {
                               target="_blank"
                               className="font-medium text-gray-900 text-sm hover:text-primary-600 flex items-center gap-1"
                             >
-                              {dispute.booker?.name || 'Nguoi dung'}
+                              {dispute.reporter?.name || 'Nguoi dung'}
                               <ExternalLink className="w-3 h-3" />
                             </Link>
                           </div>
 
-                          <span className="text-gray-400 text-sm">khieu nai</span>
-
-                          <div className="flex items-center gap-2">
-                            <div className="w-8 h-8 rounded-full overflow-hidden bg-gray-100 relative flex-shrink-0">
-                              {dispute.partner?.avatar_url ? (
-                                <Image
-                                  src={dispute.partner.avatar_url}
-                                  alt={dispute.partner.name || 'Partner'}
-                                  fill
-                                  className="object-cover"
-                                />
-                              ) : (
-                                <div className="w-full h-full flex items-center justify-center text-gray-400 text-xs font-bold">
-                                  ?
-                                </div>
-                              )}
-                            </div>
-                            <span className="font-medium text-gray-900 text-sm">
-                              {dispute.partner?.name || 'Partner'}
-                            </span>
-                          </div>
+                          <span className="text-gray-400 text-sm">khieu nai don hen</span>
                         </div>
 
                         {/* Reason & Status */}
@@ -422,11 +397,13 @@ export default function AdminDisputesPage() {
                           )}
                         </div>
 
-                        {/* Booking Info */}
-                        {dispute.booking && (
+                        {/* Date Order Info */}
+                        {dispute.dateOrder && (
                           <div className="flex items-center gap-4 mb-2 text-xs text-gray-500">
-                            <span>Dich vu: <b>{dispute.booking.activity}</b></span>
-                            <span>Tong tien: <b>{formatCurrency(dispute.booking.total_amount)}</b></span>
+                            {dispute.dateOrder.restaurant_name && (
+                              <span>Nha hang: <b>{dispute.dateOrder.restaurant_name}</b></span>
+                            )}
+                            <span>Combo: <b>{formatCurrency(dispute.dateOrder.combo_price)}</b></span>
                           </div>
                         )}
 
@@ -577,7 +554,9 @@ export default function AdminDisputesPage() {
             <div className="p-5 border-b border-gray-100 flex items-center justify-between">
               <div>
                 <h3 className="font-bold text-gray-900">Xu ly khieu nai</h3>
-                <p className="text-xs text-gray-500">Booking: {selectedDispute.booking?.activity}</p>
+                <p className="text-xs text-gray-500">
+                  {selectedDispute.dateOrder?.restaurant_name || `Don hen #${selectedDispute.date_order_id.slice(0, 8)}`}
+                </p>
               </div>
               <button
                 onClick={() => setResolutionModalOpen(false)}
@@ -588,19 +567,19 @@ export default function AdminDisputesPage() {
             </div>
 
             <div className="p-6 space-y-5">
-              {/* Booking Summary */}
+              {/* Date Order Summary */}
               <div className="bg-gray-50 p-4 rounded-xl">
                 <div className="grid grid-cols-2 gap-4 text-sm">
                   <div>
-                    <span className="text-gray-500">Tong tien booking:</span>
+                    <span className="text-gray-500">Gia combo:</span>
                     <p className="font-bold text-gray-900">
-                      {formatCurrency(selectedDispute.booking?.total_amount || 0)}
+                      {formatCurrency(selectedDispute.dateOrder?.combo_price || 0)}
                     </p>
                   </div>
                   <div>
-                    <span className="text-gray-500">Partner earning:</span>
+                    <span className="text-gray-500">Phi nen tang:</span>
                     <p className="font-bold text-gray-900">
-                      {formatCurrency(selectedDispute.booking?.partner_earning || 0)}
+                      {formatCurrency(selectedDispute.dateOrder?.platform_fee || 0)}
                     </p>
                   </div>
                 </div>
@@ -613,10 +592,9 @@ export default function AdminDisputesPage() {
                 </label>
                 <div className="space-y-2">
                   {[
-                    { value: 'refund_full', label: 'Hoan tien 100% cho User', desc: 'Partner khong nhan gi' },
-                    { value: 'refund_partial', label: 'Hoan mot phan cho User', desc: 'Phan con lai cho Partner' },
-                    { value: 'release_to_partner', label: 'Chuyen het cho Partner', desc: 'User khong nhan hoan tien' },
-                    { value: 'no_action', label: 'Khong hanh dong', desc: 'Dong khieu nai, booking tiep tuc binh thuong' },
+                    { value: 'refund_full', label: 'Hoan tien 100% cho User', desc: 'Hoan lai toan bo phi' },
+                    { value: 'refund_partial', label: 'Hoan mot phan cho User', desc: 'Chi hoan mot phan phi' },
+                    { value: 'no_action', label: 'Khong hanh dong', desc: 'Dong khieu nai, khong hoan tien' },
                   ].map((option) => (
                     <label
                       key={option.value}
@@ -657,12 +635,12 @@ export default function AdminDisputesPage() {
                       value={partialAmount}
                       onChange={(e) => setPartialAmount(Number(e.target.value))}
                       placeholder="Nhap so tien"
-                      max={selectedDispute.booking?.total_amount || 0}
+                      max={(selectedDispute.dateOrder?.combo_price || 0) + (selectedDispute.dateOrder?.platform_fee || 0)}
                       className="w-full pl-10 pr-4 py-3 bg-gray-50 border rounded-xl outline-none focus:ring-2 focus:ring-primary-500"
                     />
                   </div>
                   <p className="text-xs text-gray-500 mt-1">
-                    Toi da: {formatCurrency(selectedDispute.booking?.total_amount || 0)}
+                    Toi da: {formatCurrency((selectedDispute.dateOrder?.combo_price || 0) + (selectedDispute.dateOrder?.platform_fee || 0))}
                   </p>
                 </div>
               )}

@@ -19,9 +19,19 @@ function getCorsHeaders(req: Request) {
   };
 }
 
-// Spending Thresholds
-const VIP_THRESHOLD = 1_000_000;
-const SVIP_THRESHOLD = 100_000_000;
+/**
+ * Complete Date Order
+ *
+ * Called when a date is completed (manually or auto-complete).
+ * - Release escrow: pay the restaurant (combo price - commission)
+ * - Keep platform fees
+ * - Update date_order status to 'completed'
+ * - Increment both users' total_dates counter
+ * - Send review request notification to both users
+ */
+
+// Restaurant commission rate (platform keeps this from combo price)
+const RESTAURANT_COMMISSION_RATE = 0.15
 
 serve(async (req: Request) => {
   const corsHeaders = getCorsHeaders(req);
@@ -42,7 +52,7 @@ serve(async (req: Request) => {
 
   const admin = createClient(supabaseUrl, supabaseServiceKey)
 
-  // Rate limit check for booking endpoints (10 per minute)
+  // Rate limit check
   const clientIP = getClientIP(req);
   const rateLimitId = `${clientIP}:${token.substring(0, 16)}`;
   const rateLimitResult = await checkRateLimitDb(admin, rateLimitId, 'booking');
@@ -60,255 +70,273 @@ serve(async (req: Request) => {
   const callerId = userData.user.id
 
   // 2. Parse body
-  const { bookingId } = await req.json()
-  if (!bookingId) {
-    return new Response(JSON.stringify({ error: 'Missing bookingId' }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+  const { dateOrderId } = await req.json()
+  if (!dateOrderId) {
+    return new Response(JSON.stringify({ error: 'Missing dateOrderId' }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
   }
 
-  // 3. Fetch Booking
-  const { data: booking, error: bookingErr } = await admin
-    .from('bookings')
+  // 3. Fetch date_order
+  const { data: dateOrder, error: dateOrderErr } = await admin
+    .from('date_orders')
     .select('*')
-    .eq('id', bookingId)
+    .eq('id', dateOrderId)
     .single()
 
-  if (bookingErr || !booking) {
-    return new Response(JSON.stringify({ error: 'Booking not found' }), { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+  if (dateOrderErr || !dateOrder) {
+    return new Response(JSON.stringify({ error: 'Date order not found' }), { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
   }
 
-  const isPartner = booking.partner_id === callerId;
-  const isBooker = booking.user_id === callerId;
+  const isCreator = dateOrder.creator_id === callerId;
+  const isApplicant = dateOrder.matched_user_id === callerId;
 
-  if (!isPartner && !isBooker) {
+  if (!isCreator && !isApplicant) {
     return new Response(JSON.stringify({ error: 'Permission denied' }), { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
   }
 
-  // A. If already paid
-  if (booking.status === 'completed') {
+  // Already completed
+  if (dateOrder.status === 'completed') {
     return new Response(JSON.stringify({ message: 'Already completed' }), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
   }
 
-  // B. Partner marks as finished -> Move to 'completed_pending'
-  if (isPartner && (booking.status === 'in_progress' || booking.status === 'accepted')) {
-      await admin.from('bookings').update({ 
-          status: 'completed_pending',
-          updated_at: new Date().toISOString()
-      }).eq('id', bookingId);
-
-      return new Response(JSON.stringify({ success: true, status: 'completed_pending', message: 'Waiting for user confirmation' }), {
-        status: 200, 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      })
+  // Must be in 'matched' status to complete
+  if (dateOrder.status !== 'matched') {
+    return new Response(JSON.stringify({ error: 'Invalid state transition. Status must be matched.' }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
   }
 
-  // C. User Confirms (Release Money)
-  if (isBooker && (booking.status === 'completed_pending' || booking.status === 'in_progress')) {
-      const totalAmount = Number(booking.total_amount)
-      const partnerEarning = Number(booking.partner_earning)
-      const bookerId = booking.user_id
-      const partnerId = booking.partner_id
+  const creatorId = dateOrder.creator_id
+  const applicantId = dateOrder.matched_user_id
+  const comboPrice = Number(dateOrder.combo_price || 0)
+  const creatorCharge = Number(dateOrder.creator_charge || 0)
+  const applicantCharge = Number(dateOrder.applicant_charge || 0)
+  const restaurantPayout = Number(dateOrder.restaurant_payout || Math.round(comboPrice * (1 - RESTAURANT_COMMISSION_RATE)))
 
-      // 6. Execute Transaction
-      
-      // Deduct Escrow from Booker
-      const { data: bookerWallet } = await admin.from('users').select('wallet_escrow, wallet_balance, total_spending, vip_tier').eq('id', bookerId).single()
-      const currentEscrow = Number(bookerWallet?.wallet_escrow || 0)
-      const currentSpending = Number(bookerWallet?.total_spending || 0)
-      
-      const newEscrow = currentEscrow - totalAmount
-      const newSpending = currentSpending + totalAmount
+  // 4. Release escrow - deduct from both users' escrow
+  const { data: creatorWallet } = await admin.from('users').select('wallet_escrow, total_dates').eq('id', creatorId).single()
+  const { data: applicantWallet } = await admin.from('users').select('wallet_escrow, total_dates').eq('id', applicantId).single()
 
-      // Determine New Tier
-      let newTier = bookerWallet?.vip_tier || 'free';
-      if (newSpending >= SVIP_THRESHOLD) newTier = 'svip';
-      else if (newSpending >= VIP_THRESHOLD && newTier !== 'svip') newTier = 'vip';
+  const creatorEscrow = Number(creatorWallet?.wallet_escrow || 0)
+  const applicantEscrow = Number(applicantWallet?.wallet_escrow || 0)
+  const creatorDates = Number(creatorWallet?.total_dates || 0)
+  const applicantDates = Number(applicantWallet?.total_dates || 0)
 
-      // Update Booker: Escrow, Spending, Tier
-      await admin.from('users').update({ 
-          wallet_escrow: newEscrow,
-          total_spending: newSpending,
-          vip_tier: newTier
-      }).eq('id', bookerId)
+  // Deduct escrow and increment total_dates for creator
+  await admin.from('users').update({
+    wallet_escrow: Math.max(0, creatorEscrow - creatorCharge),
+    total_dates: creatorDates + 1,
+  }).eq('id', creatorId)
 
-      // Notify if upgraded
-      if (newTier !== bookerWallet?.vip_tier) {
-          await admin.from('notifications').insert({
-              user_id: bookerId,
-              type: 'system',
-              title: `🎉 Chúc mừng! Bạn đã lên hạng ${newTier.toUpperCase()}`,
-              message: `Tổng chi tiêu của bạn đã đạt mốc. Bạn đã mở khóa đặc quyền xem tuổi Partner.`,
-              read: false
-          });
-      }
+  // Deduct escrow and increment total_dates for applicant
+  await admin.from('users').update({
+    wallet_escrow: Math.max(0, applicantEscrow - applicantCharge),
+    total_dates: applicantDates + 1,
+  }).eq('id', applicantId)
 
-      // Add Balance to Partner
-      const { data: partnerWallet } = await admin.from('users').select('wallet_balance').eq('id', partnerId).single()
-      const currentBalance = Number(partnerWallet?.wallet_balance || 0)
-      const newBalance = currentBalance + partnerEarning
-      await admin.from('users').update({ wallet_balance: newBalance }).eq('id', partnerId)
+  // 5. Pay restaurant (add to restaurant's wallet/payout - stored in restaurant record)
+  if (dateOrder.restaurant_id) {
+    const { data: restaurant } = await admin
+      .from('restaurants')
+      .select('id, pending_payout')
+      .eq('id', dateOrder.restaurant_id)
+      .single()
 
-      // Update Booking Status
-      await admin.from('bookings').update({ 
-          status: 'completed', 
-          completed_at: new Date().toISOString(),
-          payout_status: 'paid'
-      }).eq('id', bookingId)
-
-      // Log Transactions
-      await admin.from('transactions').insert({
-        user_id: bookerId,
-        type: 'booking_payment',
-        amount: totalAmount,
-        status: 'completed',
-        description: `Thanh toán dịch vụ: ${booking.activity}`,
-        related_id: bookingId,
-        payment_method: 'escrow'
-      })
-
-      await admin.from('transactions').insert({
-        user_id: partnerId,
-        type: 'booking_earning',
-        amount: partnerEarning,
-        status: 'completed',
-        description: `Thu nhập từ dịch vụ: ${booking.activity}`,
-        related_id: bookingId
-      })
-
-      // === PRO PARTNER UPGRADE LOGIC ===
-      const { count } = await admin
-        .from('bookings')
-        .select('*', { count: 'exact', head: true })
-        .eq('partner_id', partnerId)
-        .eq('status', 'completed');
-
-      const completedCount = (count || 0) + 1;
-
-      const { data: partnerUser } = await admin
-        .from('users')
-        .select('average_rating, is_pro')
-        .eq('id', partnerId)
-        .single();
-
-      const rating = Number(partnerUser?.average_rating || 5.0);
-      const isAlreadyPro = !!partnerUser?.is_pro;
-
-      if (!isAlreadyPro && completedCount >= 5 && rating >= 4.8) {
-          await admin.from('users').update({ is_pro: true }).eq('id', partnerId);
-          await admin.from('notifications').insert({
-              user_id: partnerId,
-              type: 'system',
-              title: 'Chuc mung! Ban da len Pro Partner',
-              message: 'Ban da hoan thanh 5 don xuat sac. Tinh nang Tu dat gia & Booking theo ngay da duoc mo khoa.',
-              read: false
-          });
-      }
-
-      // === REFERRAL REWARD LOGIC ===
-      // Check if this is the booker's first completed booking
-      const { count: bookerBookingCount } = await admin
-        .from('bookings')
-        .select('*', { count: 'exact', head: true })
-        .eq('user_id', bookerId)
-        .eq('status', 'completed');
-
-      const bookerCompletedCount = bookerBookingCount || 0;
-
-      // Process referral reward on first booking completion
-      if (bookerCompletedCount === 1) {
-          // Check if booker was referred
-          const { data: bookerData } = await admin
-            .from('users')
-            .select('referred_by, name')
-            .eq('id', bookerId)
-            .single();
-
-          if (bookerData?.referred_by) {
-              const referrerId = bookerData.referred_by;
-              const REFERRER_REWARD = 50000;
-              const REFERRED_REWARD = 30000;
-
-              // Check if reward already exists and is pending
-              const { data: existingReward } = await admin
-                .from('referral_rewards')
-                .select('*')
-                .eq('referrer_id', referrerId)
-                .eq('referred_id', bookerId)
-                .single();
-
-              if (existingReward && existingReward.status === 'pending') {
-                  // Get current balances
-                  const { data: referrerWallet } = await admin
-                    .from('users')
-                    .select('wallet_balance')
-                    .eq('id', referrerId)
-                    .single();
-
-                  const referrerBalance = Number(referrerWallet?.wallet_balance || 0);
-                  const bookerBalance = Number(bookerWallet?.wallet_balance || 0);
-
-                  // Add rewards
-                  await admin.from('users').update({
-                      wallet_balance: referrerBalance + REFERRER_REWARD
-                  }).eq('id', referrerId);
-
-                  await admin.from('users').update({
-                      wallet_balance: bookerBalance + REFERRED_REWARD
-                  }).eq('id', bookerId);
-
-                  // Update reward status
-                  await admin.from('referral_rewards').update({
-                      status: 'completed',
-                      completed_at: new Date().toISOString()
-                  }).eq('id', existingReward.id);
-
-                  // Create transactions
-                  await admin.from('transactions').insert([
-                      {
-                          user_id: referrerId,
-                          type: 'referral_bonus',
-                          amount: REFERRER_REWARD,
-                          status: 'completed',
-                          description: `Thuong gioi thieu: ${bookerData.name || 'Thanh vien moi'}`,
-                          related_id: existingReward.id,
-                      },
-                      {
-                          user_id: bookerId,
-                          type: 'referral_bonus',
-                          amount: REFERRED_REWARD,
-                          status: 'completed',
-                          description: 'Thuong dang ky qua gioi thieu',
-                          related_id: existingReward.id,
-                      },
-                  ]);
-
-                  // Create notifications
-                  await admin.from('notifications').insert([
-                      {
-                          user_id: referrerId,
-                          type: 'system',
-                          title: 'Thuong gioi thieu!',
-                          message: `Ban nhan duoc ${REFERRER_REWARD.toLocaleString()}d vi ${bookerData.name || 'ban be'} da hoan thanh booking dau tien!`,
-                          read: false,
-                      },
-                      {
-                          user_id: bookerId,
-                          type: 'system',
-                          title: 'Thuong dang ky!',
-                          message: `Ban nhan duoc ${REFERRED_REWARD.toLocaleString()}d tu chuong trinh gioi thieu. Cam on ban da tham gia DineDate!`,
-                          read: false,
-                      },
-                  ]);
-
-                  console.log(`[Referral] Processed reward for referrer: ${referrerId}, referred: ${bookerId}`);
-              }
-          }
-      }
-
-      return new Response(JSON.stringify({ success: true, status: 'completed', message: 'Payment released' }), {
-        status: 200,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      })
+    if (restaurant) {
+      const currentPayout = Number(restaurant.pending_payout || 0)
+      await admin.from('restaurants').update({
+        pending_payout: currentPayout + restaurantPayout,
+      }).eq('id', dateOrder.restaurant_id)
+    }
   }
 
-  return new Response(JSON.stringify({ error: 'Invalid state transition' }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+  // 6. Update date_order status
+  await admin.from('date_orders').update({
+    status: 'completed',
+    completed_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  }).eq('id', dateOrderId)
+
+  // Update table_booking status
+  await admin.from('table_bookings').update({
+    status: 'completed',
+  }).eq('date_order_id', dateOrderId)
+
+  // 7. Log transactions
+  await admin.from('transactions').insert([
+    {
+      user_id: creatorId,
+      type: 'date_payment',
+      amount: creatorCharge,
+      status: 'completed',
+      description: `Thanh toan date hoan tat`,
+      related_id: dateOrderId,
+      payment_method: 'escrow',
+    },
+    {
+      user_id: applicantId,
+      type: 'date_payment',
+      amount: applicantCharge,
+      status: 'completed',
+      description: `Thanh toan date hoan tat`,
+      related_id: dateOrderId,
+      payment_method: 'escrow',
+    },
+  ])
+
+  // 8. Send review request notifications to both users
+  await admin.from('notifications').insert([
+    {
+      user_id: creatorId,
+      type: 'review_request',
+      title: 'Date da hoan tat!',
+      message: 'Hay danh gia trai nghiem cua ban de giup cong dong tot hon.',
+      data: { dateOrderId, reviewTarget: applicantId },
+      is_read: false,
+    },
+    {
+      user_id: applicantId,
+      type: 'review_request',
+      title: 'Date da hoan tat!',
+      message: 'Hay danh gia trai nghiem cua ban de giup cong dong tot hon.',
+      data: { dateOrderId, reviewTarget: creatorId },
+      is_read: false,
+    },
+  ])
+
+  // 9. Process referral reward on first completed date for each user
+  await processReferralRewardIfFirst(admin, creatorId, dateOrderId)
+  await processReferralRewardIfFirst(admin, applicantId, dateOrderId)
+
+  return new Response(JSON.stringify({ success: true, status: 'completed', message: 'Date completed, escrow released' }), {
+    status: 200,
+    headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+  })
 })
+
+/**
+ * Process referral reward if this is the user's first completed date
+ */
+async function processReferralRewardIfFirst(admin: any, userId: string, dateOrderId: string) {
+  const REFERRER_REWARD = 50000
+  const REFERRED_REWARD = 30000
+
+  // Count completed dates for this user (as creator or applicant)
+  const { count: creatorCount } = await admin
+    .from('date_orders')
+    .select('*', { count: 'exact', head: true })
+    .eq('creator_id', userId)
+    .eq('status', 'completed')
+
+  const { count: applicantCount } = await admin
+    .from('date_orders')
+    .select('*', { count: 'exact', head: true })
+    .eq('matched_user_id', userId)
+    .eq('status', 'completed')
+
+  const totalCompleted = (creatorCount || 0) + (applicantCount || 0)
+
+  // Only process on first completed date
+  if (totalCompleted !== 1) return
+
+  // Check if user was referred
+  const { data: userInfo } = await admin
+    .from('users')
+    .select('referred_by, name')
+    .eq('id', userId)
+    .single()
+
+  if (!userInfo?.referred_by) return
+
+  const referrerId = userInfo.referred_by
+
+  // Check if reward already processed
+  const { data: existingReward } = await admin
+    .from('referral_rewards')
+    .select('*')
+    .eq('referrer_id', referrerId)
+    .eq('referred_id', userId)
+    .single()
+
+  if (existingReward && existingReward.status === 'completed') return
+
+  // Get current balances
+  const { data: referrerWallet } = await admin
+    .from('users')
+    .select('wallet_balance')
+    .eq('id', referrerId)
+    .single()
+
+  const { data: userWallet } = await admin
+    .from('users')
+    .select('wallet_balance')
+    .eq('id', userId)
+    .single()
+
+  const referrerBalance = Number(referrerWallet?.wallet_balance || 0)
+  const userBalance = Number(userWallet?.wallet_balance || 0)
+
+  // Add rewards
+  await admin.from('users').update({
+    wallet_balance: referrerBalance + REFERRER_REWARD
+  }).eq('id', referrerId)
+
+  await admin.from('users').update({
+    wallet_balance: userBalance + REFERRED_REWARD
+  }).eq('id', userId)
+
+  // Update or create reward record
+  if (existingReward) {
+    await admin.from('referral_rewards').update({
+      status: 'completed',
+      completed_at: new Date().toISOString()
+    }).eq('id', existingReward.id)
+  } else {
+    await admin.from('referral_rewards').insert({
+      referrer_id: referrerId,
+      referred_id: userId,
+      referrer_reward: REFERRER_REWARD,
+      referred_reward: REFERRED_REWARD,
+      status: 'completed',
+      completed_at: new Date().toISOString(),
+    })
+  }
+
+  // Create transactions
+  const rewardId = existingReward?.id || null
+  await admin.from('transactions').insert([
+    {
+      user_id: referrerId,
+      type: 'referral_bonus',
+      amount: REFERRER_REWARD,
+      status: 'completed',
+      description: `Thuong gioi thieu: ${userInfo.name || 'Thanh vien moi'}`,
+      related_id: rewardId,
+    },
+    {
+      user_id: userId,
+      type: 'referral_bonus',
+      amount: REFERRED_REWARD,
+      status: 'completed',
+      description: 'Thuong dang ky qua gioi thieu',
+      related_id: rewardId,
+    },
+  ])
+
+  // Create notifications
+  await admin.from('notifications').insert([
+    {
+      user_id: referrerId,
+      type: 'system',
+      title: 'Thuong gioi thieu!',
+      message: `Ban nhan duoc ${REFERRER_REWARD.toLocaleString()}d vi ${userInfo.name || 'ban be'} da hoan thanh date dau tien!`,
+      is_read: false,
+    },
+    {
+      user_id: userId,
+      type: 'system',
+      title: 'Thuong dang ky!',
+      message: `Ban nhan duoc ${REFERRED_REWARD.toLocaleString()}d tu chuong trinh gioi thieu. Cam on ban da tham gia DineDate!`,
+      is_read: false,
+    },
+  ])
+
+  console.log(`[Referral] Processed reward for referrer: ${referrerId}, referred: ${userId}`)
+}

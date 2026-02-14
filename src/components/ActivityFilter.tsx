@@ -2,25 +2,27 @@
 
 import { memo, useCallback } from 'react';
 import { motion } from '@/lib/motion';
-import { ActivityType } from '@/types';
+import { CuisineType, CUISINE_LABELS, CUISINE_ICONS } from '@/types';
 import { cn } from '@/lib/utils';
 
-interface ActivityFilterProps {
-  selected?: ActivityType;
-  onSelect: (activity?: ActivityType) => void;
+interface CuisineFilterProps {
+  selected?: CuisineType;
+  onSelect: (cuisine?: CuisineType) => void;
 }
 
-const activities = [
-  { type: 'dining' as ActivityType, label: 'Ăn tối', emoji: '🍽️' },
-  { type: 'drinking' as ActivityType, label: 'Cafe/Bar', emoji: '🍸' },
-  { type: 'movies' as ActivityType, label: 'Xem phim', emoji: '🍿' },
-  { type: 'travel' as ActivityType, label: 'Du lịch', emoji: '✈️' },
-  { type: 'karaoke' as ActivityType, label: 'Karaoke', emoji: '🎤' },
+const cuisines: { type: CuisineType; label: string; emoji: string }[] = [
+  { type: 'vietnamese', label: CUISINE_LABELS.vietnamese, emoji: CUISINE_ICONS.vietnamese },
+  { type: 'japanese', label: CUISINE_LABELS.japanese, emoji: CUISINE_ICONS.japanese },
+  { type: 'korean', label: CUISINE_LABELS.korean, emoji: CUISINE_ICONS.korean },
+  { type: 'bbq', label: CUISINE_LABELS.bbq, emoji: CUISINE_ICONS.bbq },
+  { type: 'hotpot', label: CUISINE_LABELS.hotpot, emoji: CUISINE_ICONS.hotpot },
+  { type: 'seafood', label: CUISINE_LABELS.seafood, emoji: CUISINE_ICONS.seafood },
+  { type: 'italian', label: CUISINE_LABELS.italian, emoji: CUISINE_ICONS.italian },
 ];
 
-function ActivityFilter({ selected, onSelect }: ActivityFilterProps) {
+function CuisineFilter({ selected, onSelect }: CuisineFilterProps) {
   const handleAllClick = useCallback(() => onSelect(undefined), [onSelect]);
-  const handleActivityClick = useCallback((type: ActivityType, isSelected: boolean) => {
+  const handleCuisineClick = useCallback((type: CuisineType, isSelected: boolean) => {
     onSelect(isSelected ? undefined : type);
   }, [onSelect]);
 
@@ -41,13 +43,13 @@ function ActivityFilter({ selected, onSelect }: ActivityFilterProps) {
         <span>Tất cả</span>
       </motion.button>
 
-      {activities.map((activity) => {
-        const isSelected = selected === activity.type;
+      {cuisines.map((cuisine) => {
+        const isSelected = selected === cuisine.type;
 
         return (
           <motion.button
-            key={activity.type}
-            onClick={() => handleActivityClick(activity.type, isSelected)}
+            key={cuisine.type}
+            onClick={() => handleCuisineClick(cuisine.type, isSelected)}
             className={cn(
               'flex items-center gap-2 px-5 py-3 rounded-2xl font-bold whitespace-nowrap transition-all duration-300 text-sm',
               isSelected
@@ -56,8 +58,8 @@ function ActivityFilter({ selected, onSelect }: ActivityFilterProps) {
             )}
             whileTap={{ scale: 0.95 }}
           >
-            <span>{activity.emoji}</span>
-            <span>{activity.label}</span>
+            <span>{cuisine.emoji}</span>
+            <span>{cuisine.label}</span>
           </motion.button>
         );
       })}
@@ -65,4 +67,4 @@ function ActivityFilter({ selected, onSelect }: ActivityFilterProps) {
   );
 }
 
-export default memo(ActivityFilter);
+export default memo(CuisineFilter);

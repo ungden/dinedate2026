@@ -1,0 +1,63 @@
+{
+  "cli": {
+    "version": ">= 16.0.0",
+    "appVersionSource": "remote"
+  },
+  "build": {
+    "development": {
+      "developmentClient": true,
+      "distribution": "internal",
+      "ios": {
+        "simulator": true
+      },
+      "android": {
+        "buildType": "apk"
+      },
+      "env": {
+        "EXPO_PUBLIC_ENV": "development",
+        "EXPO_PUBLIC_SUPABASE_URL": "https://cgnbicnayzifjyupweki.supabase.co",
+        "EXPO_PUBLIC_SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNnbmJpY25heXppZmp5dXB3ZWtpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjUwMDAyMDMsImV4cCI6MjA4MDU3NjIwM30.2vVLug2ifmdb233-JZcoxUQ_Zs6Ehv7ebB0LKBj6PSc"
+      }
+    },
+    "preview": {
+      "distribution": "internal",
+      "ios": {
+        "simulator": false
+      },
+      "android": {
+        "buildType": "apk"
+      },
+      "env": {
+        "EXPO_PUBLIC_ENV": "preview",
+        "EXPO_PUBLIC_SUPABASE_URL": "https://cgnbicnayzifjyupweki.supabase.co",
+        "EXPO_PUBLIC_SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNnbmJpY25heXppZmp5dXB3ZWtpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjUwMDAyMDMsImV4cCI6MjA4MDU3NjIwM30.2vVLug2ifmdb233-JZcoxUQ_Zs6Ehv7ebB0LKBj6PSc"
+      }
+    },
+    "production": {
+      "ios": {
+        "autoIncrement": true
+      },
+      "android": {
+        "autoIncrement": true
+      },
+      "env": {
+        "EXPO_PUBLIC_ENV": "production",
+        "EXPO_PUBLIC_SUPABASE_URL": "https://cgnbicnayzifjyupweki.supabase.co",
+        "EXPO_PUBLIC_SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNnbmJpY25heXppZmp5dXB3ZWtpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjUwMDAyMDMsImV4cCI6MjA4MDU3NjIwM30.2vVLug2ifmdb233-JZcoxUQ_Zs6Ehv7ebB0LKBj6PSc"
+      }
+    }
+  },
+  "submit": {
+    "production": {
+      "ios": {
+        "appleId": "",
+        "ascAppId": "",
+        "appleTeamId": ""
+      },
+      "android": {
+        "serviceAccountKeyPath": "",
+        "track": "internal"
+      }
+    }
+  }
+}

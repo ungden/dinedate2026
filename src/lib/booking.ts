@@ -23,102 +23,99 @@ function toError(err: unknown, fallback = 'Da xay ra loi') {
   return new Error(String(msg));
 }
 
-export async function createBookingViaEdge(params: {
-  providerId: string;
-  serviceId: string;
-  date: string;
-  time: string;
-  location: string;
-  message?: string;
-  durationHours: number;
-  promoCodeId?: string;
-}): Promise<{ bookingId: string; promoDiscount?: number }> {
-  addBreadcrumb('booking', 'Creating booking', {
-    providerId: params.providerId,
-    serviceId: params.serviceId,
+export async function createDateOrderViaEdge(params: {
+  restaurantId: string;
+  comboId: string;
+  dateTime: string;
+  description: string;
+  preferredGender?: string;
+  paymentSplit: string;
+}): Promise<{ dateOrderId: string }> {
+  addBreadcrumb('date-order', 'Creating date order', {
+    restaurantId: params.restaurantId,
+    comboId: params.comboId,
   });
 
-  const { data, error } = await supabase.functions.invoke('create-booking', {
+  const { data, error } = await supabase.functions.invoke('create-date-order', {
     body: params,
   });
 
   if (error) {
-    const err = toError(error, 'Không thể tạo booking');
+    const err = toError(error, 'Không thể tạo đơn hẹn');
     await captureException(err, {
-      component: 'booking',
-      action: 'createBookingViaEdge',
-      extra: { providerId: params.providerId, serviceId: params.serviceId },
+      component: 'date-order',
+      action: 'createDateOrderViaEdge',
+      extra: { restaurantId: params.restaurantId, comboId: params.comboId },
     });
     throw err;
   }
 
-  if (!data?.bookingId) {
-    const err = new Error('Missing bookingId from edge function');
+  if (!data?.dateOrderId) {
+    const err = new Error('Missing dateOrderId from edge function');
     await captureException(err, {
-      component: 'booking',
-      action: 'createBookingViaEdge',
-      extra: { providerId: params.providerId, response: data },
+      component: 'date-order',
+      action: 'createDateOrderViaEdge',
+      extra: { restaurantId: params.restaurantId, response: data },
     });
     throw err;
   }
 
-  addBreadcrumb('booking', 'Booking created', { bookingId: data.bookingId });
+  addBreadcrumb('date-order', 'Date order created', { dateOrderId: data.dateOrderId });
 
   return {
-    bookingId: data.bookingId as string,
-    promoDiscount: data.promoDiscount as number | undefined
+    dateOrderId: data.dateOrderId as string,
   };
 }
 
-export async function completeBookingViaEdge(bookingId: string): Promise<boolean> {
-  addBreadcrumb('booking', 'Completing booking', { bookingId });
+export async function completeDateOrderViaEdge(dateOrderId: string): Promise<boolean> {
+  addBreadcrumb('date-order', 'Completing date order', { dateOrderId });
 
-  const { error } = await supabase.functions.invoke('complete-booking', {
-    body: { bookingId },
+  const { error } = await supabase.functions.invoke('complete-date-order', {
+    body: { dateOrderId },
   });
 
   if (error) {
-    const err = toError(error, 'Không thể hoàn thành đơn hàng');
+    const err = toError(error, 'Không thể hoàn thành đơn hẹn');
     await captureException(err, {
-      component: 'booking',
-      action: 'completeBookingViaEdge',
-      extra: { bookingId },
+      component: 'date-order',
+      action: 'completeDateOrderViaEdge',
+      extra: { dateOrderId },
     });
     throw err;
   }
 
-  addBreadcrumb('booking', 'Booking completed', { bookingId });
+  addBreadcrumb('date-order', 'Date order completed', { dateOrderId });
   return true;
 }
 
-export async function rejectBookingViaEdge(bookingId: string): Promise<boolean> {
-  addBreadcrumb('booking', 'Rejecting booking', { bookingId });
+export async function cancelDateOrderViaEdge(dateOrderId: string): Promise<boolean> {
+  addBreadcrumb('date-order', 'Cancelling date order', { dateOrderId });
 
-  const { error } = await supabase.functions.invoke('reject-booking', {
-    body: { bookingId },
+  const { error } = await supabase.functions.invoke('cancel-date-order', {
+    body: { dateOrderId },
   });
 
   if (error) {
-    const err = toError(error, 'Không thể hủy đơn hàng');
+    const err = toError(error, 'Không thể hủy đơn hẹn');
     await captureException(err, {
-      component: 'booking',
-      action: 'rejectBookingViaEdge',
-      extra: { bookingId },
+      component: 'date-order',
+      action: 'cancelDateOrderViaEdge',
+      extra: { dateOrderId },
     });
     throw err;
   }
 
-  addBreadcrumb('booking', 'Booking rejected', { bookingId });
+  addBreadcrumb('date-order', 'Date order cancelled', { dateOrderId });
   return true;
 }
 
 export async function createDisputeViaEdge(params: {
-  bookingId: string;
+  dateOrderId: string;
   reason: string;
   description: string;
   evidenceUrls?: string[];
 }): Promise<{ disputeId: string }> {
-  addBreadcrumb('booking', 'Creating dispute', { bookingId: params.bookingId, reason: params.reason });
+  addBreadcrumb('date-order', 'Creating dispute', { dateOrderId: params.dateOrderId, reason: params.reason });
 
   const { data, error } = await supabase.functions.invoke('create-dispute', {
     body: params,
@@ -127,9 +124,9 @@ export async function createDisputeViaEdge(params: {
   if (error) {
     const err = toError(error, 'Không thể tạo khiếu nại');
     await captureException(err, {
-      component: 'booking',
+      component: 'date-order',
       action: 'createDisputeViaEdge',
-      extra: { bookingId: params.bookingId, reason: params.reason },
+      extra: { dateOrderId: params.dateOrderId, reason: params.reason },
     });
     throw err;
   }
@@ -137,13 +134,13 @@ export async function createDisputeViaEdge(params: {
   if (!data?.disputeId) {
     const err = new Error('Missing disputeId from edge function');
     await captureException(err, {
-      component: 'booking',
+      component: 'date-order',
       action: 'createDisputeViaEdge',
-      extra: { bookingId: params.bookingId, response: data },
+      extra: { dateOrderId: params.dateOrderId, response: data },
     });
     throw err;
   }
 
-  addBreadcrumb('booking', 'Dispute created', { disputeId: data.disputeId });
+  addBreadcrumb('date-order', 'Dispute created', { disputeId: data.disputeId });
   return { disputeId: data.disputeId as string };
 }

@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { ServiceBooking } from '@/types';
+import { DateOrder } from '@/types';
 import { 
   Calendar, 
   MapPin, 
@@ -11,70 +11,84 @@ import {
   Filter, 
   CheckCircle, 
   AlertCircle,
-  Loader2
+  Loader2,
+  UtensilsCrossed
 } from 'lucide-react';
 import { formatCurrency, formatDate, cn } from '@/lib/utils';
 import { mapDbUserToUser } from '@/lib/user-mapper';
 
 export default function AdminBookingsPage() {
-  const [bookings, setBookings] = useState<ServiceBooking[]>([]);
+  const [orders, setOrders] = useState<DateOrder[]>([]);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState('all');
 
   useEffect(() => {
-    fetchBookings();
+    fetchOrders();
   }, []);
 
-  const fetchBookings = async () => {
+  const fetchOrders = async () => {
     setLoading(true);
-    // Fetch all bookings with user/partner relations
     const { data, error } = await supabase
-      .from('bookings')
+      .from('date_orders')
       .select(`
         *,
-        booker:users!bookings_user_id_fkey(*),
-        partner:users!bookings_partner_id_fkey(*),
-        service:services!bookings_service_id_fkey(*)
+        creator:users!date_orders_creator_id_fkey(*),
+        matched_user:users!date_orders_matched_user_id_fkey(*),
+        restaurant:restaurants!date_orders_restaurant_id_fkey(*),
+        combo:combos!date_orders_combo_id_fkey(*)
       `)
       .order('created_at', { ascending: false });
 
     if (!error && data) {
       const mapped = data.map((row: any) => ({
         id: row.id,
-        serviceId: row.service_id,
-        providerId: row.partner_id,
-        provider: mapDbUserToUser(row.partner),
-        bookerId: row.user_id,
-        booker: mapDbUserToUser(row.booker),
-        service: row.service,
-        date: row.start_time?.split('T')[0],
-        time: row.start_time ? new Date(row.start_time).toLocaleTimeString('vi-VN', {hour: '2-digit', minute:'2-digit'}) : '',
-        location: row.meeting_location,
-        message: '', 
+        creatorId: row.creator_id,
+        creator: row.creator ? mapDbUserToUser(row.creator) : undefined,
+        restaurantId: row.restaurant_id,
+        restaurant: row.restaurant || undefined,
+        comboId: row.combo_id,
+        combo: row.combo || undefined,
+        dateTime: row.date_time,
+        description: row.description || '',
+        preferredGender: row.preferred_gender,
+        paymentSplit: row.payment_split || 'split',
+        comboPrice: Number(row.combo_price || 0),
+        platformFee: Number(row.platform_fee || 0),
+        creatorTotal: Number(row.creator_total || 0),
+        applicantTotal: Number(row.applicant_total || 0),
+        restaurantCommission: Number(row.restaurant_commission || 0),
         status: row.status,
-        isPaid: true, // Assuming bookings via app are paid to escrow
-        escrowAmount: Number(row.total_amount || 0),
+        matchedUserId: row.matched_user_id,
+        matchedUser: row.matched_user ? mapDbUserToUser(row.matched_user) : undefined,
+        matchedAt: row.matched_at,
+        tableBookingId: row.table_booking_id,
+        maxApplicants: row.max_applicants || 10,
+        applicantCount: row.applicant_count || 0,
         createdAt: row.created_at,
-        completedAt: row.completed_at
+        expiresAt: row.expires_at,
+        completedAt: row.completed_at,
+        cancelledAt: row.cancelled_at,
       }));
-      setBookings(mapped);
+      setOrders(mapped);
     }
     setLoading(false);
   };
 
-  const filteredBookings = bookings.filter(b => 
-    statusFilter === 'all' || b.status === statusFilter
+  const filteredOrders = orders.filter(o => 
+    statusFilter === 'all' || o.status === statusFilter
   );
 
   const getStatusBadge = (status: string) => {
     const styles: Record<string, string> = {
-      pending: 'bg-yellow-100 text-yellow-700',
-      accepted: 'bg-blue-100 text-blue-700',
+      active: 'bg-blue-100 text-blue-700',
+      matched: 'bg-purple-100 text-purple-700',
+      confirmed: 'bg-indigo-100 text-indigo-700',
       completed: 'bg-green-100 text-green-700',
-      rejected: 'bg-red-100 text-red-700',
-      cancelled: 'bg-gray-100 text-gray-700',
+      expired: 'bg-gray-100 text-gray-700',
+      cancelled: 'bg-red-100 text-red-700',
+      no_show: 'bg-orange-100 text-orange-700',
     };
-    return cn('px-2.5 py-1 rounded-full text-xs font-bold uppercase', styles[status] || styles.pending);
+    return cn('px-2.5 py-1 rounded-full text-xs font-bold uppercase', styles[status] || 'bg-gray-100 text-gray-700');
   };
 
   return (
@@ -83,7 +97,7 @@ export default function AdminBookingsPage() {
         <h1 className="text-2xl font-bold text-gray-900">Quản lý Đơn hàng</h1>
         <div className="flex gap-2">
           <button 
-            onClick={() => fetchBookings()} 
+            onClick={() => fetchOrders()} 
             className="p-2 bg-white border border-gray-200 rounded-xl hover:bg-gray-50 transition"
           >
             <Loader2 className={cn("w-5 h-5 text-gray-500", loading && "animate-spin")} />
@@ -93,7 +107,7 @@ export default function AdminBookingsPage() {
 
       {/* Filter Tabs */}
       <div className="flex gap-2 border-b border-gray-200 pb-1 overflow-x-auto">
-        {['all', 'pending', 'accepted', 'completed', 'rejected'].map(s => (
+        {['all', 'active', 'matched', 'confirmed', 'completed', 'expired', 'cancelled'].map(s => (
           <button
             key={s}
             onClick={() => setStatusFilter(s)}
@@ -109,64 +123,75 @@ export default function AdminBookingsPage() {
         ))}
       </div>
 
-      {/* Booking List */}
+      {/* Order List */}
       <div className="space-y-4">
-        {filteredBookings.map((booking) => (
-          <div key={booking.id} className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm flex flex-col md:flex-row gap-6">
+        {filteredOrders.map((order) => (
+          <div key={order.id} className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm flex flex-col md:flex-row gap-6">
             
             {/* Status & ID */}
             <div className="md:w-48 flex-shrink-0 flex flex-col justify-between">
               <div>
-                <span className={getStatusBadge(booking.status)}>{booking.status}</span>
-                <p className="text-xs text-gray-400 mt-2 font-mono">ID: {booking.id.slice(0, 8)}...</p>
+                <span className={getStatusBadge(order.status)}>{order.status}</span>
+                <p className="text-xs text-gray-400 mt-2 font-mono">ID: {order.id.slice(0, 8)}...</p>
               </div>
               <div className="mt-2">
-                <p className="text-sm text-gray-500">Tổng tiền</p>
-                <p className="text-lg font-bold text-gray-900">{formatCurrency(booking.escrowAmount)}</p>
+                <p className="text-sm text-gray-500">Combo</p>
+                <p className="text-lg font-bold text-gray-900">{formatCurrency(order.comboPrice)}</p>
+                <p className="text-xs text-gray-400">Phí nền tảng: {formatCurrency(order.platformFee)}</p>
               </div>
             </div>
 
             {/* Info */}
             <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">Người đặt</p>
+                <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">Người tạo</p>
                 <div className="flex items-center gap-2">
-                  <div className="w-8 h-8 rounded-full bg-gray-100 overflow-hidden relative">
-                    <img src={booking.booker.avatar} alt="" className="object-cover" />
-                  </div>
-                  <p className="font-medium text-gray-900">{booking.booker.name}</p>
+                  {order.creator && (
+                    <>
+                      <div className="w-8 h-8 rounded-full bg-gray-100 overflow-hidden relative">
+                        <img src={order.creator.avatar} alt="" className="object-cover" />
+                      </div>
+                      <p className="font-medium text-gray-900">{order.creator.name}</p>
+                    </>
+                  )}
                 </div>
               </div>
 
               <div>
-                <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">Partner</p>
+                <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">Người được match</p>
                 <div className="flex items-center gap-2">
-                  <div className="w-8 h-8 rounded-full bg-gray-100 overflow-hidden relative">
-                    <img src={booking.provider.avatar} alt="" className="object-cover" />
-                  </div>
-                  <p className="font-medium text-gray-900">{booking.provider.name}</p>
+                  {order.matchedUser ? (
+                    <>
+                      <div className="w-8 h-8 rounded-full bg-gray-100 overflow-hidden relative">
+                        <img src={order.matchedUser.avatar} alt="" className="object-cover" />
+                      </div>
+                      <p className="font-medium text-gray-900">{order.matchedUser.name}</p>
+                    </>
+                  ) : (
+                    <p className="text-sm text-gray-400 italic">Chưa match</p>
+                  )}
                 </div>
               </div>
 
               <div className="md:col-span-2 bg-gray-50 p-3 rounded-xl flex flex-wrap gap-4 text-sm text-gray-600">
                 <div className="flex items-center gap-1.5">
+                  <UtensilsCrossed className="w-4 h-4 text-primary-500" />
+                  <span>{order.restaurant?.name || 'N/A'}</span>
+                </div>
+                <div className="flex items-center gap-1.5">
                   <Calendar className="w-4 h-4 text-primary-500" />
-                  <span>{formatDate(booking.date)}</span>
+                  <span>{formatDate(order.dateTime)}</span>
                 </div>
                 <div className="flex items-center gap-1.5">
                   <Clock className="w-4 h-4 text-primary-500" />
-                  <span>{booking.time}</span>
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <MapPin className="w-4 h-4 text-primary-500" />
-                  <span className="truncate max-w-[200px]">{booking.location}</span>
+                  <span>{order.dateTime ? new Date(order.dateTime).toLocaleTimeString('vi-VN', {hour: '2-digit', minute:'2-digit'}) : ''}</span>
                 </div>
               </div>
             </div>
           </div>
         ))}
 
-        {!loading && filteredBookings.length === 0 && (
+        {!loading && filteredOrders.length === 0 && (
           <div className="text-center py-12 text-gray-500">
             Không có đơn hàng nào
           </div>

@@ -152,7 +152,7 @@ export function TopUsersTable({ data, loading }: TopUsersTableProps) {
                   <p className="font-bold text-gray-900 truncate">{user.name}</p>
                   {getVIPBadge(user.vipTier)}
                 </div>
-                <p className="text-xs text-gray-500 mt-0.5">{user.totalBookings} booking</p>
+                <p className="text-xs text-gray-500 mt-0.5">{user.totalDateOrders} đơn hẹn</p>
               </div>
 
               {/* Spent */}

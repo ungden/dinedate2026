@@ -1,64 +1,50 @@
-import { User, VIPTier, ServiceOffering } from '@/types';
+import { User, VIPTier } from '@/types';
+import { getDiceBearAvatar } from './dicebear';
 
 type DbUserRow = Record<string, any>;
-type DbServiceRow = Record<string, any>;
 
-// Normalized tier mapping
 function toVipTier(tier: any): VIPTier {
   const t = String(tier).toLowerCase();
   if (t === 'svip') return 'svip';
-  if (t === 'vip' || t === 'gold' || t === 'silver' || t === 'bronze') return 'vip'; // Map legacy tiers to VIP
+  if (t === 'vip' || t === 'gold' || t === 'silver' || t === 'bronze') return 'vip';
   return 'free';
 }
 
-function mapDbServiceToService(row: DbServiceRow): ServiceOffering {
-  return {
-    id: row.id,
-    activity: row.activity as any,
-    title: row.title,
-    description: row.description ?? '',
-    price: Number(row.price ?? 0),
-    available: !!row.available,
-    duration: row.duration === 'day' ? 'day' : 'session',
-  };
-}
-
 function isUUID(str: string) {
-  const regex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-  return regex.test(str);
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str);
 }
 
 export function mapDbUserToUser(row: DbUserRow): User {
-  const gallery: string[] = Array.isArray(row.gallery_images) ? row.gallery_images.filter(Boolean) : [];
-
-  const services = Array.isArray(row.services) 
-    ? row.services.map(mapDbServiceToService)
-    : undefined;
+  const gallery: string[] = Array.isArray(row.gallery_images)
+    ? row.gallery_images.filter(Boolean)
+    : [];
 
   const reviewCount = Number(row.review_count ?? row.reviewCount ?? 0);
-  // Default to 5.0 stars if no reviews yet
-  const rating = reviewCount > 0 
-    ? (Number(row.average_rating ?? row.rating ?? 0)) 
+  const rating = reviewCount > 0
+    ? Number(row.average_rating ?? row.rating ?? 0)
     : 5.0;
 
-  // Handle display name: fallback if UUID or missing
   let displayName = row.name;
   if (!displayName || isUUID(displayName)) {
-      displayName = row.email ? row.email.split('@')[0] : 'Người dùng mới';
+    displayName = row.email ? row.email.split('@')[0] : 'Người dùng mới';
   }
 
-  // Ensure username is valid
   let username = row.username;
   if (!username || username.trim() === '') {
-      username = undefined;
+    username = undefined;
   }
+
+  // DiceBear anime avatar as default public avatar
+  const diceBearAvatar = getDiceBearAvatar(row.id);
+  const realAvatar = row.avatar ?? row.avatar_url ?? undefined;
 
   return {
     id: row.id,
-    username: username,
+    username,
     name: displayName,
-    age: row.birth_year ? new Date().getFullYear() - Number(row.birth_year) : 0, // 0 means unset
-    avatar: row.avatar ?? row.avatar_url ?? `https://api.dicebear.com/7.x/avataaars/svg?seed=${row.id}`,
+    age: row.birth_year ? new Date().getFullYear() - Number(row.birth_year) : 0,
+    avatar: diceBearAvatar,                    // Always DiceBear for public display
+    realAvatar: realAvatar,                    // Real photo (VIP only or after connection)
     bio: row.bio ?? '',
     location: row.location ?? 'Hà Nội',
     locationDetail: row.location_detail ?? undefined,
@@ -70,10 +56,6 @@ export function mapDbUserToUser(row: DbUserRow): User {
       isOnline: !!row.is_online,
       lastSeen: row.last_seen ?? undefined,
     },
-    services: services, 
-    isServiceProvider: row.role === 'partner' || !!row.is_partner_verified,
-    isPro: !!row.is_pro,
-    role: row.role ?? 'user', 
     wallet: {
       balance: Number(row.wallet_balance ?? 0),
       escrowBalance: Number(row.wallet_escrow ?? 0),
@@ -81,35 +63,35 @@ export function mapDbUserToUser(row: DbUserRow): User {
     },
     vipStatus: {
       tier: toVipTier(row.vip_tier),
-      expiryDate: row.vip_expiry ?? undefined,
+      expiryDate: row.vip_expiry ?? row.vip_expires_at ?? undefined,
       benefits: [],
     },
     totalSpending: Number(row.total_spending || 0),
-    images: gallery.length > 0 ? gallery : row.avatar ? [row.avatar] : [],
+    images: gallery.length > 0 ? gallery : realAvatar ? [realAvatar] : [],
     phone: row.phone ?? undefined,
     phoneVerified: !!row.phone_verified,
     phoneVerifiedAt: row.phone_verified_at ?? undefined,
     email: row.email ?? undefined,
     occupation: row.occupation ?? undefined,
-    rating: rating,
-    reviewCount: reviewCount,
-
+    rating,
+    reviewCount,
     gender: row.gender ?? undefined,
     height: row.height ?? undefined,
     zodiac: row.zodiac ?? undefined,
     personalityTags: Array.isArray(row.personality_tags) ? row.personality_tags : undefined,
-    restrictions: Array.isArray(row.partner_rules) ? row.partner_rules : undefined,
-    voiceIntroUrl: row.voice_intro_url ?? undefined,
-    hourlyRate: row.hourly_rate ?? undefined,
-    availableNow: row.available_now ?? undefined,
-    availableTonight: row.available_tonight ?? undefined,
+    foodPreferences: Array.isArray(row.food_preferences) ? row.food_preferences : undefined,
     birthYear: row.birth_year ?? undefined,
-
-    partner_agreed_at: row.partner_agreed_at ?? undefined,
-    partner_agreed_version: row.partner_agreed_version ?? undefined,
     createdAt: row.created_at ?? undefined,
     bankInfo: row.bank_info || undefined,
     onboardingCompleted: row.onboarding_completed ?? false,
     onboardingCompletedAt: row.onboarding_completed_at ?? undefined,
+    role: row.role === 'admin' ? 'admin' : 'user',
+    isBanned: !!row.is_banned,
+    vipSubscribedAt: row.vip_subscribed_at ?? undefined,
+    vipExpiresAt: row.vip_expires_at ?? undefined,
+    totalDates: Number(row.total_dates ?? 0),
+    totalConnections: Number(row.total_connections ?? 0),
+    referralCode: row.referral_code ?? undefined,
+    referredBy: row.referred_by ?? undefined,
   };
 }

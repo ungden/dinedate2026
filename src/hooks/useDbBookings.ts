@@ -1,19 +1,26 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
-import { rejectBookingViaEdge } from '@/lib/booking';
+import { cancelDateOrderViaEdge } from '@/lib/booking';
 import toast from 'react-hot-toast';
 
-type DbBookingRow = Record<string, any>;
+type DbDateOrderRow = Record<string, any>;
+
+function toError(err: unknown, fallback = 'Da xay ra loi'): Error {
+  if (err instanceof Error) return err;
+  const anyErr = err as any;
+  const msg = anyErr?.message || anyErr?.error_description || anyErr?.hint || fallback;
+  return new Error(String(msg));
+}
 
 export function useDbBookings() {
   const { user } = useAuth();
   const userId = user?.id;
 
-  const [sent, setSent] = useState<DbBookingRow[]>([]);
-  const [received, setReceived] = useState<DbBookingRow[]>([]);
+  const [created, setCreated] = useState<DbDateOrderRow[]>([]);
+  const [applied, setApplied] = useState<DbDateOrderRow[]>([]);
   const [loading, setLoading] = useState(true);
 
   const reload = async () => {
@@ -21,64 +28,67 @@ export function useDbBookings() {
 
     setLoading(true);
 
-    const { data: sentData, error: sentErr } = await supabase
-      .from('bookings')
-      .select('*')
-      .eq('user_id', userId)
-      .order('created_at', { ascending: false })
-      .limit(50); // Pagination: limit to latest 50 bookings
+    try {
+      // Orders I created
+      const { data: createdData, error: createdErr } = await supabase
+        .from('date_orders')
+        .select('*')
+        .eq('creator_id', userId)
+        .order('created_at', { ascending: false })
+        .limit(50);
 
-    if (sentErr) throw sentErr;
+      if (createdErr) {
+        console.error('[useDbBookings] Error fetching created orders:', createdErr);
+        setCreated([]);
+      } else {
+        setCreated(createdData || []);
+      }
 
-    const { data: receivedData, error: receivedErr } = await supabase
-      .from('bookings')
-      .select('*')
-      .eq('partner_id', userId)
-      .order('created_at', { ascending: false })
-      .limit(50); // Pagination: limit to latest 50 bookings
+      // Orders where I was matched
+      const { data: matchedData, error: matchedErr } = await supabase
+        .from('date_orders')
+        .select('*')
+        .eq('matched_user_id', userId)
+        .order('created_at', { ascending: false })
+        .limit(50);
 
-    if (receivedErr) throw receivedErr;
-
-    setSent(sentData || []);
-    setReceived(receivedData || []);
-    setLoading(false);
+      if (matchedErr) {
+        console.error('[useDbBookings] Error fetching matched orders:', matchedErr);
+        setApplied([]);
+      } else {
+        setApplied(matchedData || []);
+      }
+    } catch (err) {
+      console.error('[useDbBookings] Unexpected error:', err);
+      setCreated([]);
+      setApplied([]);
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => {
     if (!userId) {
-      setSent([]);
-      setReceived([]);
+      setCreated([]);
+      setApplied([]);
       setLoading(false);
       return;
     }
     reload();
   }, [userId]);
 
-  const accept = async (bookingId: string) => {
-    if (!userId) return;
-
-    const { error } = await supabase
-      .from('bookings')
-      .update({ status: 'accepted', accepted_at: new Date().toISOString() })
-      .eq('id', bookingId);
-
-    if (error) throw error;
-
-    await reload();
-  };
-
-  // New Reject with Refund Logic
-  const reject = async (bookingId: string) => {
+  // Cancel a date order (only creator can cancel)
+  const cancel = async (dateOrderId: string) => {
     if (!userId) return;
 
     try {
-        await rejectBookingViaEdge(bookingId);
-        await reload();
-    } catch (err: any) {
-        console.error("Reject error:", err);
-        throw err;
+      await cancelDateOrderViaEdge(dateOrderId);
+      await reload();
+    } catch (err: unknown) {
+      console.error("Cancel error:", err);
+      throw toError(err, 'Khong the huy don hen');
     }
   };
 
-  return { sent, received, loading, reload, accept, reject };
+  return { created, applied, loading, reload, cancel };
 }

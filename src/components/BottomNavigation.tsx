@@ -4,8 +4,9 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { motion } from '@/lib/motion';
 import { 
-  Compass, 
-  Sparkles, 
+  UtensilsCrossed, 
+  PlusCircle,
+  CalendarHeart,
   CircleUser 
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -13,14 +14,20 @@ import { cn } from '@/lib/utils';
 const navItems = [
     { 
         href: '/', 
-        label: 'Partner', 
-        icon: Sparkles,
+        label: 'Khám phá', 
+        icon: UtensilsCrossed,
         activeColor: 'text-rose-600'
     },
     { 
-        href: '/discover', 
-        label: 'Khám phá', 
-        icon: Compass,
+        href: '/create-request', 
+        label: 'Tạo Date', 
+        icon: PlusCircle,
+        activeColor: 'text-rose-600'
+    },
+    { 
+        href: '/manage-bookings', 
+        label: 'Lịch hẹn', 
+        icon: CalendarHeart,
         activeColor: 'text-rose-600'
     },
     { 
@@ -36,9 +43,8 @@ export default function BottomNavigation() {
 
     return (
         <div className="md:hidden fixed bottom-6 left-1/2 -translate-x-1/2 z-50 w-[90%] max-w-sm">
-            {/* Floating Glass Bar - Pink Tint */}
             <nav className="relative bg-white/90 backdrop-blur-2xl border border-rose-100 rounded-[32px] shadow-[0_8px_32px_rgba(244,63,94,0.15)] p-2">
-                <div className="flex justify-between items-center px-2">
+                <div className="flex justify-between items-center px-1">
                     {navItems.map((item) => {
                         const isActive = pathname === item.href ||
                             (item.href !== '/' && pathname.startsWith(item.href));
@@ -68,7 +74,7 @@ export default function BottomNavigation() {
                                     >
                                         <Icon
                                             className={cn(
-                                                "w-6 h-6",
+                                                "w-5 h-5",
                                                 isActive && "stroke-[2.5px] fill-rose-50"
                                             )}
                                         />
@@ -79,7 +85,7 @@ export default function BottomNavigation() {
                                             initial={{ opacity: 0, scale: 0.5 }}
                                             animate={{ opacity: 1, scale: 1 }}
                                             className={cn(
-                                                "text-[10px] font-black tracking-wide",
+                                                "text-[9px] font-black tracking-wide",
                                                 item.activeColor
                                             )}
                                         >
@@ -88,7 +94,6 @@ export default function BottomNavigation() {
                                     )}
                                 </div>
 
-                                {/* Active Indicator Glow */}
                                 {isActive && (
                                     <motion.div
                                         layoutId="nav-pill"

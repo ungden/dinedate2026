@@ -80,7 +80,7 @@ export default function OpenGraphImage() {
                   color: 'rgba(255,255,255,0.9)',
                 }}
               >
-                Hẹn hò & Booking dịch vụ đồng hành
+                Hen Ho Mu x Kham Pha Am Thuc
               </div>
             </div>
           </div>
@@ -93,7 +93,7 @@ export default function OpenGraphImage() {
               lineHeight: 1.25,
             }}
           >
-            Kết nối nhanh – Gặp gỡ an toàn – Thanh toán qua ví escrow
+            Chon nha hang, tao date order, gap mat blind - trai nghiem doc dao!
           </div>
 
           <div
@@ -104,7 +104,7 @@ export default function OpenGraphImage() {
               flexWrap: 'wrap',
             }}
           >
-            {['Partner thật', 'Deal công khai', 'Chat & Booking', 'VIP'].map((t) => (
+            {['Blind Date', 'Nha hang chat luong', 'Combo cho 2', 'An toan'].map((t) => (
               <div
                 key={t}
                 style={{

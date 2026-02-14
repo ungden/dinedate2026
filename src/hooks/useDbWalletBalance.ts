@@ -16,16 +16,25 @@ export function useDbWalletBalance() {
 
     setLoading(true);
 
-    const { data, error } = await supabase
-      .from('users')
-      .select('wallet_balance')
-      .eq('id', userId)
-      .single();
+    try {
+      const { data, error } = await supabase
+        .from('users')
+        .select('wallet_balance')
+        .eq('id', userId)
+        .single();
 
-    if (error) throw error;
-
-    setBalance(Number(data?.wallet_balance ?? 0));
-    setLoading(false);
+      if (error) {
+        console.error('[useDbWalletBalance] Error fetching balance:', error);
+        setBalance(0);
+      } else {
+        setBalance(Number(data?.wallet_balance ?? 0));
+      }
+    } catch (err) {
+      console.error('[useDbWalletBalance] Unexpected error:', err);
+      setBalance(0);
+    } finally {
+      setLoading(false);
+    }
   }, [userId]);
 
   useEffect(() => {

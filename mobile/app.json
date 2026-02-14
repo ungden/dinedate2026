@@ -1,0 +1,45 @@
+{
+  "expo": {
+    "name": "DineDate",
+    "slug": "dinedate",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "automatic",
+    "newArchEnabled": true,
+    "scheme": "dinedate",
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#EC4899"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.dinedate.app",
+      "infoPlist": {
+        "NSCameraUsageDescription": "DineDate cần truy cập camera để chụp ảnh đại diện",
+        "NSPhotoLibraryUsageDescription": "DineDate cần truy cập thư viện ảnh để chọn ảnh đại diện"
+      }
+    },
+    "android": {
+      "package": "com.dinedate.app",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#EC4899"
+      },
+      "edgeToEdgeEnabled": true
+    },
+    "web": {
+      "favicon": "./assets/favicon.png",
+      "bundler": "metro"
+    },
+    "plugins": [
+      "expo-router",
+      "expo-secure-store",
+      "@react-native-community/datetimepicker"
+    ],
+    "experiments": {
+      "typedRoutes": true
+    }
+  }
+}

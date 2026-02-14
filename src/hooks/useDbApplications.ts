@@ -2,33 +2,39 @@
 
 import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { Application } from '@/types';
+import { DateOrderApplication } from '@/types';
 import { mapDbUserToUser } from '@/lib/user-mapper';
-import { getOrCreateConversation } from './useDbChat';
 
-export function useDbApplications(requestId: string) {
-  const [applications, setApplications] = useState<Application[]>([]);
+function toError(err: unknown, fallback = 'Da xay ra loi'): Error {
+  if (err instanceof Error) return err;
+  const anyErr = err as any;
+  const msg = anyErr?.message || anyErr?.error_description || anyErr?.hint || fallback;
+  return new Error(String(msg));
+}
+
+export function useDbApplications(orderId: string) {
+  const [applications, setApplications] = useState<DateOrderApplication[]>([]);
   const [loading, setLoading] = useState(true);
 
   const fetchApplications = async () => {
-    if (!requestId) return;
+    if (!orderId) return;
     setLoading(true);
 
     const { data, error } = await supabase
-      .from('applications')
-      .select(`*, user:users!applications_user_id_fkey(*)`)
-      .eq('request_id', requestId)
+      .from('date_order_applications')
+      .select(`*, applicant:users!date_order_applications_applicant_id_fkey(*)`)
+      .eq('order_id', orderId)
       .order('created_at', { ascending: false })
-      .limit(50); // Pagination: limit to latest 50 applications
+      .limit(50);
 
     if (error) {
       console.error('Error fetching applications:', error);
     } else {
-      const mapped: Application[] = (data || []).map((row: any) => ({
+      const mapped: DateOrderApplication[] = (data || []).map((row: any) => ({
         id: row.id,
-        requestId: row.request_id,
-        userId: row.user_id,
-        user: mapDbUserToUser(row.user),
+        orderId: row.order_id,
+        applicantId: row.applicant_id,
+        applicant: row.applicant ? mapDbUserToUser(row.applicant) : undefined,
         message: row.message || '',
         status: row.status,
         createdAt: row.created_at,
@@ -42,14 +48,14 @@ export function useDbApplications(requestId: string) {
     fetchApplications();
     
     const channel = supabase
-      .channel(`req-apps-${requestId}`)
+      .channel(`order-apps-${orderId}`)
       .on(
         'postgres_changes',
         {
           event: '*',
           schema: 'public',
-          table: 'applications',
-          filter: `request_id=eq.${requestId}`,
+          table: 'date_order_applications',
+          filter: `order_id=eq.${orderId}`,
         },
         () => {
           fetchApplications();
@@ -60,47 +66,51 @@ export function useDbApplications(requestId: string) {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [requestId]);
+  }, [orderId]);
 
-  const acceptApplication = async (appId: string, applicantId: string, ownerId: string) => {
+  const acceptApplication = async (appId: string, applicantId: string) => {
     // 1. Update this application to 'accepted'
     const { error: appErr } = await supabase
-      .from('applications')
+      .from('date_order_applications')
       .update({ status: 'accepted' })
       .eq('id', appId);
-    if (appErr) throw appErr;
+    if (appErr) throw toError(appErr, 'Khong the chap nhan don ung tuyen');
 
-    // 2. Reject others (optional logic, usually date is 1-1, so we reject pending ones)
-    // await supabase.from('applications').update({ status: 'rejected' }).eq('request_id', requestId).neq('id', appId);
-
-    // 3. Update request status to 'matched'
+    // 2. Update date order status to 'matched' and set matched_user_id
     await supabase
-      .from('date_requests')
-      .update({ status: 'matched' })
-      .eq('id', requestId);
+      .from('date_orders')
+      .update({ 
+        status: 'matched', 
+        matched_user_id: applicantId,
+        matched_at: new Date().toISOString(),
+      })
+      .eq('id', orderId);
+
+    // 3. Reject other pending applications
+    await supabase
+      .from('date_order_applications')
+      .update({ status: 'rejected' })
+      .eq('order_id', orderId)
+      .neq('id', appId)
+      .eq('status', 'pending');
 
     // 4. Create Notification for applicant
     await supabase.from('notifications').insert({
       user_id: applicantId,
-      type: 'accepted',
-      title: 'Ứng tuyển thành công! 🎉',
-      message: 'Chủ bài đăng đã chấp nhận bạn. Hãy bắt đầu trò chuyện ngay.',
-      data: { requestId },
+      type: 'date_order_matched',
+      title: 'Ban da duoc match! 🎉',
+      message: 'Chu don hen da chap nhan ban. Hen gap ban tai nha hang!',
+      data: { orderId },
     });
-
-    // 5. Create conversation
-    const conversationId = await getOrCreateConversation(ownerId, applicantId);
-    
-    return conversationId;
   };
 
   const rejectApplication = async (appId: string) => {
     const { error } = await supabase
-      .from('applications')
+      .from('date_order_applications')
       .update({ status: 'rejected' })
       .eq('id', appId);
     
-    if (error) throw error;
+    if (error) throw toError(error, 'Khong the tu choi don ung tuyen');
   };
 
   return { applications, loading, acceptApplication, rejectApplication };

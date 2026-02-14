@@ -2,76 +2,94 @@
 
 import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { DateRequest, ActivityType } from '@/types';
+import { DateOrder, CuisineType } from '@/types';
 import { mapDbUserToUser } from '@/lib/user-mapper';
 
-export function useDbDateRequests(activity?: ActivityType) {
-  const [requests, setRequests] = useState<DateRequest[]>([]);
+export function useDbDateOrders(cuisineType?: CuisineType) {
+  const [orders, setOrders] = useState<DateOrder[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const fetchRequests = async () => {
+  const fetchOrders = async () => {
     setLoading(true);
     try {
       let query = supabase
-        .from('date_requests')
+        .from('date_orders')
         .select(`
           *,
-          user:users(*)
+          creator:users!date_orders_creator_id_fkey(*),
+          restaurant:restaurants!date_orders_restaurant_id_fkey(*),
+          combo:combos!date_orders_combo_id_fkey(*)
         `)
         .eq('status', 'active')
         .order('created_at', { ascending: false })
-        .limit(50); // Pagination: limit initial load
+        .limit(50);
 
-      if (activity) {
-        query = query.eq('activity', activity);
-      }
+      // Filter by cuisine type through joined restaurant
+      // Note: Supabase doesn't support filtering on joined table's array field directly,
+      // so we filter client-side if cuisineType is provided
 
       const { data, error } = await query;
 
       if (error) {
-        console.error('Error fetching date requests:', JSON.stringify(error, null, 2));
+        console.error('Error fetching date orders:', JSON.stringify(error, null, 2));
         return;
       }
 
-      const mapped: DateRequest[] = (data || []).map((row: any) => ({
+      let mapped: DateOrder[] = (data || []).map((row: any) => ({
         id: row.id,
-        userId: row.user_id,
-        user: mapDbUserToUser(row.user),
-        activity: row.activity as ActivityType,
-        title: row.title,
+        creatorId: row.creator_id,
+        creator: row.creator ? mapDbUserToUser(row.creator) : undefined,
+        restaurantId: row.restaurant_id,
+        restaurant: row.restaurant || undefined,
+        comboId: row.combo_id,
+        combo: row.combo || undefined,
+        dateTime: row.date_time,
         description: row.description || '',
-        location: row.location,
-        date: row.date,
-        time: row.time,
-        hiringAmount: Number(row.hiring_amount || 0),
-        hiringOption: row.hiring_option || '',
-        maxParticipants: row.max_participants || 1,
-        currentParticipants: row.current_participants || 0,
-        applicants: [], // Loaded separately if needed
-        status: row.status as any,
+        preferredGender: row.preferred_gender,
+        paymentSplit: row.payment_split || 'split',
+        comboPrice: Number(row.combo_price || 0),
+        platformFee: Number(row.platform_fee || 0),
+        creatorTotal: Number(row.creator_total || 0),
+        applicantTotal: Number(row.applicant_total || 0),
+        restaurantCommission: Number(row.restaurant_commission || 0),
+        status: row.status,
+        matchedUserId: row.matched_user_id,
+        matchedAt: row.matched_at,
+        tableBookingId: row.table_booking_id,
+        maxApplicants: row.max_applicants || 10,
+        applicantCount: row.applicant_count || 0,
         createdAt: row.created_at,
-        expiresAt: undefined, // Logic handled via created_at in DB if needed
+        expiresAt: row.expires_at,
+        completedAt: row.completed_at,
+        cancelledAt: row.cancelled_at,
       }));
 
-      setRequests(mapped);
+      // Client-side cuisine filter
+      if (cuisineType) {
+        mapped = mapped.filter((order) =>
+          order.restaurant?.cuisineTypes?.includes(cuisineType)
+        );
+      }
+
+      setOrders(mapped);
     } catch (err) {
-      console.error('Exception fetching date requests:', err);
+      console.error('Exception fetching date orders:', err);
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchRequests();
+    fetchOrders();
 
     // Subscribe to changes
     const channel = supabase
-      .channel('public:date_requests')
+      .channel('public:date_orders')
       .on(
         'postgres_changes',
-        { event: '*', schema: 'public', table: 'date_requests' },
+        { event: '*', schema: 'public', table: 'date_orders' },
         () => {
-          fetchRequests();
+          fetchOrders();
         }
       )
       .subscribe();
@@ -79,50 +97,63 @@ export function useDbDateRequests(activity?: ActivityType) {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [activity]);
+  }, [cuisineType]);
 
-  return { requests, loading, refresh: fetchRequests };
+  return { orders, loading, refresh: fetchOrders };
 }
 
-export function useDbRequestDetail(requestId: string) {
-  const [request, setRequest] = useState<DateRequest | null>(null);
+export function useDbDateOrderDetail(orderId: string) {
+  const [order, setOrder] = useState<DateOrder | null>(null);
   const [loading, setLoading] = useState(true);
 
   const fetchDetail = async () => {
     setLoading(true);
     try {
-      // 1. Fetch request info
-      const { data: reqData, error: reqError } = await supabase
-        .from('date_requests')
-        .select(`*, user:users(*)`)
-        .eq('id', requestId)
+      const { data: orderData, error: orderError } = await supabase
+        .from('date_orders')
+        .select(`
+          *,
+          creator:users!date_orders_creator_id_fkey(*),
+          matched_user:users!date_orders_matched_user_id_fkey(*),
+          restaurant:restaurants!date_orders_restaurant_id_fkey(*),
+          combo:combos!date_orders_combo_id_fkey(*)
+        `)
+        .eq('id', orderId)
         .single();
 
-      if (reqError) throw reqError;
+      if (orderError) throw orderError;
 
-      // 2. Fetch applicants (users who applied) via applications table
-      // We only need this if we are the owner, but for simplicity let's fetch basic count or check auth later
-      // For now, let's just map the request
-      const mappedRequest: DateRequest = {
-        id: reqData.id,
-        userId: reqData.user_id,
-        user: mapDbUserToUser(reqData.user),
-        activity: reqData.activity as ActivityType,
-        title: reqData.title,
-        description: reqData.description || '',
-        location: reqData.location,
-        date: reqData.date,
-        time: reqData.time,
-        hiringAmount: Number(reqData.hiring_amount || 0),
-        hiringOption: reqData.hiring_option || '',
-        maxParticipants: reqData.max_participants || 1,
-        currentParticipants: reqData.current_participants || 0,
-        applicants: [], // Populated below
-        status: reqData.status as any,
-        createdAt: reqData.created_at,
+      const mappedOrder: DateOrder = {
+        id: orderData.id,
+        creatorId: orderData.creator_id,
+        creator: orderData.creator ? mapDbUserToUser(orderData.creator) : undefined,
+        restaurantId: orderData.restaurant_id,
+        restaurant: orderData.restaurant || undefined,
+        comboId: orderData.combo_id,
+        combo: orderData.combo || undefined,
+        dateTime: orderData.date_time,
+        description: orderData.description || '',
+        preferredGender: orderData.preferred_gender,
+        paymentSplit: orderData.payment_split || 'split',
+        comboPrice: Number(orderData.combo_price || 0),
+        platformFee: Number(orderData.platform_fee || 0),
+        creatorTotal: Number(orderData.creator_total || 0),
+        applicantTotal: Number(orderData.applicant_total || 0),
+        restaurantCommission: Number(orderData.restaurant_commission || 0),
+        status: orderData.status,
+        matchedUserId: orderData.matched_user_id,
+        matchedUser: orderData.matched_user ? mapDbUserToUser(orderData.matched_user) : undefined,
+        matchedAt: orderData.matched_at,
+        tableBookingId: orderData.table_booking_id,
+        maxApplicants: orderData.max_applicants || 10,
+        applicantCount: orderData.applicant_count || 0,
+        createdAt: orderData.created_at,
+        expiresAt: orderData.expires_at,
+        completedAt: orderData.completed_at,
+        cancelledAt: orderData.cancelled_at,
       };
 
-      setRequest(mappedRequest);
+      setOrder(mappedOrder);
     } catch (err) {
       console.error(err);
     } finally {
@@ -131,8 +162,8 @@ export function useDbRequestDetail(requestId: string) {
   };
 
   useEffect(() => {
-    if (requestId) fetchDetail();
-  }, [requestId]);
+    if (orderId) fetchDetail();
+  }, [orderId]);
 
-  return { request, loading, refresh: fetchDetail };
+  return { order, loading, refresh: fetchDetail };
 }

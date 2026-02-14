@@ -21,7 +21,7 @@ export default function RequestCountdown({
   status: 'active' | 'matched' | 'expired' | 'completed';
   className?: string;
 }) {
-  const { expireRequestsIfNeeded } = useDateStore();
+  const { expireOrdersIfNeeded } = useDateStore();
   const [now, setNow] = useState(() => Date.now());
 
   const remainingMs = useMemo(() => {
@@ -44,9 +44,9 @@ export default function RequestCountdown({
     if (!expiresAt) return;
     if (status !== 'active') return;
     if ((remainingMs ?? 0) <= 0) {
-      expireRequestsIfNeeded();
+      expireOrdersIfNeeded();
     }
-  }, [expiresAt, status, remainingMs, expireRequestsIfNeeded]);
+  }, [expiresAt, status, remainingMs, expireOrdersIfNeeded]);
 
   if (!expiresAt) return null;
 

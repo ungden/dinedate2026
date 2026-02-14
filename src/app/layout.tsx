@@ -5,14 +5,14 @@ import ClientLayout from '@/components/ClientLayout';
 
 export const metadata: Metadata = {
   metadataBase: new URL('https://www.dinedate.vn'),
-  title: 'DineDate - Hẹn hò và Gặp gỡ',
-  description: 'Ứng dụng hẹn hò và booking dịch vụ đồng hành',
-  keywords: ['hẹn hò', 'dating', 'booking', 'gặp gỡ', 'dinedate'],
+  title: 'DineDate - Hen Ho Mu x Kham Pha Am Thuc',
+  description: 'Kham pha am thuc cung nguoi la. Dat ban, chon combo, gap mat - hoan toan blind. Trai nghiem hen ho doc dao nhat Viet Nam.',
+  keywords: ['hen ho', 'blind date', 'nha hang', 'am thuc', 'dinedate', 'gap mat', 'combo'],
   openGraph: {
     type: 'website',
     locale: 'vi_VN',
-    title: 'DineDate - Hẹn hò và Gặp gỡ',
-    description: 'Ứng dụng hẹn hò và booking dịch vụ đồng hành',
+    title: 'DineDate - Hen Ho Mu x Kham Pha Am Thuc',
+    description: 'Kham pha am thuc cung nguoi la. Dat ban, chon combo, gap mat - hoan toan blind. Trai nghiem hen ho doc dao nhat Viet Nam.',
     siteName: 'DineDate',
     url: 'https://www.dinedate.vn',
     images: [
@@ -26,8 +26,8 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'DineDate - Hẹn hò và Gặp gỡ',
-    description: 'Ứng dụng hẹn hò và booking dịch vụ đồng hành',
+    title: 'DineDate - Hen Ho Mu x Kham Pha Am Thuc',
+    description: 'Kham pha am thuc cung nguoi la. Dat ban, chon combo, gap mat - hoan toan blind. Trai nghiem hen ho doc dao nhat Viet Nam.',
     images: ['/twitter-image.png'],
   },
 };

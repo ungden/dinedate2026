@@ -3,7 +3,7 @@
 import { useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
-import { ArrowLeft, Camera, Save, AlertTriangle, MapPin, Loader2, Mic } from 'lucide-react';
+import { ArrowLeft, Camera, Save, MapPin, Loader2 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { LoadingSpinner } from '@/components/Skeleton';
 import ProfileGalleryUploader from '@/components/profile/ProfileGalleryUploader';
@@ -12,10 +12,16 @@ import { cn } from '@/lib/utils';
 import toast from 'react-hot-toast';
 import LocationPicker from '@/components/profile/LocationPicker';
 import { supabase } from '@/integrations/supabase/client';
-import VoiceIntro from '@/components/VoiceIntro';
+import DiceBearAvatar from '@/components/DiceBearAvatar';
+import { CuisineType, CUISINE_LABELS, CUISINE_ICONS } from '@/types';
 
 const MIN_BIO_LEN = 30;
 const MIN_PHOTOS = 3;
+
+const ALL_CUISINES: CuisineType[] = [
+  'vietnamese', 'japanese', 'korean', 'chinese', 'italian',
+  'thai', 'bbq', 'hotpot', 'seafood', 'vegetarian', 'fusion', 'other',
+];
 
 function getNiceUploadError(err: unknown): string {
   const anyErr = err as any;
@@ -27,15 +33,15 @@ export default function EditProfilePage() {
   const router = useRouter();
   const { user, updateUser } = useAuth();
 
-  const avatarInputRef = useRef<HTMLInputElement | null>(null);
+  const realAvatarInputRef = useRef<HTMLInputElement | null>(null);
 
   const [isUploading, setIsUploading] = useState(false);
   const [loading, setLoading] = useState(false);
   const [isGettingLocation, setIsGettingLocation] = useState(false);
 
-  const [avatarUrl, setAvatarUrl] = useState<string>(user?.avatar || '/default-avatar.png');
+  const [realAvatarUrl, setRealAvatarUrl] = useState<string>(user?.avatar || '');
   const [galleryImages, setGalleryImages] = useState<string[]>((user?.images || []).filter(Boolean));
-  const [voiceIntroUrl, setVoiceIntroUrl] = useState<string | undefined>(user?.voiceIntroUrl);
+  const [selectedCuisines, setSelectedCuisines] = useState<CuisineType[]>(user?.foodPreferences || []);
 
   const [formData, setFormData] = useState({
     name: user?.name || '',
@@ -52,24 +58,18 @@ export default function EditProfilePage() {
   const bioLen = (formData.bio || '').trim().length;
   const galleryCount = galleryImages.length;
 
-  const partnerReadiness = useMemo(() => {
-    const okBio = bioLen >= MIN_BIO_LEN;
-    const okPhotos = galleryCount >= MIN_PHOTOS;
-    return { okBio, okPhotos, ok: okBio && okPhotos };
-  }, [bioLen, galleryCount]);
+  const handlePickRealAvatar = () => realAvatarInputRef.current?.click();
 
-  const handlePickAvatar = () => avatarInputRef.current?.click();
-
-  const handleAvatarFile = async (file: File) => {
+  const handleRealAvatarFile = async (file: File) => {
     if (!user?.id) return;
     setIsUploading(true);
     try {
       const uploadedUrl = await uploadUserMedia({ userId: user.id, folder: 'avatars', file });
-      const prev = avatarUrl;
-      setAvatarUrl(uploadedUrl);
+      const prev = realAvatarUrl;
+      setRealAvatarUrl(uploadedUrl);
       await updateUser({ avatar: uploadedUrl });
       if (prev && prev !== uploadedUrl && !prev.includes('dicebear')) await deleteByPublicUrl(prev);
-      toast.success('Đã cập nhật ảnh đại diện.');
+      toast.success('Đã cập nhật ảnh thật.');
     } catch (err) {
       toast.error(getNiceUploadError(err));
     } finally {
@@ -113,42 +113,12 @@ export default function EditProfilePage() {
     }
   };
 
-  const handleVoiceRecordComplete = async (blob: Blob) => {
-    if (!user?.id) return;
-    setIsUploading(true);
-    try {
-        const url = await uploadUserMedia({ userId: user.id, folder: 'voice', file: blob });
-        
-        // Delete old voice if exists
-        if (voiceIntroUrl) {
-            await deleteByPublicUrl(voiceIntroUrl);
-        }
-
-        setVoiceIntroUrl(url);
-        await updateUser({ voiceIntroUrl: url });
-        toast.success('Đã lưu giọng nói giới thiệu!');
-    } catch (err) {
-        toast.error('Lỗi upload giọng nói: ' + getNiceUploadError(err));
-    } finally {
-        setIsUploading(false);
-    }
-  };
-
-  const handleDeleteVoice = async () => {
-      if (!user?.id || !voiceIntroUrl) return;
-      if(!confirm('Bạn muốn xóa bản ghi âm này?')) return;
-
-      setIsUploading(true);
-      try {
-          await deleteByPublicUrl(voiceIntroUrl);
-          setVoiceIntroUrl(undefined);
-          await updateUser({ voiceIntroUrl: null as any }); // sending null to clear
-          toast.success('Đã xóa giọng nói.');
-      } catch (err) {
-          toast.error(getNiceUploadError(err));
-      } finally {
-          setIsUploading(false);
-      }
+  const toggleCuisine = (cuisine: CuisineType) => {
+    setSelectedCuisines((prev) =>
+      prev.includes(cuisine)
+        ? prev.filter((c) => c !== cuisine)
+        : [...prev, cuisine]
+    );
   };
 
   const handleUpdateGPS = () => {
@@ -202,11 +172,12 @@ export default function EditProfilePage() {
         locationDetail: formData.locationDetail,
         occupation: formData.occupation,
         interests: formData.interests.split(',').map((i) => i.trim()).filter(Boolean),
-        avatar: avatarUrl,
+        avatar: realAvatarUrl,
         images: galleryImages,
         coordinates: formData.coordinates,
         birthYear: year,
-        phone: formData.phone
+        phone: formData.phone,
+        foodPreferences: selectedCuisines,
       } as any);
 
       if (formData.coordinates) {
@@ -237,39 +208,36 @@ export default function EditProfilePage() {
         <h1 className="text-2xl font-bold">Chỉnh sửa hồ sơ</h1>
       </div>
 
-      {!partnerReadiness.ok && (
-        <div className="bg-rose-50 border border-rose-200 rounded-2xl p-4 flex items-start gap-3">
-          <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center border border-rose-100">
-            <AlertTriangle className="w-5 h-5 text-rose-600" />
-          </div>
-          <div className="flex-1">
-            <p className="font-bold text-gray-900">Để trở thành Partner, bạn cần:</p>
-            <ul className="text-sm text-gray-700 mt-1 space-y-1">
-              <li className={cn(!partnerReadiness.okBio && 'text-rose-700 font-semibold')}>
-                • Bio tối thiểu {MIN_BIO_LEN} ký tự ({bioLen}/{MIN_BIO_LEN})
-              </li>
-              <li className={cn(!partnerReadiness.okPhotos && 'text-rose-700 font-semibold')}>
-                • Ít nhất {MIN_PHOTOS} ảnh rõ mặt ({galleryCount}/{MIN_PHOTOS})
-              </li>
-            </ul>
+      <form onSubmit={handleSubmit} className="space-y-6">
+        {/* DiceBear Avatar (auto-generated, not editable) */}
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+          <p className="font-bold text-gray-900 mb-1">Avatar hiển thị</p>
+          <p className="text-sm text-gray-500 mb-4">Avatar anime tự động tạo, không thể chỉnh sửa</p>
+          <div className="flex items-center gap-4">
+            <DiceBearAvatar userId={user.id} size="xl" />
+            <p className="text-xs text-gray-400">Đây là avatar mọi người sẽ thấy khi xem hồ sơ của bạn.</p>
           </div>
         </div>
-      )}
 
-      <form onSubmit={handleSubmit} className="space-y-6">
-        {/* Avatar Section */}
+        {/* Real Photo Upload */}
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
           <div className="flex items-center justify-between">
             <div>
-              <p className="font-bold text-gray-900">Ảnh đại diện</p>
-              <p className="text-sm text-gray-500">Tải ảnh lên từ thiết bị</p>
+              <p className="font-bold text-gray-900">Ảnh thật</p>
+              <p className="text-sm text-gray-500">Chỉ VIP và kết nối thấy được ảnh này</p>
             </div>
-            <input ref={avatarInputRef} type="file" accept="image/*" className="hidden" onChange={(e) => e.target.files?.[0] && handleAvatarFile(e.target.files[0])} />
+            <input ref={realAvatarInputRef} type="file" accept="image/*" className="hidden" onChange={(e) => e.target.files?.[0] && handleRealAvatarFile(e.target.files[0])} />
           </div>
           <div className="mt-4 flex flex-col sm:flex-row items-center gap-4">
             <div className="relative">
-              <Image src={avatarUrl} alt="User" width={120} height={120} className="rounded-full object-cover border-4 border-white shadow-lg" />
-              <button type="button" onClick={handlePickAvatar} disabled={isUploading} className="absolute bottom-0 right-0 p-2 bg-primary-600 text-white rounded-full shadow-lg">
+              {realAvatarUrl ? (
+                <Image src={realAvatarUrl} alt="Ảnh thật" width={120} height={120} className="rounded-full object-cover border-4 border-white shadow-lg" />
+              ) : (
+                <div className="w-[120px] h-[120px] rounded-full bg-gray-100 border-4 border-white shadow-lg flex items-center justify-center">
+                  <Camera className="w-8 h-8 text-gray-300" />
+                </div>
+              )}
+              <button type="button" onClick={handlePickRealAvatar} disabled={isUploading} className="absolute bottom-0 right-0 p-2 bg-primary-600 text-white rounded-full shadow-lg">
                 <Camera className="w-5 h-5" />
               </button>
             </div>
@@ -279,37 +247,33 @@ export default function EditProfilePage() {
         {/* Gallery */}
         <ProfileGalleryUploader images={galleryImages} minImages={MIN_PHOTOS} onAddFiles={handleAddGalleryFiles} onRemoveImage={handleRemoveGalleryImage} isUploading={isUploading} />
 
-        {/* Voice Intro Section */}
+        {/* Food Preferences */}
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 space-y-4">
-            <div className="flex items-center justify-between">
-                <div>
-                    <h3 className="font-bold text-gray-900 flex items-center gap-2">
-                        <Mic className="w-5 h-5 text-primary-500" />
-                        Giới thiệu giọng nói
-                    </h3>
-                    <p className="text-sm text-gray-500">Thu hút hơn bằng giọng nói của bạn</p>
-                </div>
-                {voiceIntroUrl && (
-                    <button 
-                        type="button" 
-                        onClick={handleDeleteVoice}
-                        className="text-red-500 text-sm font-medium hover:underline"
-                    >
-                        Xóa bản ghi
-                    </button>
-                )}
-            </div>
-
-            {voiceIntroUrl ? (
-                <div className="bg-gray-50 p-3 rounded-xl">
-                    <VoiceIntro audioUrl={voiceIntroUrl} userName="Bạn" />
-                </div>
-            ) : (
-                <VoiceIntro 
-                    isRecording={true} 
-                    onRecordComplete={handleVoiceRecordComplete} 
-                />
-            )}
+          <div>
+            <h3 className="font-bold text-gray-900">Sở thích ẩm thực</h3>
+            <p className="text-sm text-gray-500">Chọn các loại ẩm thực bạn yêu thích</p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {ALL_CUISINES.map((cuisine) => {
+              const isSelected = selectedCuisines.includes(cuisine);
+              return (
+                <button
+                  key={cuisine}
+                  type="button"
+                  onClick={() => toggleCuisine(cuisine)}
+                  className={cn(
+                    'inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-medium border transition-all',
+                    isSelected
+                      ? 'bg-primary-50 border-primary-500 text-primary-700 ring-1 ring-primary-500'
+                      : 'bg-white border-gray-200 text-gray-600 hover:border-gray-300'
+                  )}
+                >
+                  <span>{CUISINE_ICONS[cuisine]}</span>
+                  <span>{CUISINE_LABELS[cuisine]}</span>
+                </button>
+              );
+            })}
+          </div>
         </div>
 
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 space-y-4">

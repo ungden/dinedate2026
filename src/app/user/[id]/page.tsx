@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState, useRef, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
@@ -12,43 +12,24 @@ import {
   Star,
   ShieldCheck,
   BadgeCheck,
-  Wallet,
-  Clock,
-  Zap,
-  Sparkles,
-  Images as GalleryIcon,
-  X,
-  ChevronLeft,
-  ChevronRight,
   Loader2,
-  Check,
-  CreditCard,
-  QrCode,
-  Mic2,
-  MessageCircle,
-  Info,
   Flag,
-  ShieldOff
+  ShieldOff,
+  UtensilsCrossed,
+  CalendarCheck,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
-import { cn, formatCurrency, getVIPBadgeColor, getActivityIcon, isNewPartner, isQualityPartner } from '@/lib/utils';
-import { ServiceOffering } from '@/types';
+import { cn, getVIPBadgeColor, getCuisineLabel, getCuisineIcon } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
 import AuthModal from '@/components/AuthModal';
 import { useDbUserProfile } from '@/hooks/useDbUserProfile';
-import { createBookingViaEdge } from '@/lib/booking';
 import { motion, AnimatePresence } from '@/lib/motion';
-import TopupModal from '@/components/TopupModal';
-import VoiceIntro from '@/components/VoiceIntro';
 import ReportUserModal from '@/components/ReportUserModal';
 import BlockUserModal from '@/components/BlockUserModal';
-import PromoCodeInput from '@/components/PromoCodeInput';
 import { useBlockedUsers } from '@/hooks/useBlockedUsers';
-import { useProfileCompletion } from '@/hooks/useProfileCompletion';
-import { usePromoCode, PromoValidationResult } from '@/hooks/usePromoCode';
+import { usePersonReviewsFor } from '@/hooks/useReviews';
 import { supabase } from '@/integrations/supabase/client';
-
-const SESSION_HOURS = 3;
+import DiceBearAvatar from '@/components/DiceBearAvatar';
 
 export default function UserProfilePage() {
   const params = useParams();
@@ -56,73 +37,81 @@ export default function UserProfilePage() {
   const userId = params.id as string;
 
   const { user: authUser } = useAuth();
-  const { user, services: dbServices, reviews, rating, loading } = useDbUserProfile(userId);
+  const { user, reviews: _reviews, rating, loading } = useDbUserProfile(userId);
   const { isBlocked, blockUser, unblockUser } = useBlockedUsers();
-  const { isCompleteEnoughForBooking, requiredFieldsMissing } = useProfileCompletion(authUser);
-  const { validatePromoCode, appliedPromo, clearPromo, setAppliedPromo, loading: promoLoading } = usePromoCode();
+  const { reviews: personReviews, loading: reviewsLoading } = usePersonReviewsFor(userId);
 
-  const [currentImageIndex, setCurrentImageIndex] = useState(0);
-  const [isLightboxOpen, setIsLightboxOpen] = useState(false);
-
-  const services = useMemo(() => {
-    const list = dbServices || [];
-    return list.filter((s) => s.available);
-  }, [dbServices]);
-
-  const isCurrentUser = !!authUser && !!user && authUser.id === user.id;
-
-  // Track profile view when page loads (don't track own profile view)
-  useEffect(() => {
-    const trackProfileView = async () => {
-      if (!user?.id) return;
-      if (isCurrentUser) return; // Don't track own profile view
-
-      try {
-        await supabase.from('profile_views').insert({
-          viewer_id: authUser?.id || null, // null for anonymous viewers
-          viewed_id: user.id,
-          source: 'direct',
-        });
-      } catch (error) {
-        // Silently fail - tracking shouldn't affect user experience
-        console.error('Failed to track profile view:', error);
-      }
-    };
-
-    trackProfileView();
-  }, [user?.id, authUser?.id, isCurrentUser]);
-
-  const [selectedServiceId, setSelectedServiceId] = useState<string | null>(null);
-  // Removed explicit date/time/location form state. 
-  // Message is optional, can be added later if needed, but for "Quick Book" we might skip it too.
-  const [bookingMessage, setBookingMessage] = useState('');
-
-  const [isBooking, setIsBooking] = useState(false);
-  const [showPaymentModal, setShowPaymentModal] = useState(false);
-  const [showTopupModal, setShowTopupModal] = useState(false);
-
-  const [authModal, setAuthModal] = useState<{
-    isOpen: boolean;
-    actionType: 'book' | 'like' | 'generic';
-  }>({
+  const [showReportModal, setShowReportModal] = useState(false);
+  const [showBlockModal, setShowBlockModal] = useState(false);
+  const [authModal, setAuthModal] = useState<{ isOpen: boolean; actionType: 'generic' }>({
     isOpen: false,
     actionType: 'generic',
   });
 
-  const [showReportModal, setShowReportModal] = useState(false);
-  const [showBlockModal, setShowBlockModal] = useState(false);
+  const isCurrentUser = !!authUser && !!user && authUser.id === user.id;
 
-  // Check if current user has blocked this profile
+  // Check if viewer can see real photo (VIP or mutual connection)
+  const [canSeeRealPhoto, setCanSeeRealPhoto] = useState(false);
+
+  useEffect(() => {
+    const checkAccess = async () => {
+      if (!authUser || !user) {
+        setCanSeeRealPhoto(false);
+        return;
+      }
+      if (isCurrentUser) {
+        setCanSeeRealPhoto(true);
+        return;
+      }
+      // VIP users can see real photos
+      if (authUser.vipStatus.tier === 'vip' || authUser.vipStatus.tier === 'svip') {
+        setCanSeeRealPhoto(true);
+        return;
+      }
+      // Check mutual connection
+      try {
+        const { data } = await supabase
+          .from('connections')
+          .select('id')
+          .or(`and(user_id.eq.${authUser.id},connected_user_id.eq.${user.id}),and(user_id.eq.${user.id},connected_user_id.eq.${authUser.id})`)
+          .eq('status', 'accepted')
+          .limit(1);
+        setCanSeeRealPhoto(!!(data && data.length > 0));
+      } catch {
+        setCanSeeRealPhoto(false);
+      }
+    };
+    checkAccess();
+  }, [authUser, user, isCurrentUser]);
+
+  // Track profile view
+  useEffect(() => {
+    const trackProfileView = async () => {
+      if (!user?.id) return;
+      if (isCurrentUser) return;
+      try {
+        await supabase.from('profile_views').insert({
+          viewer_id: authUser?.id || null,
+          viewed_id: user.id,
+          source: 'direct',
+        });
+      } catch (error) {
+        console.error('Failed to track profile view:', error);
+      }
+    };
+    trackProfileView();
+  }, [user?.id, authUser?.id, isCurrentUser]);
+
   const userIsBlocked = user ? isBlocked(user.id) : false;
 
   if (loading) {
     return (
-        <div className="min-h-screen flex items-center justify-center">
-            <div className="text-center">
-                <Loader2 className="w-8 h-8 animate-spin text-primary-500 mx-auto mb-2" />
-                <p className="text-gray-500 font-medium">Đang tải hồ sơ...</p>
-            </div>
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <Loader2 className="w-8 h-8 animate-spin text-primary-500 mx-auto mb-2" />
+          <p className="text-gray-500 font-medium">Đang tải hồ sơ...</p>
         </div>
+      </div>
     );
   }
 
@@ -132,452 +121,273 @@ export default function UserProfilePage() {
         <div className="text-6xl mb-4">😢</div>
         <h3 className="text-lg font-semibold text-gray-900 mb-2">Không tìm thấy người dùng</h3>
         <Link href="/" className="text-primary-600 hover:underline">
-          Quay lại danh sách Partner
+          Quay lại trang chủ
         </Link>
       </div>
     );
   }
 
-  const rawGallery = user.images && user.images.length > 0 ? user.images : [user.avatar];
-  const gallery = Array.from(new Set(rawGallery));
-
-  const handleNextImage = (e?: React.MouseEvent) => {
-    e?.stopPropagation();
-    setCurrentImageIndex((prev) => (prev === gallery.length - 1 ? 0 : prev + 1));
-  };
-
-  const handlePrevImage = (e?: React.MouseEvent) => {
-    e?.stopPropagation();
-    setCurrentImageIndex((prev) => (prev === 0 ? gallery.length - 1 : prev - 1));
-  };
-
-  const isNew = isNewPartner(user.createdAt);
-  const isQuality = isQualityPartner(rating, user.reviewCount);
-  const canSeeAge = authUser?.vipStatus.tier === 'vip' || authUser?.vipStatus.tier === 'svip' || isCurrentUser;
-  const displayAge = canSeeAge && user.age ? `, ${user.age}` : '';
-
-  const openBookingForService = (serviceId: string) => {
-    if (isCurrentUser) return;
-
-    // Check login
-    if (!authUser) {
-        setAuthModal({ isOpen: true, actionType: 'book' });
-        return;
-    }
-
-    // Check profile completion (required fields)
-    if (!isCompleteEnoughForBooking) {
-        const missingList = requiredFieldsMissing.join(', ');
-        toast.error(
-          `Vui long hoan thien ho so truoc khi dat lich. Con thieu: ${missingList}`,
-          {
-            duration: 4000,
-            icon: '📝',
-          }
-        );
-        setTimeout(() => router.push('/profile/edit'), 2000);
-        return;
-    }
-
-    // Check phone (redundant but keeping for backwards compatibility)
-    if (!authUser.phone) {
-        toast.error('Vui long cap nhat so dien thoai truoc khi dat lich');
-        setTimeout(() => router.push('/profile/edit'), 1500);
-        return;
-    }
-
-    setSelectedServiceId(serviceId);
-    setBookingMessage('');
-  };
-
-  const executeBooking = async () => {
-    if (!authUser || !selectedServiceId) return;
-    setIsBooking(true);
-
-    // Default placeholders since we removed the form
-    const now = new Date();
-    const dateStr = now.toISOString().split('T')[0];
-    const timeStr = now.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
-
-    try {
-      const res = await createBookingViaEdge({
-        providerId: user.id,
-        serviceId: selectedServiceId,
-        date: dateStr, // Placeholder: Today
-        time: timeStr, // Placeholder: Now
-        location: 'Thoa thuan qua chat', // Explicit marker
-        message: bookingMessage,
-        durationHours: SESSION_HOURS,
-        promoCodeId: appliedPromo?.promoCodeId, // Pass promo code if applied
-      });
-      if (res?.bookingId) {
-        const discountMsg = res.promoDiscount ? ` (Da giam ${formatCurrency(res.promoDiscount)})` : '';
-        toast.success(`Thanh toan thanh cong!${discountMsg} Dang ket noi...`);
-        setSelectedServiceId(null);
-        setShowPaymentModal(false);
-        clearPromo(); // Clear promo after successful booking
-        router.push('/manage-bookings'); // Redirect to manage to see status
-      }
-    } catch (err: any) {
-      const msg = (err?.context?.body?.message || err?.message || '').toString();
-      if (msg.includes('INSUFFICIENT_FUNDS')) {
-        alert('So du khong du. Vui long nap them tien.');
-      } else {
-        alert('Loi: ' + msg);
-      }
-    } finally {
-      setIsBooking(false);
-    }
-  };
-
-  const handlePreBooking = () => {
-    if (!selectedServiceId) return;
-    setShowPaymentModal(true);
-  };
-
-  const selectedService = services.find((s) => s.id === selectedServiceId);
-  const originalPrice = selectedService?.price || 0;
-  const discountAmount = appliedPromo?.discountAmount || 0;
-  const totalPrice = originalPrice - discountAmount;
-
   return (
-    <div className="max-w-5xl mx-auto pb-28 px-0 md:px-4">
-      {/* Desktop Nav */}
-      <div className="hidden md:flex items-center justify-between mb-4">
+    <div className="max-w-3xl mx-auto pb-28 px-4">
+      {/* Nav */}
+      <div className="flex items-center justify-between mb-6 pt-4">
         <button onClick={() => router.back()} className="flex items-center gap-2 text-gray-600 hover:text-gray-900 font-bold transition">
-            <ArrowLeft className="w-5 h-5" /> Quay lai
+          <ArrowLeft className="w-5 h-5" /> Quay lại
         </button>
         <div className="flex gap-2">
-            <button className="p-2.5 bg-white border border-gray-200 rounded-xl hover:bg-gray-50 text-gray-700 transition">
-                <Share2 className="w-5 h-5" />
-            </button>
-            <button className="p-2.5 bg-white border border-gray-200 rounded-xl hover:bg-gray-50 text-gray-700 transition">
-                <Heart className="w-5 h-5" />
-            </button>
-            {/* Report & Block buttons - only show for other users */}
-            {authUser && !isCurrentUser && (
-                <>
-                    <button
-                        onClick={() => setShowReportModal(true)}
-                        className="p-2.5 bg-white border border-gray-200 rounded-xl hover:bg-amber-50 hover:border-amber-200 text-gray-500 hover:text-amber-600 transition"
-                        title="Bao cao"
-                    >
-                        <Flag className="w-5 h-5" />
-                    </button>
-                    <button
-                        onClick={() => userIsBlocked ? unblockUser(user!.id) : setShowBlockModal(true)}
-                        className={cn(
-                            "p-2.5 border rounded-xl transition",
-                            userIsBlocked
-                                ? "bg-red-50 border-red-200 text-red-600 hover:bg-red-100"
-                                : "bg-white border-gray-200 text-gray-500 hover:bg-red-50 hover:border-red-200 hover:text-red-600"
-                        )}
-                        title={userIsBlocked ? "Bo chan" : "Chan"}
-                    >
-                        <ShieldOff className="w-5 h-5" />
-                    </button>
-                </>
-            )}
+          <button className="p-2.5 bg-white border border-gray-200 rounded-xl hover:bg-gray-50 text-gray-700 transition">
+            <Share2 className="w-5 h-5" />
+          </button>
+          <button className="p-2.5 bg-white border border-gray-200 rounded-xl hover:bg-gray-50 text-gray-700 transition">
+            <Heart className="w-5 h-5" />
+          </button>
+          {authUser && !isCurrentUser && (
+            <>
+              <button
+                onClick={() => setShowReportModal(true)}
+                className="p-2.5 bg-white border border-gray-200 rounded-xl hover:bg-amber-50 hover:border-amber-200 text-gray-500 hover:text-amber-600 transition"
+                title="Báo cáo"
+              >
+                <Flag className="w-5 h-5" />
+              </button>
+              <button
+                onClick={() => userIsBlocked ? unblockUser(user!.id) : setShowBlockModal(true)}
+                className={cn(
+                  "p-2.5 border rounded-xl transition",
+                  userIsBlocked
+                    ? "bg-red-50 border-red-200 text-red-600 hover:bg-red-100"
+                    : "bg-white border-gray-200 text-gray-500 hover:bg-red-50 hover:border-red-200 hover:text-red-600"
+                )}
+                title={userIsBlocked ? "Bỏ chặn" : "Chặn"}
+              >
+                <ShieldOff className="w-5 h-5" />
+              </button>
+            </>
+          )}
         </div>
       </div>
 
-      {/* Blocked User Banner */}
+      {/* Blocked Banner */}
       {userIsBlocked && (
-        <div className="mb-4 mx-4 md:mx-0 p-4 bg-red-50 border border-red-100 rounded-2xl">
-            <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-red-100 rounded-xl flex items-center justify-center">
-                    <ShieldOff className="w-5 h-5 text-red-600" />
-                </div>
-                <div className="flex-1">
-                    <p className="font-bold text-red-800">Da chan nguoi nay</p>
-                    <p className="text-sm text-red-700">Ban va nguoi nay se khong nhin thay nhau trong tim kiem.</p>
-                </div>
-                <button
-                    onClick={() => unblockUser(user!.id)}
-                    className="px-4 py-2 bg-white border border-red-200 text-red-600 rounded-xl font-bold text-sm hover:bg-red-50 transition"
-                >
-                    Bo chan
-                </button>
+        <div className="mb-6 p-4 bg-red-50 border border-red-100 rounded-2xl">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-red-100 rounded-xl flex items-center justify-center">
+              <ShieldOff className="w-5 h-5 text-red-600" />
             </div>
+            <div className="flex-1">
+              <p className="font-bold text-red-800">Đã chặn người này</p>
+              <p className="text-sm text-red-700">Bạn và người này sẽ không nhìn thấy nhau trong tìm kiếm.</p>
+            </div>
+            <button
+              onClick={() => unblockUser(user!.id)}
+              className="px-4 py-2 bg-white border border-red-200 text-red-600 rounded-xl font-bold text-sm hover:bg-red-50 transition"
+            >
+              Bỏ chặn
+            </button>
+          </div>
         </div>
       )}
 
-      {/* --- SQUARE CAROUSEL --- */}
-      <div className="relative w-full md:max-w-md md:mx-auto aspect-square rounded-b-[32px] md:rounded-[32px] overflow-hidden bg-gray-100 shadow-xl group">
-        {/* Navigation Overlay (Mobile) */}
-        <div className="md:hidden absolute top-0 left-0 right-0 p-4 z-20 flex justify-between items-start bg-gradient-to-b from-black/40 to-transparent pointer-events-none">
-            <button
-                onClick={() => router.back()}
-                className="pointer-events-auto p-2 bg-white/20 backdrop-blur-md border border-white/20 text-white rounded-full hover:bg-white/40 transition"
-            >
-                <ArrowLeft className="w-6 h-6" />
-            </button>
-            <div className="flex gap-2 pointer-events-auto">
-                <button className="p-2 bg-white/20 backdrop-blur-md border border-white/20 text-white rounded-full hover:bg-white/40 transition">
-                    <Share2 className="w-5 h-5" />
-                </button>
-                <button className="p-2 bg-white/20 backdrop-blur-md border border-white/20 text-white rounded-full hover:bg-white/40 transition">
-                    <Heart className="w-5 h-5" />
-                </button>
-                {/* Mobile Report & Block buttons */}
-                {authUser && !isCurrentUser && (
-                    <>
-                        <button
-                            onClick={() => setShowReportModal(true)}
-                            className="p-2 bg-white/20 backdrop-blur-md border border-white/20 text-white rounded-full hover:bg-amber-500/40 transition"
-                        >
-                            <Flag className="w-5 h-5" />
-                        </button>
-                        <button
-                            onClick={() => userIsBlocked ? unblockUser(user!.id) : setShowBlockModal(true)}
-                            className={cn(
-                                "p-2 backdrop-blur-md border border-white/20 rounded-full transition",
-                                userIsBlocked
-                                    ? "bg-red-500/60 text-white"
-                                    : "bg-white/20 text-white hover:bg-red-500/40"
-                            )}
-                        >
-                            <ShieldOff className="w-5 h-5" />
-                        </button>
-                    </>
-                )}
+      {/* Profile Header */}
+      <div className="bg-white rounded-3xl border border-gray-100 shadow-sm p-6 mb-6">
+        <div className="flex items-start gap-5">
+          {/* DiceBear Avatar (always shown) */}
+          <div className="flex-shrink-0">
+            <DiceBearAvatar
+              userId={user.id}
+              size="xl"
+              showVipBadge={user.vipStatus.tier !== 'free'}
+              vipTier={user.vipStatus.tier}
+            />
+          </div>
+
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-3 mb-1">
+              <h1 className="text-2xl font-black text-gray-900 tracking-tight truncate">{user.name}</h1>
+              {user.vipStatus.tier !== 'free' && (
+                <span className={cn('px-2.5 py-1 rounded-full text-[10px] font-black text-white uppercase shadow-sm', getVIPBadgeColor(user.vipStatus.tier))}>
+                  {user.vipStatus.tier}
+                </span>
+              )}
             </div>
+
+            <div className="flex flex-wrap items-center gap-3 text-sm text-gray-600 mb-3">
+              <div className="flex items-center gap-1.5">
+                <MapPin className="w-4 h-4 text-rose-500" />
+                <span>{user.location}</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <Star className="w-4 h-4 text-yellow-500 fill-yellow-500" />
+                <span className="font-bold text-gray-900">{rating.toFixed(1)}</span>
+                <span className="text-gray-400">({user.reviewCount || 0} đánh giá)</span>
+              </div>
+              {user.totalDates != null && user.totalDates > 0 && (
+                <div className="flex items-center gap-1.5">
+                  <CalendarCheck className="w-4 h-4 text-green-500" />
+                  <span className="font-bold text-gray-900">{user.totalDates}</span>
+                  <span className="text-gray-400">date hoàn thành</span>
+                </div>
+              )}
+            </div>
+
+            {/* Zodiac */}
+            {user.zodiac && (
+              <span className="inline-block px-2.5 py-1 bg-purple-50 text-purple-600 rounded-lg text-xs font-bold border border-purple-100 capitalize">
+                {user.zodiac}
+              </span>
+            )}
+          </div>
         </div>
 
-        {/* The Image */}
-        <AnimatePresence initial={false} mode='wait'>
-            <motion.div
-                key={currentImageIndex}
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                transition={{ duration: 0.3 }}
-                className="absolute inset-0 cursor-pointer"
-                onClick={() => setIsLightboxOpen(true)}
-            >
-                <Image 
-                    src={gallery[currentImageIndex]} 
-                    alt={`Photo ${currentImageIndex}`} 
-                    fill 
-                    className="object-cover" 
-                    priority
-                />
-            </motion.div>
-        </AnimatePresence>
-
-        {/* Controls */}
-        {gallery.length > 1 && (
-            <>
-                <button 
-                    onClick={handlePrevImage}
-                    className="absolute left-4 top-1/2 -translate-y-1/2 p-3 bg-black/20 backdrop-blur-md text-white rounded-full opacity-0 group-hover:opacity-100 hover:bg-black/40 transition-all z-10"
-                >
-                    <ChevronLeft className="w-6 h-6" />
-                </button>
-                <button 
-                    onClick={handleNextImage}
-                    className="absolute right-4 top-1/2 -translate-y-1/2 p-3 bg-black/20 backdrop-blur-md text-white rounded-full opacity-0 group-hover:opacity-100 hover:bg-black/40 transition-all z-10"
-                >
-                    <ChevronRight className="w-6 h-6" />
-                </button>
-            </>
+        {/* Real Photo (only for VIP / mutual connections) */}
+        {canSeeRealPhoto && user.avatar && !user.avatar.includes('dicebear') && (
+          <div className="mt-5 pt-5 border-t border-gray-100">
+            <p className="text-xs font-bold text-gray-500 mb-2 uppercase tracking-wide">Ảnh thật</p>
+            <Image
+              src={user.avatar}
+              alt={user.name}
+              width={160}
+              height={160}
+              className="rounded-2xl object-cover border-2 border-white shadow-md"
+            />
+          </div>
         )}
+        {!canSeeRealPhoto && !isCurrentUser && (
+          <div className="mt-5 pt-5 border-t border-gray-100">
+            <div className="bg-amber-50 border border-amber-100 rounded-xl p-3 flex items-center gap-3">
+              <span className="text-2xl">🔒</span>
+              <div>
+                <p className="text-sm font-bold text-amber-800">Ảnh thật bị ẩn</p>
+                <p className="text-xs text-amber-700">Nâng cấp VIP hoặc kết nối để xem ảnh thật.</p>
+              </div>
+              <Link href="/vip-subscription" className="ml-auto px-3 py-1.5 bg-amber-600 text-white rounded-lg text-xs font-bold hover:bg-amber-700 transition">
+                VIP
+              </Link>
+            </div>
+          </div>
+        )}
+      </div>
 
-        {/* Dots */}
-        <div className="absolute bottom-4 left-0 right-0 flex justify-center gap-1.5 z-10">
-            {gallery.map((_, idx) => (
-                <button
-                    key={idx}
-                    onClick={(e) => { e.stopPropagation(); setCurrentImageIndex(idx); }}
-                    className={cn(
-                        "h-1.5 rounded-full transition-all duration-300 shadow-sm",
-                        idx === currentImageIndex ? "w-6 bg-white" : "w-1.5 bg-white/50"
-                    )}
-                />
+      {/* Bio */}
+      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 mb-6 space-y-3">
+        <h3 className="font-bold text-gray-900 text-lg">Giới thiệu</h3>
+        <p className="text-gray-600 leading-relaxed whitespace-pre-wrap text-[15px]">
+          {user.bio || 'Người dùng này chưa viết giới thiệu.'}
+        </p>
+
+        {/* Personality Tags */}
+        {user.personalityTags && user.personalityTags.length > 0 && (
+          <div className="flex flex-wrap gap-2 pt-2">
+            {user.personalityTags.map(tag => (
+              <span key={tag} className="px-3 py-1.5 bg-gray-100 text-gray-600 rounded-xl text-xs font-bold border border-gray-200">
+                #{tag}
+              </span>
             ))}
+          </div>
+        )}
+      </div>
+
+      {/* Food Preferences */}
+      {user.foodPreferences && user.foodPreferences.length > 0 && (
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 mb-6">
+          <h3 className="font-bold text-gray-900 text-lg mb-3 flex items-center gap-2">
+            <UtensilsCrossed className="w-5 h-5 text-orange-500" />
+            Sở thích ẩm thực
+          </h3>
+          <div className="flex flex-wrap gap-2">
+            {user.foodPreferences.map((cuisine) => (
+              <span
+                key={cuisine}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-orange-50 text-orange-700 rounded-xl text-xs font-bold border border-orange-100"
+              >
+                {getCuisineIcon(cuisine)} {getCuisineLabel(cuisine)}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Trust Badges */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
+        <div className="bg-green-50 border border-green-100 rounded-2xl p-4 flex items-start gap-3">
+          <div className="w-10 h-10 bg-white rounded-full flex items-center justify-center text-green-600 shadow-sm border border-green-100">
+            <ShieldCheck className="w-5 h-5" />
+          </div>
+          <div>
+            <p className="font-bold text-green-900">Hẹn hò an toàn</p>
+            <p className="text-sm text-green-800/80 mt-0.5">Date tại nhà hàng đối tác được bảo vệ</p>
+          </div>
+        </div>
+        <div className="bg-blue-50 border border-blue-100 rounded-2xl p-4 flex items-start gap-3">
+          <div className="w-10 h-10 bg-white rounded-full flex items-center justify-center text-blue-600 shadow-sm border border-blue-100">
+            <BadgeCheck className="w-5 h-5" />
+          </div>
+          <div>
+            <p className="font-bold text-blue-900">Đã xác thực</p>
+            <p className="text-sm text-blue-800/80 mt-0.5">SĐT và thông tin đã kiểm tra</p>
+          </div>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 px-4 md:px-0 mt-6">
-        {/* Left Column: Info */}
-        <div className="lg:col-span-2 space-y-8">
-            {/* Header Info */}
-            <div>
+      {/* Person Reviews */}
+      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 mb-6">
+        <h3 className="font-bold text-gray-900 text-lg mb-4 flex items-center gap-2">
+          <Star className="w-5 h-5 text-yellow-500 fill-yellow-500" />
+          Đánh giá từ người khác ({personReviews.length})
+        </h3>
+
+        {reviewsLoading ? (
+          <div className="py-8 text-center text-gray-400">
+            <Loader2 className="w-5 h-5 animate-spin mx-auto mb-2" />
+            Đang tải đánh giá...
+          </div>
+        ) : personReviews.length === 0 ? (
+          <div className="py-8 text-center text-gray-400">
+            <p className="text-4xl mb-2">⭐</p>
+            <p className="font-medium">Chưa có đánh giá nào</p>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {personReviews.map((review) => (
+              <div key={review.id} className="border-b border-gray-50 pb-4 last:border-0 last:pb-0">
                 <div className="flex items-center gap-3 mb-2">
-                    <h1 className="text-3xl font-black text-gray-900 tracking-tight">{user.name}{displayAge}</h1>
-                    {user.vipStatus.tier !== 'free' && (
-                        <span className={cn('px-2.5 py-1 rounded-full text-[10px] font-black text-white uppercase shadow-sm', getVIPBadgeColor(user.vipStatus.tier))}>
-                            {user.vipStatus.tier}
-                        </span>
-                    )}
-                    {isQuality && (
-                        <span className="px-2.5 py-1 rounded-full text-[10px] font-black uppercase bg-orange-100 text-orange-600 flex items-center gap-1">
-                            <Zap className="w-3 h-3 fill-orange-600" /> Uy tín
-                        </span>
-                    )}
-                </div>
-
-                <div className="flex flex-wrap items-center gap-4 text-sm text-gray-600">
-                    <div className="flex items-center gap-1.5">
-                        <MapPin className="w-4 h-4 text-rose-500" />
-                        <span>{user.location}</span>
-                    </div>
-                    <div className="flex items-center gap-1.5">
-                        <Star className="w-4 h-4 text-yellow-500 fill-yellow-500" />
-                        <span className="font-bold text-gray-900">{rating.toFixed(1)}</span>
-                        <span className="text-gray-400">({user.reviewCount} đánh giá)</span>
-                    </div>
-                </div>
-            </div>
-
-            {/* Voice Intro */}
-            {user.voiceIntroUrl && (
-                <div className="p-1">
-                    <VoiceIntro audioUrl={user.voiceIntroUrl} userName={user.name} />
-                </div>
-            )}
-
-            {/* Bio */}
-            <div className="space-y-3">
-                <h3 className="font-bold text-gray-900 text-lg">Giới thiệu</h3>
-                <p className="text-gray-600 leading-relaxed whitespace-pre-wrap text-[15px]">
-                    {user.bio || "Người dùng này chưa viết giới thiệu."}
-                </p>
-                
-                {/* Tags */}
-                {user.personalityTags && user.personalityTags.length > 0 && (
-                    <div className="flex flex-wrap gap-2 pt-2">
-                        {user.personalityTags.map(tag => (
-                            <span key={tag} className="px-3 py-1.5 bg-gray-100 text-gray-600 rounded-xl text-xs font-bold border border-gray-200">
-                                #{tag}
-                            </span>
+                  {review.reviewer && (
+                    <DiceBearAvatar userId={review.reviewerId} size="sm" />
+                  )}
+                  <div className="flex-1 min-w-0">
+                    <p className="font-bold text-gray-900 text-sm truncate">
+                      {review.reviewer?.name || 'Người dùng ẩn danh'}
+                    </p>
+                    <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-0.5">
+                        {Array.from({ length: 5 }).map((_, i) => (
+                          <Star
+                            key={i}
+                            className={cn(
+                              'w-3 h-3',
+                              i < review.rating ? 'text-yellow-500 fill-yellow-500' : 'text-gray-200'
+                            )}
+                          />
                         ))}
+                      </div>
+                      <span className="text-[11px] text-gray-400">
+                        {new Date(review.createdAt).toLocaleDateString('vi-VN')}
+                      </span>
                     </div>
+                  </div>
+                  {review.wantToMeetAgain && (
+                    <span className="px-2 py-0.5 bg-green-50 text-green-600 text-[10px] font-bold rounded-full border border-green-100">
+                      Muốn gặp lại
+                    </span>
+                  )}
+                </div>
+                {review.comment && (
+                  <p className="text-sm text-gray-600 leading-relaxed ml-11">{review.comment}</p>
                 )}
-            </div>
-
-            {/* Trust Badges */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="bg-green-50 border border-green-100 rounded-2xl p-4 flex items-start gap-3">
-                    <div className="w-10 h-10 bg-white rounded-full flex items-center justify-center text-green-600 shadow-sm border border-green-100">
-                        <ShieldCheck className="w-5 h-5" />
-                    </div>
-                    <div>
-                        <p className="font-bold text-green-900">Thanh toán Escrow</p>
-                        <p className="text-sm text-green-800/80 mt-0.5">Tiền được giữ an toàn bởi hệ thống</p>
-                    </div>
-                </div>
-                <div className="bg-blue-50 border border-blue-100 rounded-2xl p-4 flex items-start gap-3">
-                    <div className="w-10 h-10 bg-white rounded-full flex items-center justify-center text-blue-600 shadow-sm border border-blue-100">
-                        <BadgeCheck className="w-5 h-5" />
-                    </div>
-                    <div>
-                        <p className="font-bold text-blue-900">Đã xác thực</p>
-                        <p className="text-sm text-blue-800/80 mt-0.5">SĐT và thông tin đã kiểm tra</p>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        {/* Right Column: Services (Sticky on Desktop) */}
-        <div className="lg:col-span-1">
-            <div className="sticky top-24 space-y-6">
-                <div className="bg-white rounded-[24px] border border-gray-100 shadow-lg shadow-gray-200/50 p-6">
-                    <h3 className="font-black text-gray-900 text-xl mb-4 flex items-center gap-2">
-                        <Sparkles className="w-5 h-5 text-primary-500" />
-                        Dịch vụ ({services.length})
-                    </h3>
-
-                    {services.length === 0 ? (
-                        <div className="text-center py-8 text-gray-500">
-                            <p>Chưa có dịch vụ nào.</p>
-                        </div>
-                    ) : (
-                        <div className="space-y-3">
-                            {services.map((service) => (
-                                <div key={service.id} className="group">
-                                    <button
-                                        onClick={() => openBookingForService(service.id)}
-                                        className={cn(
-                                            "w-full text-left p-4 rounded-2xl border transition-all duration-200 hover:shadow-md",
-                                            selectedServiceId === service.id 
-                                                ? "bg-primary-50 border-primary-500 ring-1 ring-primary-500" 
-                                                : "bg-white border-gray-200 hover:border-primary-300"
-                                        )}
-                                    >
-                                        <div className="flex justify-between items-start mb-2">
-                                            <div className="flex items-center gap-2">
-                                                <span className="text-2xl">{getActivityIcon(service.activity)}</span>
-                                                <span className="font-bold text-gray-900 group-hover:text-primary-600 transition-colors">
-                                                    {service.title}
-                                                </span>
-                                            </div>
-                                            <div className="text-right">
-                                                <span className="block font-black text-rose-600">{formatCurrency(service.price)}</span>
-                                                <span className="text-[10px] text-gray-400 uppercase font-bold">/{service.duration === 'day' ? 'ngày' : '3h'}</span>
-                                            </div>
-                                        </div>
-                                        {service.description && (
-                                            <p className="text-xs text-gray-600 line-clamp-2 leading-relaxed">
-                                                {service.description}
-                                            </p>
-                                        )}
-                                    </button>
-
-                                    {/* Inline Booking Confirmation */}
-                                    <AnimatePresence>
-                                        {selectedServiceId === service.id && (
-                                            <motion.div
-                                                initial={{ height: 0, opacity: 0 }}
-                                                animate={{ height: "auto", opacity: 1 }}
-                                                exit={{ height: 0, opacity: 0 }}
-                                                className="overflow-hidden"
-                                            >
-                                                <div className="pt-3 pb-2 space-y-3 px-1">
-                                                    
-                                                    {/* Process Explanation */}
-                                                    <div className="bg-blue-50 p-3 rounded-xl border border-blue-100 space-y-2">
-                                                        <div className="flex gap-2 items-start">
-                                                            <Info className="w-4 h-4 text-blue-600 flex-shrink-0 mt-0.5" />
-                                                            <p className="text-[11px] text-blue-800 leading-relaxed font-medium">
-                                                                <b>Quy trình:</b> Thanh toán → Kết nối (Match) → Chat chốt địa điểm & thời gian.
-                                                            </p>
-                                                        </div>
-                                                        <div className="flex gap-2 items-start">
-                                                            <ShieldCheck className="w-4 h-4 text-blue-600 flex-shrink-0 mt-0.5" />
-                                                            <p className="text-[11px] text-blue-800 leading-relaxed font-medium">
-                                                                <b>An toàn:</b> Tiền được giữ tại hệ thống (Escrow). Partner chỉ nhận tiền khi bạn xác nhận hoàn thành. Hoàn tiền 100% nếu Partner không nhận đơn.
-                                                            </p>
-                                                        </div>
-                                                    </div>
-
-                                                    <div className="flex gap-2 pt-1">
-                                                        <button 
-                                                            onClick={(e) => { e.stopPropagation(); setSelectedServiceId(null); }}
-                                                            className="px-4 py-3 bg-gray-100 text-gray-600 rounded-xl font-bold text-sm hover:bg-gray-200 transition"
-                                                        >
-                                                            Đóng
-                                                        </button>
-                                                        <button
-                                                            onClick={handlePreBooking}
-                                                            disabled={isBooking}
-                                                            className="flex-1 py-3 bg-gradient-primary text-white rounded-xl font-bold text-sm shadow-lg hover:opacity-90 transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-                                                        >
-                                                            {isBooking ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
-                                                            Thanh toán & Kết nối
-                                                        </button>
-                                                    </div>
-                                                </div>
-                                            </motion.div>
-                                        )}
-                                    </AnimatePresence>
-                                </div>
-                            ))}
-                        </div>
-                    )}
-                </div>
-            </div>
-        </div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Auth Modal */}
@@ -586,154 +396,6 @@ export default function UserProfilePage() {
         onClose={() => setAuthModal({ ...authModal, isOpen: false })}
         actionType={authModal.actionType}
       />
-
-      {/* Payment Selection Modal */}
-      <AnimatePresence>
-        {showPaymentModal && (
-          <motion.div
-            className="fixed inset-0 z-[60] bg-black/60 backdrop-blur-sm flex items-end sm:items-center justify-center p-4"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-          >
-            <motion.div
-              className="bg-white rounded-[32px] w-full max-w-sm overflow-hidden shadow-2xl"
-              initial={{ y: 200, opacity: 0 }}
-              animate={{ y: 0, opacity: 1 }}
-              exit={{ y: 200, opacity: 0 }}
-            >
-              <div className="p-5 border-b border-gray-100 flex items-center justify-between bg-white/50 backdrop-blur-md">
-                <h3 className="text-lg font-black text-gray-900">Xac nhan thanh toan</h3>
-                <button onClick={() => { setShowPaymentModal(false); clearPromo(); }} className="p-2 hover:bg-gray-100 rounded-full transition">
-                  <X className="w-5 h-5 text-gray-500" />
-                </button>
-              </div>
-
-              <div className="p-6 space-y-5">
-                {/* Price Summary */}
-                <div className="bg-gray-50 rounded-2xl p-4 space-y-2">
-                  <div className="flex justify-between items-center text-sm">
-                    <span className="text-gray-600">Gia dich vu:</span>
-                    <span className={cn("font-bold", discountAmount > 0 ? "line-through text-gray-400" : "text-gray-900")}>
-                      {formatCurrency(originalPrice)}
-                    </span>
-                  </div>
-                  {discountAmount > 0 && (
-                    <div className="flex justify-between items-center text-sm text-green-600">
-                      <span>Giam gia ({appliedPromo?.code}):</span>
-                      <span className="font-bold">-{formatCurrency(discountAmount)}</span>
-                    </div>
-                  )}
-                  <div className="border-t border-gray-200 pt-2 mt-2">
-                    <div className="flex justify-between items-center">
-                      <span className="font-bold text-gray-900">Tong thanh toan (Escrow):</span>
-                      <span className="text-2xl font-black text-primary-600">{formatCurrency(totalPrice)}</span>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Promo Code Input */}
-                <PromoCodeInput
-                  orderAmount={originalPrice}
-                  onValidate={validatePromoCode}
-                  onApply={(result) => setAppliedPromo(result)}
-                  onClear={clearPromo}
-                  appliedPromo={appliedPromo}
-                  loading={promoLoading}
-                />
-
-                <div className="space-y-3">
-                  <button
-                    onClick={executeBooking}
-                    disabled={isBooking || (authUser?.wallet.balance || 0) < totalPrice}
-                    className="w-full flex items-center justify-between p-4 rounded-2xl border-2 border-gray-100 hover:border-primary-500 hover:bg-primary-50 transition-all group disabled:opacity-60 disabled:cursor-not-allowed"
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className="w-12 h-12 bg-gray-100 rounded-xl flex items-center justify-center text-gray-600 group-hover:bg-white group-hover:text-primary-500 transition-colors">
-                        <Wallet className="w-6 h-6" />
-                      </div>
-                      <div className="text-left">
-                        <p className="font-bold text-gray-900">Vi cua toi</p>
-                        <p className="text-xs text-gray-500 font-medium mt-0.5">So du: <span className="font-bold text-gray-700">{formatCurrency(authUser?.wallet.balance || 0)}</span></p>
-                      </div>
-                    </div>
-                    {isBooking ? <Loader2 className="w-5 h-5 animate-spin text-primary-500" /> : <ChevronRight className="w-5 h-5 text-gray-300 group-hover:text-primary-500" />}
-                  </button>
-
-                  <button
-                    onClick={() => {
-                      setShowPaymentModal(false);
-                      setShowTopupModal(true);
-                    }}
-                    className="w-full flex items-center justify-between p-4 rounded-2xl border-2 border-gray-100 hover:border-green-500 hover:bg-green-50 transition-all group"
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className="w-12 h-12 bg-gray-100 rounded-xl flex items-center justify-center text-gray-600 group-hover:bg-white group-hover:text-green-500 transition-colors">
-                        <QrCode className="w-6 h-6" />
-                      </div>
-                      <div className="text-left">
-                        <p className="font-bold text-gray-900">Quet ma QR</p>
-                        <p className="text-xs text-gray-500 font-medium mt-0.5">Chuyen khoan & Tu dong book</p>
-                      </div>
-                    </div>
-                    <ChevronRight className="w-5 h-5 text-gray-300 group-hover:text-green-500" />
-                  </button>
-                </div>
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* Topup Modal */}
-      {showTopupModal && selectedServiceId && (
-        <TopupModal
-          isOpen={showTopupModal}
-          onClose={() => setShowTopupModal(false)}
-          amount={totalPrice}
-          title="Thanh toán đơn hàng"
-          onSuccess={() => {
-            setTimeout(() => executeBooking(), 500);
-          }}
-        />
-      )}
-
-      {/* Lightbox Overlay */}
-      <AnimatePresence>
-        {isLightboxOpen && (
-            <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                className="fixed inset-0 z-[100] bg-black flex items-center justify-center touch-none"
-                onClick={() => setIsLightboxOpen(false)}
-            >
-                <div className="relative w-full h-full max-w-5xl flex items-center justify-center">
-                    <button onClick={() => setIsLightboxOpen(false)} className="absolute top-4 right-4 p-3 bg-white/10 rounded-full text-white z-20">
-                        <X className="w-6 h-6" />
-                    </button>
-
-                    <button
-                        onClick={(e) => { e.stopPropagation(); handlePrevImage(e as any); }}
-                        className="absolute left-4 p-3 bg-white/10 rounded-full text-white z-20 hidden md:block"
-                    >
-                        <ChevronLeft className="w-8 h-8" />
-                    </button>
-
-                    <div className="relative w-full h-[90vh]">
-                        <Image src={gallery[currentImageIndex]} alt="Zoom" fill className="object-contain" />
-                    </div>
-
-                    <button
-                        onClick={(e) => { e.stopPropagation(); handleNextImage(e as any); }}
-                        className="absolute right-4 p-3 bg-white/10 rounded-full text-white z-20 hidden md:block"
-                    >
-                        <ChevronRight className="w-8 h-8" />
-                    </button>
-                </div>
-            </motion.div>
-        )}
-      </AnimatePresence>
 
       {/* Report User Modal */}
       {user && (

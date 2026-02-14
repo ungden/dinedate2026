@@ -197,7 +197,7 @@ export default function SettingsClient() {
               </div>
               <div>
                 <p className="font-medium text-gray-900">Thong bao day</p>
-                <p className="text-xs text-gray-500">Nhan thong bao ve tin nhan, booking</p>
+                <p className="text-xs text-gray-500">Nhan thong bao ve date order, ghep doi, danh gia</p>
               </div>
             </div>
             <div className="relative inline-block w-12 mr-2 align-middle select-none transition duration-200 ease-in">

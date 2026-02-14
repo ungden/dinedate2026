@@ -1,33 +1,104 @@
 'use client';
 
+import { useState } from 'react';
 import Link from 'next/link';
 import { motion } from '@/lib/motion';
-import { ArrowLeft, Crown, Check, Star, Zap, Shield, Gift } from 'lucide-react';
+import { ArrowLeft, Crown, Check, Sparkles, Loader2 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
-import { formatCurrency, getVIPBadgeColor, cn } from '@/lib/utils';
+import { formatCurrency, cn } from '@/lib/utils';
+import { SubscriptionPlan, VIP_PLAN_PRICES, VIP_BENEFITS } from '@/types';
+import { supabase } from '@/integrations/supabase/client';
+import toast from 'react-hot-toast';
+
+const PLANS: { plan: SubscriptionPlan; label: string; period: string; perMonth: string }[] = [
+  { plan: 'monthly', label: 'Hàng tháng', period: '1 tháng', perMonth: '199k/tháng' },
+  { plan: 'quarterly', label: 'Hàng quý', period: '3 tháng', perMonth: '~166k/tháng' },
+  { plan: 'yearly', label: 'Hàng năm', period: '12 tháng', perMonth: '~125k/tháng' },
+];
 
 export default function VIPSubscriptionClient() {
-  const { user } = useAuth();
+  const { user, refreshProfile } = useAuth();
+  const [selectedPlan, setSelectedPlan] = useState<SubscriptionPlan>('monthly');
+  const [isSubscribing, setIsSubscribing] = useState(false);
 
   if (!user) return null;
 
-  const spending = user.totalSpending || 0;
   const currentTier = user.vipStatus.tier;
+  const isVipActive = currentTier === 'vip' || currentTier === 'svip';
+  const expiresAt = user.vipExpiresAt ? new Date(user.vipExpiresAt) : null;
+  const isExpired = expiresAt ? expiresAt < new Date() : true;
 
-  const milestones = [
-    { tier: 'free', amount: 0, label: 'Thành viên' },
-    { tier: 'vip', amount: 1_000_000, label: 'VIP' },
-    { tier: 'svip', amount: 100_000_000, label: 'SVIP' }
-  ];
+  const handleSubscribe = async () => {
+    if (!user) return;
+    const price = VIP_PLAN_PRICES[selectedPlan];
 
-  let nextMilestone = milestones.find(m => m.amount > spending);
-  if (!nextMilestone && spending >= 100000000) {
-      nextMilestone = { tier: 'max', amount: spending, label: 'Max Level' };
-  }
+    if ((user.wallet.balance || 0) < price) {
+      toast.error(`Số dư không đủ. Cần ${formatCurrency(price)}, hiện có ${formatCurrency(user.wallet.balance)}`);
+      return;
+    }
 
-  const progress = nextMilestone && nextMilestone.tier !== 'max'
-    ? Math.min(100, (spending / nextMilestone.amount) * 100)
-    : 100;
+    if (!confirm(`Xác nhận đăng ký VIP gói ${selectedPlan}? Trừ ${formatCurrency(price)} từ ví.`)) return;
+
+    setIsSubscribing(true);
+    try {
+      // Calculate end date
+      const startDate = new Date();
+      const endDate = new Date();
+      if (selectedPlan === 'monthly') endDate.setMonth(endDate.getMonth() + 1);
+      else if (selectedPlan === 'quarterly') endDate.setMonth(endDate.getMonth() + 3);
+      else endDate.setFullYear(endDate.getFullYear() + 1);
+
+      // Deduct from wallet
+      const { error: walletError } = await supabase.rpc('deduct_wallet_balance', {
+        p_user_id: user.id,
+        p_amount: price,
+      });
+
+      if (walletError) {
+        if (walletError.message.includes('insufficient')) {
+          toast.error('Số dư không đủ');
+        } else {
+          toast.error('Lỗi trừ tiền: ' + walletError.message);
+        }
+        return;
+      }
+
+      // Create transaction record
+      await supabase.from('transactions').insert({
+        user_id: user.id,
+        type: 'vip_payment',
+        amount: price,
+        status: 'completed',
+        description: `Đăng ký VIP gói ${selectedPlan}`,
+      });
+
+      // Update user VIP status
+      await supabase.from('users').update({
+        vip_tier: 'vip',
+        vip_subscribed_at: startDate.toISOString(),
+        vip_expires_at: endDate.toISOString(),
+      }).eq('id', user.id);
+
+      // Create subscription record
+      await supabase.from('vip_subscriptions').insert({
+        user_id: user.id,
+        plan: selectedPlan,
+        price,
+        start_date: startDate.toISOString(),
+        end_date: endDate.toISOString(),
+        is_active: true,
+        auto_renew: false,
+      });
+
+      toast.success('Đăng ký VIP thành công!');
+      await refreshProfile();
+    } catch (err: any) {
+      console.error('VIP subscription error:', err);
+      toast.error('Lỗi đăng ký VIP: ' + (err.message || 'Không xác định'));
+    } finally {
+      setIsSubscribing(false);
+    }
+  };
 
   return (
     <motion.div
@@ -45,104 +116,133 @@ export default function VIPSubscriptionClient() {
           </motion.button>
         </Link>
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Hạng thành viên</h1>
-          <p className="text-gray-500 text-sm">Tích lũy chi tiêu để thăng hạng</p>
+          <h1 className="text-2xl font-bold text-gray-900">Đăng ký VIP</h1>
+          <p className="text-gray-500 text-sm">Mở khóa đặc quyền hẹn hò cao cấp</p>
         </div>
       </div>
 
-      {/* Card Status */}
-      <motion.div
-        className={cn(
-            "relative rounded-3xl p-6 text-white overflow-hidden shadow-xl",
-            currentTier === 'svip' ? "bg-gradient-to-r from-purple-600 to-indigo-600" :
-            currentTier === 'vip' ? "bg-gradient-to-r from-yellow-500 to-orange-500" :
-            "bg-gradient-to-r from-gray-700 to-gray-900"
-        )}
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-      >
-        <div className="relative z-10 flex items-center justify-between">
+      {/* Current Status */}
+      {isVipActive && !isExpired && (
+        <motion.div
+          className="relative rounded-3xl p-6 text-white overflow-hidden shadow-xl bg-gradient-to-r from-yellow-500 to-orange-500"
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+        >
+          <div className="relative z-10 flex items-center justify-between">
             <div className="flex items-center gap-4">
-                <div className={cn(
-                    "w-16 h-16 rounded-2xl flex items-center justify-center bg-white/20 backdrop-blur-sm",
-                )}>
-                    <Crown className="w-8 h-8 text-white" />
-                </div>
-                <div>
-                    <p className="text-white/80 text-sm font-medium">Hạng hiện tại</p>
-                    <p className="text-3xl font-black uppercase tracking-wide">{currentTier}</p>
-                </div>
+              <div className="w-16 h-16 rounded-2xl flex items-center justify-center bg-white/20 backdrop-blur-sm">
+                <Crown className="w-8 h-8 text-white" />
+              </div>
+              <div>
+                <p className="text-white/80 text-sm font-medium">Hạng hiện tại</p>
+                <p className="text-3xl font-black uppercase tracking-wide">{currentTier}</p>
+              </div>
             </div>
             <div className="text-right">
-                <p className="text-white/80 text-xs uppercase font-bold tracking-widest">Tổng chi tiêu</p>
-                <p className="text-xl font-bold">{formatCurrency(spending)}</p>
+              <p className="text-white/80 text-xs uppercase font-bold tracking-widest">Hết hạn</p>
+              <p className="text-lg font-bold">
+                {expiresAt ? expiresAt.toLocaleDateString('vi-VN') : '--'}
+              </p>
             </div>
-        </div>
+          </div>
+        </motion.div>
+      )}
 
-        {/* Progress Bar */}
-        {nextMilestone && nextMilestone.tier !== 'max' && (
-            <div className="mt-6">
-                <div className="flex justify-between text-xs font-bold text-white/90 mb-2">
-                    <span>{formatCurrency(spending)}</span>
-                    <span>Mục tiêu: {formatCurrency(nextMilestone.amount)}</span>
-                </div>
-                <div className="h-3 bg-black/20 rounded-full overflow-hidden">
-                    <motion.div 
-                        className="h-full bg-white/90 rounded-full"
-                        initial={{ width: 0 }}
-                        animate={{ width: `${progress}%` }}
-                        transition={{ duration: 1, ease: "easeOut" }}
-                    />
-                </div>
-                <p className="mt-2 text-xs text-center text-white/80">
-                    Chi tiêu thêm <b>{formatCurrency(nextMilestone.amount - spending)}</b> để lên hạng <b>{nextMilestone.label}</b>
-                </p>
-            </div>
-        )}
-      </motion.div>
-
-      {/* Benefits List */}
+      {/* Plan Selection */}
       <div className="space-y-4">
-        <h3 className="font-bold text-gray-900 px-2">Đặc quyền hạng thành viên</h3>
-        
-        {/* VIP */}
-        <div className={cn("rounded-2xl border p-5 transition-colors", currentTier === 'vip' ? "bg-yellow-50 border-yellow-200" : "bg-white border-gray-100")}>
-            <div className="flex items-center gap-3 mb-3">
-                <div className="w-10 h-10 bg-yellow-100 rounded-xl flex items-center justify-center">
-                    <Star className="w-5 h-5 text-yellow-600 fill-yellow-600" />
-                </div>
-                <div className="flex-1">
-                    <h4 className="font-bold text-gray-900">VIP</h4>
-                    <p className="text-xs text-gray-500">Chi tiêu trên 1.000.000đ</p>
-                </div>
-                {currentTier === 'vip' && <span className="text-xs bg-yellow-200 text-yellow-800 px-2 py-1 rounded font-bold">Hiện tại</span>}
-            </div>
-            <ul className="space-y-2 text-sm text-gray-600 pl-2">
-                <li className="flex items-center gap-2"><Check className="w-4 h-4 text-green-500" /> Xem tuổi của Partner</li>
-                <li className="flex items-center gap-2"><Check className="w-4 h-4 text-green-500" /> Huy hiệu VIP vàng nổi bật</li>
-                <li className="flex items-center gap-2"><Check className="w-4 h-4 text-green-500" /> Ưu tiên hỗ trợ CSKH</li>
-            </ul>
-        </div>
+        <h3 className="font-bold text-gray-900 px-2 text-lg">Chọn gói đăng ký</h3>
 
-        {/* SVIP */}
-        <div className={cn("rounded-2xl border p-5 transition-colors", currentTier === 'svip' ? "bg-purple-50 border-purple-200" : "bg-white border-gray-100")}>
-            <div className="flex items-center gap-3 mb-3">
-                <div className="w-10 h-10 bg-purple-100 rounded-xl flex items-center justify-center">
-                    <Crown className="w-5 h-5 text-purple-600 fill-purple-600" />
+        <div className="space-y-3">
+          {PLANS.map((p) => {
+            const price = VIP_PLAN_PRICES[p.plan];
+            const isSelected = selectedPlan === p.plan;
+            const isBestValue = p.plan === 'yearly';
+
+            return (
+              <button
+                key={p.plan}
+                onClick={() => setSelectedPlan(p.plan)}
+                className={cn(
+                  'w-full text-left p-5 rounded-2xl border-2 transition-all relative overflow-hidden',
+                  isSelected
+                    ? 'bg-primary-50 border-primary-500 ring-1 ring-primary-500 shadow-md'
+                    : 'bg-white border-gray-100 hover:border-gray-300'
+                )}
+              >
+                {isBestValue && (
+                  <span className="absolute top-0 right-0 px-3 py-1 bg-green-500 text-white text-[10px] font-black rounded-bl-xl uppercase">
+                    Tiết kiệm nhất
+                  </span>
+                )}
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="font-black text-gray-900 text-lg">{p.label}</p>
+                    <p className="text-sm text-gray-500">{p.period} • {p.perMonth}</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-2xl font-black text-primary-600">{formatCurrency(price)}</p>
+                  </div>
                 </div>
-                <div className="flex-1">
-                    <h4 className="font-bold text-gray-900">SVIP</h4>
-                    <p className="text-xs text-gray-500">Chi tiêu trên 100.000.000đ</p>
-                </div>
-                {currentTier === 'svip' && <span className="text-xs bg-purple-200 text-purple-800 px-2 py-1 rounded font-bold">Hiện tại</span>}
-            </div>
-            <ul className="space-y-2 text-sm text-gray-600 pl-2">
-                <li className="flex items-center gap-2"><Check className="w-4 h-4 text-green-500" /> Tất cả quyền lợi VIP</li>
-                <li className="flex items-center gap-2"><Check className="w-4 h-4 text-green-500" /> Huy hiệu SVIP tím quyền lực</li>
-                <li className="flex items-center gap-2"><Check className="w-4 h-4 text-green-500" /> Tham gia sự kiện độc quyền</li>
-                <li className="flex items-center gap-2"><Check className="w-4 h-4 text-green-500" /> Quà tặng sinh nhật đặc biệt</li>
-            </ul>
+
+                {isSelected && (
+                  <div className="absolute top-4 left-4">
+                    <div className="w-6 h-6 bg-primary-500 rounded-full flex items-center justify-center">
+                      <Check className="w-4 h-4 text-white" />
+                    </div>
+                  </div>
+                )}
+              </button>
+            );
+          })}
         </div>
+      </div>
+
+      {/* Benefits */}
+      <div className="space-y-4">
+        <h3 className="font-bold text-gray-900 px-2 text-lg flex items-center gap-2">
+          <Sparkles className="w-5 h-5 text-amber-500" />
+          Đặc quyền VIP
+        </h3>
+
+        <div className="bg-white rounded-2xl border border-gray-100 p-5">
+          <ul className="space-y-3">
+            {VIP_BENEFITS.map((benefit, idx) => (
+              <li key={idx} className="flex items-start gap-3">
+                <div className="w-5 h-5 bg-green-100 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                  <Check className="w-3 h-3 text-green-600" />
+                </div>
+                <span className="text-sm text-gray-700 font-medium">{benefit}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      </div>
+
+      {/* Subscribe Button */}
+      <div className="sticky bottom-4 bg-white/80 backdrop-blur-md rounded-2xl p-4 border border-gray-100 shadow-lg">
+        <div className="flex items-center justify-between mb-3">
+          <div>
+            <p className="text-sm text-gray-500">Tổng thanh toán</p>
+            <p className="text-2xl font-black text-gray-900">{formatCurrency(VIP_PLAN_PRICES[selectedPlan])}</p>
+          </div>
+          <p className="text-xs text-gray-400">Trừ từ ví • Số dư: {formatCurrency(user.wallet.balance)}</p>
+        </div>
+        <button
+          onClick={handleSubscribe}
+          disabled={isSubscribing || (isVipActive && !isExpired)}
+          className="w-full py-4 bg-gradient-to-r from-amber-500 to-orange-500 text-white rounded-xl font-black text-lg shadow-lg hover:opacity-90 transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+        >
+          {isSubscribing ? (
+            <Loader2 className="w-5 h-5 animate-spin" />
+          ) : isVipActive && !isExpired ? (
+            'Đang là thành viên VIP'
+          ) : (
+            <>
+              <Crown className="w-5 h-5" />
+              Đăng ký VIP ngay
+            </>
+          )}
+        </button>
       </div>
     </motion.div>
   );

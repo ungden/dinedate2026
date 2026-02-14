@@ -106,7 +106,7 @@ export function RevenueChart({ data, loading }: RevenueChartProps) {
                   <div className="absolute bottom-full mb-2 hidden group-hover:block z-10">
                     <div className="bg-gray-900 text-white text-xs rounded-lg px-2 py-1 whitespace-nowrap">
                       <p className="font-bold">{formatCurrency(day.revenue)}</p>
-                      <p className="text-gray-300">{day.bookings} booking</p>
+                      <p className="text-gray-300">{day.dateOrders} đơn hẹn</p>
                       <p className="text-gray-400">{formatShortDate(day.date)}</p>
                     </div>
                   </div>

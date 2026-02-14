@@ -21,7 +21,7 @@ export default function AdminUsersPage() {
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
-  const [filterRole, setFilterRole] = useState<'all' | 'partner' | 'admin' | 'user'>('all');
+  const [filterRole, setFilterRole] = useState<'all' | 'admin' | 'user'>('all');
 
   useEffect(() => {
     fetchUsers();
@@ -29,7 +29,6 @@ export default function AdminUsersPage() {
 
   const fetchUsers = async () => {
     setLoading(true);
-    // Fetch users via RPC or direct query if policy allows
     const { data, error } = await supabase
       .from('users')
       .select('*')
@@ -49,9 +48,8 @@ export default function AdminUsersPage() {
       (user.email && user.email.toLowerCase().includes(search.toLowerCase()));
     
     if (filterRole === 'all') return matchesSearch;
-    if (filterRole === 'partner') return matchesSearch && user.isServiceProvider;
-    // Note: 'role' isn't explicitly in User type interface but exists in DB mapper logic implicitly or via extension
-    // Checking isServiceProvider is accurate for partners. 
+    if (filterRole === 'admin') return matchesSearch && user.role === 'admin';
+    if (filterRole === 'user') return matchesSearch && user.role !== 'admin';
     return matchesSearch;
   });
 
@@ -83,7 +81,7 @@ export default function AdminUsersPage() {
           className="px-4 py-2.5 bg-white border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-primary-500"
         >
           <option value="all">Tất cả vai trò</option>
-          <option value="partner">Partner</option>
+          <option value="admin">Admin</option>
           <option value="user">User thường</option>
         </select>
       </div>
@@ -149,10 +147,10 @@ export default function AdminUsersPage() {
                       </div>
                     </td>
                     <td className="px-6 py-4">
-                      {user.isServiceProvider ? (
+                      {user.role === 'admin' ? (
                         <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-purple-50 text-purple-700 rounded-full text-xs font-bold border border-purple-100">
                           <Shield className="w-3.5 h-3.5" />
-                          Partner
+                          Admin
                         </span>
                       ) : (
                         <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-gray-100 text-gray-600 rounded-full text-xs font-medium">
@@ -174,7 +172,7 @@ export default function AdminUsersPage() {
                       )}
                     </td>
                     <td className="px-6 py-4 text-gray-500">
-                      — {/* DB field created_at needed in User type to display proper date */}
+                      {user.createdAt ? formatRelativeTime(user.createdAt) : '—'}
                     </td>
                     <td className="px-6 py-4 text-right">
                       <button className="p-2 hover:bg-gray-100 rounded-lg text-gray-400 hover:text-gray-600 transition">

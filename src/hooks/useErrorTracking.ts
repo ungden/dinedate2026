@@ -109,7 +109,7 @@ export function useErrorTracking(componentName?: string) {
         } catch (error) {
           track(actionName, { status: 'failed', error: String(error) });
           await captureError(error, { action: actionName });
-          throw error;
+          throw error instanceof Error ? error : new Error(String(error));
         }
       }) as T;
     },
@@ -204,7 +204,7 @@ export function withTracking<T extends (...args: any[]) => Promise<any>>(
         error: String(error),
       });
       await captureException(error, context);
-      throw error;
+      throw error instanceof Error ? error : new Error(String(error));
     }
   }) as T;
 }

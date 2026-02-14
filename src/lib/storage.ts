@@ -4,6 +4,13 @@ import { supabase } from '@/integrations/supabase/client';
 
 export const USER_MEDIA_BUCKET = 'user-media';
 
+function toError(err: unknown, fallback = 'Storage error'): Error {
+  if (err instanceof Error) return err;
+  const anyErr = err as any;
+  const msg = anyErr?.message || anyErr?.error_description || anyErr?.statusCode || fallback;
+  return new Error(String(msg));
+}
+
 function extFromType(type: string) {
   if (type === 'image/jpeg') return 'jpg';
   if (type === 'image/png') return 'png';
@@ -34,7 +41,7 @@ export async function uploadUserMedia(params: {
       contentType: type,
     });
 
-  if (uploadError) throw uploadError;
+  if (uploadError) throw toError(uploadError, 'Khong the tai anh len');
 
   const { data } = supabase.storage.from(USER_MEDIA_BUCKET).getPublicUrl(path);
   return data.publicUrl;
@@ -51,5 +58,5 @@ export async function deleteByPublicUrl(publicUrl: string): Promise<void> {
 
   const objectPath = publicUrl.slice(idx + marker.length);
   const { error } = await supabase.storage.from(USER_MEDIA_BUCKET).remove([objectPath]);
-  if (error) throw error;
+  if (error) throw toError(error, 'Khong the xoa file');
 }

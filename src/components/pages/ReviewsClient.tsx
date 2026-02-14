@@ -16,9 +16,9 @@ export default function ReviewsClient() {
   const [filter, setFilter] = useState<ReviewFilter>('all');
 
   const myReviews = reviews.filter((review) => {
-    if (filter === 'received') return review.revieweeId === user?.id;
+    if (filter === 'received') return review.reviewedId === user?.id;
     if (filter === 'given') return review.reviewerId === user?.id;
-    return review.revieweeId === user?.id || review.reviewerId === user?.id;
+    return review.reviewedId === user?.id || review.reviewerId === user?.id;
   });
 
   const getUserById = (id: string) => users.find((u) => u.id === id);
@@ -81,7 +81,7 @@ export default function ReviewsClient() {
       <div className="grid grid-cols-3 gap-4 mb-6">
         <div className="bg-white rounded-xl p-4 border border-gray-100 text-center">
           <div className="text-2xl font-bold text-primary-600">
-            {reviews.filter((r) => r.revieweeId === user?.id).length}
+            {reviews.filter((r) => r.reviewedId === user?.id).length}
           </div>
           <div className="text-sm text-gray-500">Đánh giá nhận được</div>
         </div>
@@ -111,8 +111,8 @@ export default function ReviewsClient() {
         <div className="space-y-4">
           {myReviews.map((review) => {
             const reviewer = getUserById(review.reviewerId);
-            const reviewee = getUserById(review.revieweeId);
-            const isReceived = review.revieweeId === user?.id;
+            const reviewee = getUserById(review.reviewedId);
+            const isReceived = review.reviewedId === user?.id;
 
             return (
               <div

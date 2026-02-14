@@ -16,25 +16,19 @@ import {
   Bell,
   Star,
   Users,
-  Briefcase,
-  AlertCircle,
-  Sparkles,
+  Heart,
   HelpCircle,
+  UtensilsCrossed,
 } from 'lucide-react';
-import { useDateStore } from '@/hooks/useDateStore';
 import { useAuth } from '@/contexts/AuthContext';
-import { formatCurrency, getVIPBadgeColor, cn } from '@/lib/utils';
-import { useDbChat } from '@/hooks/useDbChat';
-import { useMyFeaturedStatus } from '@/hooks/useDbFeaturedPartners';
+import { formatCurrency, cn, getCuisineLabel, getCuisineIcon } from '@/lib/utils';
 import ProfileCompletionCard from '@/components/ProfileCompletionCard';
 import { useProfileCompletion } from '@/hooks/useProfileCompletion';
+import DiceBearAvatar from '@/components/DiceBearAvatar';
 
 export default function ProfileClient() {
   const { logout, user: authUser } = useAuth();
-  const { getMyRequests, getMyApplications, getMyNotifications } = useDateStore();
-  const { conversations } = useDbChat();
-  const { percentage, missingFields, isCompleteEnoughForBooking, requiredFieldsMissing } = useProfileCompletion(authUser);
-  const { slot: featuredSlot, isActive: isFeatured } = useMyFeaturedStatus(authUser?.id);
+  const { percentage } = useProfileCompletion(authUser);
 
   if (!authUser) {
     return (
@@ -44,36 +38,9 @@ export default function ProfileClient() {
     );
   }
 
-  const myRequests = getMyRequests();
-  const myApplications = getMyApplications();
-  const isPartner = authUser.isServiceProvider;
-  const hasAgreedToTerms = !!authUser.partner_agreed_at;
-
-  // Determine Partner Link destination and text
-  const partnerLink = isPartner 
-    ? "/partner-dashboard" 
-    : hasAgreedToTerms 
-      ? "/become-partner" 
-      : "/become-partner/terms";
-  
-  const partnerTitle = isPartner 
-    ? "Partner Dashboard" 
-    : hasAgreedToTerms 
-      ? "Hoàn tất đăng ký Partner" 
-      : "Đăng ký Partner";
-
-  const partnerDesc = isPartner 
-    ? "Quản lý thu nhập & đơn hàng" 
-    : hasAgreedToTerms 
-      ? "Thiết lập dịch vụ & giá" 
-      : "Đọc & đồng ý điều khoản trước";
-
-  const notifications = getMyNotifications();
-  const unreadNotifications = notifications.filter((n) => !n.read).length;
-
-  const unreadMessages = conversations.filter((c) =>
-    c.lastMessage && !c.lastMessage.is_read && c.lastMessage.sender_id !== authUser.id
-  ).length;
+  const notifications = [] as any[];
+  const unreadNotifications = 0;
+  const unreadMessages = 0;
 
   return (
     <div className="safe-bottom -mt-6 -mx-4 bg-gray-50 min-h-screen">
@@ -86,26 +53,15 @@ export default function ProfileClient() {
         <div className="px-4 -mt-20 relative z-10">
           <div className="ios-card bg-white p-6 pb-4">
             <div className="flex items-start justify-between mb-4">
-              <div className="relative">
-                <div className="p-1 bg-white rounded-[28px] shadow-lg -mt-12">
-                  <Image
-                    src={authUser.avatar || '/default-avatar.png'}
-                    alt={authUser.name}
-                    width={96}
-                    height={96}
-                    className="rounded-[24px] object-cover"
+              <div className="relative -mt-12">
+                <div className="p-1 bg-white rounded-[28px] shadow-lg">
+                  <DiceBearAvatar
+                    userId={authUser.id}
+                    size="xl"
+                    showVipBadge={authUser.vipStatus.tier !== 'free'}
+                    vipTier={authUser.vipStatus.tier}
                   />
                 </div>
-                {authUser.vipStatus.tier !== 'free' && (
-                  <div
-                    className={cn(
-                      "absolute -bottom-1 -right-1 w-8 h-8 rounded-full flex items-center justify-center text-white border-2 border-white shadow-md",
-                      getVIPBadgeColor(authUser.vipStatus.tier)
-                    )}
-                  >
-                    <Crown className="w-4 h-4" />
-                  </div>
-                )}
               </div>
 
               <Link href="/profile/edit">
@@ -114,6 +70,23 @@ export default function ProfileClient() {
                 </button>
               </Link>
             </div>
+
+            {/* Real photo preview (only viewer sees their own) */}
+            {authUser.avatar && (
+              <div className="mb-4 flex items-center gap-3 bg-gray-50 rounded-xl p-3">
+                <Image
+                  src={authUser.avatar}
+                  alt="Ảnh thật"
+                  width={48}
+                  height={48}
+                  className="rounded-xl object-cover"
+                />
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-bold text-gray-700">Ảnh thật của bạn</p>
+                  <p className="text-[11px] text-gray-400">Chỉ VIP và kết nối thấy được</p>
+                </div>
+              </div>
+            )}
 
             <div className="space-y-1">
               <h1 className="text-2xl font-black text-gray-900 tracking-tight">{authUser.name}</h1>
@@ -130,18 +103,32 @@ export default function ProfileClient() {
               </div>
             </div>
 
+            {/* Food Preferences */}
+            {authUser.foodPreferences && authUser.foodPreferences.length > 0 && (
+              <div className="mt-4 flex flex-wrap gap-1.5">
+                {authUser.foodPreferences.map((cuisine) => (
+                  <span
+                    key={cuisine}
+                    className="inline-flex items-center gap-1 px-2.5 py-1 bg-orange-50 text-orange-700 rounded-lg text-[11px] font-bold border border-orange-100"
+                  >
+                    {getCuisineIcon(cuisine)} {getCuisineLabel(cuisine)}
+                  </span>
+                ))}
+              </div>
+            )}
+
             <div className="grid grid-cols-3 gap-3 mt-6 pt-6 border-t border-gray-50">
               <div className="text-center">
-                <span className="block text-[18px] font-black text-gray-900">{myRequests.length}</span>
-                <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Lời mời</span>
+                <span className="block text-[18px] font-black text-gray-900">{authUser.totalDates || 0}</span>
+                <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Số date</span>
               </div>
               <div className="text-center border-x border-gray-50">
-                <span className="block text-[18px] font-black text-gray-900">{myApplications.length}</span>
-                <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Ứng tuyển</span>
+                <span className="block text-[18px] font-black text-gray-900">{authUser.totalConnections || 0}</span>
+                <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Kết nối</span>
               </div>
               <div className="text-center">
-                <span className="block text-[18px] font-black text-gray-900">0</span>
-                <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Theo dõi</span>
+                <span className="block text-[18px] font-black text-gray-900">{authUser.reviewCount || 0}</span>
+                <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Đánh giá</span>
               </div>
             </div>
           </div>
@@ -155,29 +142,6 @@ export default function ProfileClient() {
             showThreshold={100}
             variant="full"
           />
-        </div>
-      )}
-
-      {/* Booking Restriction Warning */}
-      {!isCompleteEnoughForBooking && (
-        <div className="px-4 mt-4">
-          <div className="bg-red-50 border border-red-200 rounded-2xl p-4 flex items-start gap-3">
-            <div className="w-10 h-10 bg-red-100 rounded-xl flex items-center justify-center flex-shrink-0">
-              <AlertCircle className="w-5 h-5 text-red-600" />
-            </div>
-            <div>
-              <p className="font-bold text-red-800 text-sm">Khong the dat lich</p>
-              <p className="text-xs text-red-700 mt-1">
-                Ban can hoan thien: {requiredFieldsMissing.join(', ')} de co the dat lich hen voi Partner.
-              </p>
-              <Link
-                href="/profile/edit"
-                className="inline-block mt-2 px-4 py-2 bg-red-600 text-white rounded-xl text-xs font-bold hover:bg-red-700 transition-colors"
-              >
-                Cap nhat ngay
-              </Link>
-            </div>
-          </div>
         </div>
       )}
 
@@ -206,69 +170,28 @@ export default function ProfileClient() {
         </Link>
 
         <div className="space-y-3">
-          <h3 className="px-2 text-[14px] font-black text-gray-400 uppercase tracking-[0.2em]">Dành cho Partner</h3>
+          <h3 className="px-2 text-[14px] font-black text-gray-400 uppercase tracking-[0.2em]">Hoạt động</h3>
           <div className="ios-card bg-white divide-y divide-gray-50">
-            <Link href={partnerLink} className="flex items-center justify-between p-4 hover:bg-gray-50 transition tap-highlight">
+            <Link href="/connections" className="flex items-center justify-between p-4 hover:bg-gray-50 transition tap-highlight">
               <div className="flex items-center gap-3">
-                <div className={cn(
-                  "w-10 h-10 rounded-xl flex items-center justify-center shadow-md",
-                  isPartner ? "bg-blue-50 text-blue-600" : "bg-gradient-to-br from-blue-500 to-indigo-600 text-white"
-                )}>
-                  <Briefcase className="w-5 h-5" />
+                <div className="w-10 h-10 bg-rose-50 text-rose-600 rounded-xl flex items-center justify-center">
+                  <Heart className="w-5 h-5" />
                 </div>
                 <div>
-                  <p className="font-medium text-gray-900">{partnerTitle}</p>
-                  <p className="text-[11px] text-gray-400 font-medium">{partnerDesc}</p>
+                  <p className="font-medium text-gray-900">Kết nối của tôi</p>
+                  <p className="text-[11px] text-gray-400 font-medium">Xem danh sách kết nối</p>
                 </div>
               </div>
               <ChevronRight className="w-4 h-4 text-gray-300" />
             </Link>
 
-            {isPartner && (
-              <Link href="/boost-profile" className="flex items-center justify-between p-4 hover:bg-gray-50 transition tap-highlight">
-                <div className="flex items-center gap-3">
-                  <div className={cn(
-                    "w-10 h-10 rounded-xl flex items-center justify-center shadow-md",
-                    isFeatured
-                      ? "bg-gradient-to-br from-amber-400 to-orange-500 text-white"
-                      : "bg-amber-50 text-amber-600"
-                  )}>
-                    <Sparkles className="w-5 h-5" />
-                  </div>
-                  <div>
-                    <p className="font-medium text-gray-900">Tăng lượt xem</p>
-                    {isFeatured && featuredSlot ? (
-                      <p className="text-[11px] text-green-600 font-medium">
-                        Đang nổi bật đến {new Date(featuredSlot.end_date).toLocaleDateString('vi-VN')}
-                      </p>
-                    ) : (
-                      <p className="text-[11px] text-gray-400 font-medium">Hiển thị nổi bật hồ sơ</p>
-                    )}
-                  </div>
-                </div>
-                <div className="flex items-center gap-2">
-                  {isFeatured && (
-                    <span className="px-2 py-0.5 bg-green-100 text-green-600 text-[10px] font-bold rounded-full">
-                      ACTIVE
-                    </span>
-                  )}
-                  <ChevronRight className="w-4 h-4 text-gray-300" />
-                </div>
-              </Link>
-            )}
-          </div>
-        </div>
-
-        <div className="space-y-3">
-          <h3 className="px-2 text-[14px] font-black text-gray-400 uppercase tracking-[0.2em]">Hoạt động</h3>
-          <div className="ios-card bg-white divide-y divide-gray-50">
             <Link href="/messages" className="flex items-center justify-between p-4 hover:bg-gray-50 transition tap-highlight">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-rose-50 text-rose-600 rounded-xl flex items-center justify-center">
+                <div className="w-10 h-10 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center">
                   <Users className="w-5 h-5" />
                 </div>
                 <div>
-                  <p className="font-medium text-gray-900">Danh sách Match</p>
+                  <p className="font-medium text-gray-900">Tin nhắn</p>
                   <p className="text-[11px] text-gray-400 font-medium">Trò chuyện với người đã kết nối</p>
                 </div>
               </div>
@@ -289,14 +212,7 @@ export default function ProfileClient() {
                 </div>
                 <span className="font-medium text-gray-900">Thông báo</span>
               </div>
-              <div className="flex items-center gap-2">
-                {unreadNotifications > 0 && (
-                  <span className="w-5 h-5 flex items-center justify-center bg-primary-500 text-white text-[10px] font-bold rounded-full">
-                    {unreadNotifications}
-                  </span>
-                )}
-                <ChevronRight className="w-4 h-4 text-gray-300" />
-              </div>
+              <ChevronRight className="w-4 h-4 text-gray-300" />
             </Link>
 
             <Link href="/manage-bookings" className="flex items-center justify-between p-4 hover:bg-gray-50 transition tap-highlight">
@@ -305,6 +221,16 @@ export default function ProfileClient() {
                   <Calendar className="w-5 h-5" />
                 </div>
                 <span className="font-medium text-gray-900">Lịch hẹn của tôi</span>
+              </div>
+              <ChevronRight className="w-4 h-4 text-gray-300" />
+            </Link>
+
+            <Link href="/restaurants" className="flex items-center justify-between p-4 hover:bg-gray-50 transition tap-highlight">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-amber-50 text-amber-600 rounded-xl flex items-center justify-center">
+                  <UtensilsCrossed className="w-5 h-5" />
+                </div>
+                <span className="font-medium text-gray-900">Khám phá nhà hàng</span>
               </div>
               <ChevronRight className="w-4 h-4 text-gray-300" />
             </Link>
@@ -344,7 +270,7 @@ export default function ProfileClient() {
                 <div className="w-10 h-10 bg-green-50 text-green-600 rounded-xl flex items-center justify-center">
                   <ShieldCheck className="w-5 h-5" />
                 </div>
-                <span className="font-medium text-gray-900">Trung tam an toan</span>
+                <span className="font-medium text-gray-900">Trung tâm an toàn</span>
               </div>
               <ChevronRight className="w-4 h-4 text-gray-300" />
             </Link>
@@ -354,7 +280,7 @@ export default function ProfileClient() {
                 <div className="w-10 h-10 bg-primary-50 text-primary-600 rounded-xl flex items-center justify-center">
                   <HelpCircle className="w-5 h-5" />
                 </div>
-                <span className="font-medium text-gray-900">Ho tro khach hang</span>
+                <span className="font-medium text-gray-900">Hỗ trợ khách hàng</span>
               </div>
               <ChevronRight className="w-4 h-4 text-gray-300" />
             </Link>

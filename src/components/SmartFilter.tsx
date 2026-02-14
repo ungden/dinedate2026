@@ -3,75 +3,77 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from '@/lib/motion';
 import {
-    Coffee,
-    Film,
-    Wine,
-    Mic2,
-    Plane,
-    Utensils,
-    Clock,
+    MapPin,
+    Calendar,
     Zap,
-    Moon,
     X
 } from 'lucide-react';
-import { ActivityType } from '@/types';
+import { CuisineType, CUISINE_LABELS, CUISINE_ICONS } from '@/types';
 import { cn } from '@/lib/utils';
 
 interface SmartFilterProps {
-    selectedActivities: ActivityType[];
-    onActivitiesChange: (activities: ActivityType[]) => void;
-    availableNow: boolean;
-    onAvailableNowChange: (value: boolean) => void;
-    availableTonight: boolean;
-    onAvailableTonightChange: (value: boolean) => void;
+    selectedCuisines: CuisineType[];
+    onCuisinesChange: (cuisines: CuisineType[]) => void;
+    city: string;
+    onCityChange: (value: string) => void;
+    dateRange: { from: string; to: string };
+    onDateRangeChange: (range: { from: string; to: string }) => void;
     onClear: () => void;
     className?: string;
 }
 
-const ACTIVITY_OPTIONS: { value: ActivityType; label: string; icon: React.ElementType; emoji: string }[] = [
-    { value: 'cafe', label: 'Cafe', icon: Coffee, emoji: '☕' },
-    { value: 'movies', label: 'Xem phim', icon: Film, emoji: '🎬' },
-    { value: 'drinking', label: 'Nhậu/Ăn uống', icon: Wine, emoji: '🍻' },
-    { value: 'karaoke', label: 'Karaoke', icon: Mic2, emoji: '🎤' },
-    { value: 'tour_guide', label: 'Tour guide', icon: Plane, emoji: '✈️' },
-    { value: 'dining', label: 'Ăn tối', icon: Utensils, emoji: '🍽️' },
+const CUISINE_OPTIONS: { value: CuisineType; label: string; emoji: string }[] = (
+    Object.keys(CUISINE_LABELS) as CuisineType[]
+).map((key) => ({
+    value: key,
+    label: CUISINE_LABELS[key],
+    emoji: CUISINE_ICONS[key],
+}));
+
+const CITY_OPTIONS = [
+    'Hồ Chí Minh',
+    'Hà Nội',
+    'Đà Nẵng',
+    'Cần Thơ',
+    'Hải Phòng',
+    'Nha Trang',
 ];
 
 export default function SmartFilter({
-    selectedActivities,
-    onActivitiesChange,
-    availableNow,
-    onAvailableNowChange,
-    availableTonight,
-    onAvailableTonightChange,
+    selectedCuisines,
+    onCuisinesChange,
+    city,
+    onCityChange,
+    dateRange,
+    onDateRangeChange,
     onClear,
     className
 }: SmartFilterProps) {
-    const hasFilters = selectedActivities.length > 0 || availableNow || availableTonight;
+    const hasFilters = selectedCuisines.length > 0 || city !== '' || dateRange.from !== '' || dateRange.to !== '';
 
-    const toggleActivity = (activity: ActivityType) => {
-        if (selectedActivities.includes(activity)) {
-            onActivitiesChange(selectedActivities.filter(a => a !== activity));
+    const toggleCuisine = (cuisine: CuisineType) => {
+        if (selectedCuisines.includes(cuisine)) {
+            onCuisinesChange(selectedCuisines.filter(c => c !== cuisine));
         } else {
-            onActivitiesChange([...selectedActivities, activity]);
+            onCuisinesChange([...selectedCuisines, cuisine]);
         }
     };
 
     return (
         <div className={cn('space-y-4', className)}>
-            {/* Activity Filters */}
+            {/* Cuisine Filters */}
             <div>
                 <h4 className="text-sm font-medium text-gray-700 mb-3 flex items-center gap-2">
                     <Zap className="w-4 h-4 text-primary-500" />
-                    Hoạt động
+                    Ẩm thực
                 </h4>
                 <div className="flex flex-wrap gap-2">
-                    {ACTIVITY_OPTIONS.map((option) => {
-                        const isSelected = selectedActivities.includes(option.value);
+                    {CUISINE_OPTIONS.map((option) => {
+                        const isSelected = selectedCuisines.includes(option.value);
                         return (
                             <motion.button
                                 key={option.value}
-                                onClick={() => toggleActivity(option.value)}
+                                onClick={() => toggleCuisine(option.value)}
                                 className={cn(
                                     'flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all',
                                     isSelected
@@ -89,42 +91,52 @@ export default function SmartFilter({
                 </div>
             </div>
 
-            {/* Time Filters */}
+            {/* City Filter */}
             <div>
                 <h4 className="text-sm font-medium text-gray-700 mb-3 flex items-center gap-2">
-                    <Clock className="w-4 h-4 text-primary-500" />
-                    Thời gian
+                    <MapPin className="w-4 h-4 text-primary-500" />
+                    Thành phố
                 </h4>
                 <div className="flex flex-wrap gap-2">
-                    <motion.button
-                        onClick={() => onAvailableNowChange(!availableNow)}
-                        className={cn(
-                            'flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all',
-                            availableNow
-                                ? 'bg-green-500 text-white shadow-md shadow-green-500/30'
-                                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                        )}
-                        whileHover={{ scale: 1.02 }}
-                        whileTap={{ scale: 0.98 }}
-                    >
-                        <span className="w-2 h-2 rounded-full bg-current animate-pulse" />
-                        <span>Rảnh ngay bây giờ</span>
-                    </motion.button>
+                    {CITY_OPTIONS.map((c) => (
+                        <motion.button
+                            key={c}
+                            onClick={() => onCityChange(city === c ? '' : c)}
+                            className={cn(
+                                'flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all',
+                                city === c
+                                    ? 'bg-green-500 text-white shadow-md shadow-green-500/30'
+                                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                            )}
+                            whileHover={{ scale: 1.02 }}
+                            whileTap={{ scale: 0.98 }}
+                        >
+                            <span>{c}</span>
+                        </motion.button>
+                    ))}
+                </div>
+            </div>
 
-                    <motion.button
-                        onClick={() => onAvailableTonightChange(!availableTonight)}
-                        className={cn(
-                            'flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all',
-                            availableTonight
-                                ? 'bg-purple-500 text-white shadow-md shadow-purple-500/30'
-                                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                        )}
-                        whileHover={{ scale: 1.02 }}
-                        whileTap={{ scale: 0.98 }}
-                    >
-                        <Moon className="w-4 h-4" />
-                        <span>Rảnh tối nay</span>
-                    </motion.button>
+            {/* Date Range Filter */}
+            <div>
+                <h4 className="text-sm font-medium text-gray-700 mb-3 flex items-center gap-2">
+                    <Calendar className="w-4 h-4 text-primary-500" />
+                    Khoảng thời gian
+                </h4>
+                <div className="flex items-center gap-3">
+                    <input
+                        type="date"
+                        value={dateRange.from}
+                        onChange={(e) => onDateRangeChange({ ...dateRange, from: e.target.value })}
+                        className="px-3 py-2 bg-gray-100 rounded-xl text-sm outline-none focus:ring-2 focus:ring-primary-500"
+                    />
+                    <span className="text-gray-400 text-sm">đến</span>
+                    <input
+                        type="date"
+                        value={dateRange.to}
+                        onChange={(e) => onDateRangeChange({ ...dateRange, to: e.target.value })}
+                        className="px-3 py-2 bg-gray-100 rounded-xl text-sm outline-none focus:ring-2 focus:ring-primary-500"
+                    />
                 </div>
             </div>
 

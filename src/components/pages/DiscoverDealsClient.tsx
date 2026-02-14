@@ -2,148 +2,131 @@
 
 import { useMemo, useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from '@/lib/motion';
-import { Search, Filter, X, Clock, MapPin, Calendar, Loader2, Plus } from 'lucide-react';
-import { ActivityType, DateRequest } from '@/types';
-import { cn, formatCurrency, formatDate, getActivityIcon, getActivityLabel } from '@/lib/utils';
-import RequestCountdown from '@/components/RequestCountdown';
-import { useDbDateRequests } from '@/hooks/useDbDateRequests';
+import {
+  Search,
+  Filter,
+  X,
+  Loader2,
+  MapPin,
+  SlidersHorizontal,
+  ChevronDown,
+  Star,
+  UtensilsCrossed,
+} from 'lucide-react';
+import { CuisineType, CUISINE_LABELS, CUISINE_ICONS } from '@/types';
+import { cn, getCuisineIcon, getCuisineLabel } from '@/lib/utils';
+import { useRestaurants } from '@/hooks/useRestaurants';
+import RestaurantCard from '@/components/RestaurantCard';
 
-const ACTIVITY_OPTIONS: { type: ActivityType; label: string; emoji: string }[] = [
-  { type: 'dining', label: 'Ăn uống', emoji: '🍽️' },
-  { type: 'cafe', label: 'Cafe', emoji: '☕' },
-  { type: 'drinking', label: 'Cafe/Bar', emoji: '🍸' },
-  { type: 'movies', label: 'Xem phim', emoji: '🍿' },
-  { type: 'karaoke', label: 'Karaoke', emoji: '🎤' },
-  { type: 'travel', label: 'Du lịch', emoji: '✈️' },
-  { type: 'tour_guide', label: 'Tour guide', emoji: '🗺️' },
+// ----------------------------------------------------------------
+// Constants
+// ----------------------------------------------------------------
+
+const CITIES = [
+  { value: '', label: 'Tất cả thành phố' },
+  { value: 'Hà Nội', label: 'Hà Nội' },
+  { value: 'TP.HCM', label: 'TP.HCM' },
+  { value: 'Đà Nẵng', label: 'Đà Nẵng' },
 ];
 
-function DealRowCard({ request }: { request: DateRequest }) {
-  return (
-    <Link href={`/request/${request.id}`} className="block">
-      <motion.div
-        className="bg-white rounded-[24px] border border-rose-100 shadow-[var(--shadow-sm)] hover:shadow-[var(--shadow-md)] transition-all p-4"
-        whileHover={{ y: -2 }}
-        whileTap={{ scale: 0.99 }}
-      >
-        <div className="flex items-start gap-3">
-          <div className="w-12 h-12 rounded-2xl bg-rose-50 border border-rose-100 flex items-center justify-center text-2xl flex-shrink-0">
-            {getActivityIcon(request.activity)}
-          </div>
+const CUISINE_OPTIONS: CuisineType[] = [
+  'vietnamese',
+  'japanese',
+  'korean',
+  'chinese',
+  'italian',
+  'thai',
+  'bbq',
+  'hotpot',
+  'seafood',
+  'vegetarian',
+  'fusion',
+];
 
-          <div className="flex-1 min-w-0">
-            <div className="flex items-start justify-between gap-3">
-              <div className="min-w-0">
-                <p className="text-[15px] font-black text-gray-900 truncate">{request.title}</p>
-                <p className="text-[12px] text-gray-500 font-medium mt-0.5 truncate">
-                  {getActivityLabel(request.activity)} • {request.user.name}
-                </p>
-              </div>
-
-              <div className="flex-shrink-0 text-right">
-                <p className="text-[10px] font-black text-gray-400 uppercase tracking-wider">Chi trả</p>
-                <p className="text-[14px] font-black text-rose-600">
-                  {request.hiringAmount > 0 ? formatCurrency(request.hiringAmount) : 'Miễn phí'}
-                </p>
-              </div>
-            </div>
-
-            <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 text-[12px] font-medium text-gray-500">
-              <span className="inline-flex items-center gap-1.5">
-                <Calendar className="w-4 h-4 text-rose-400" />
-                {formatDate(request.date)}
-              </span>
-              <span className="inline-flex items-center gap-1.5">
-                <Clock className="w-4 h-4 text-rose-400" />
-                {request.time}
-              </span>
-              <span className="inline-flex items-center gap-1.5 min-w-0">
-                <MapPin className="w-4 h-4 text-rose-400 flex-shrink-0" />
-                <span className="truncate">{request.location}</span>
-              </span>
-            </div>
-
-            <div className="mt-3">
-              <RequestCountdown expiresAt={request.expiresAt} status={request.status} />
-            </div>
-          </div>
-        </div>
-      </motion.div>
-    </Link>
-  );
-}
-
-function DiscoverEmptyState({ title, description }: { title: string; description: string }) {
-  return (
-    <div className="py-16 text-center bg-white rounded-[28px] border border-dashed border-rose-200">
-      <div className="text-6xl mb-4">🌸</div>
-      <h3 className="text-lg font-black text-rose-900">{title}</h3>
-      <p className="text-rose-400 text-sm mt-2 max-w-md mx-auto px-6">{description}</p>
-
-      <div className="mt-6 flex justify-center">
-        <Link href="/create-request">
-          <button className="inline-flex items-center gap-2 px-6 py-3 rounded-2xl bg-gradient-primary text-white font-black shadow-primary hover:opacity-90 transition">
-            <Plus className="w-5 h-5" />
-            Đăng lời mời ngay
-          </button>
-        </Link>
-      </div>
-
-      <p className="mt-4 text-xs text-gray-500">
-        Mẹo: Bạn có thể vào tab “Partner” để tìm người, hoặc đăng lời mời để người khác chủ động ứng tuyển.
-      </p>
-    </div>
-  );
-}
+// ----------------------------------------------------------------
+// Component
+// ----------------------------------------------------------------
 
 export default function DiscoverDealsClient() {
-  const [selectedActivity, setSelectedActivity] = useState<ActivityType | 'all'>('all');
-  const { requests, loading } = useDbDateRequests(selectedActivity === 'all' ? undefined : selectedActivity);
+  const router = useRouter();
 
+  // Filters
+  const [selectedCity, setSelectedCity] = useState('');
+  const [selectedCuisine, setSelectedCuisine] = useState<CuisineType | ''>('');
   const [query, setQuery] = useState('');
   const [showFilters, setShowFilters] = useState(false);
 
+  // Data
+  const { restaurants, loading, error, refetch } = useRestaurants(
+    selectedCity || undefined
+  );
+
+  // Client-side filtering
   const filtered = useMemo(() => {
-    // Client-side text filter only, DB already filtered by activity
-    if (!query.trim()) return requests;
+    let result = restaurants;
 
-    const q = query.trim().toLowerCase();
-    return requests.filter((r) => {
-      const hay = `${r.title} ${r.description} ${r.location} ${r.user?.name || ''}`.toLowerCase();
-      return hay.includes(q);
-    });
-  }, [requests, query]);
+    // Cuisine filter
+    if (selectedCuisine) {
+      result = result.filter((r) =>
+        r.cuisineTypes.includes(selectedCuisine as CuisineType)
+      );
+    }
 
-  const activeFiltersCount = (selectedActivity !== 'all' ? 1 : 0) + (query.trim() ? 1 : 0);
+    // Text search
+    if (query.trim()) {
+      const q = query.trim().toLowerCase();
+      result = result.filter((r) => {
+        const hay =
+          `${r.name} ${r.description} ${r.area} ${r.address} ${r.cuisineTypes.map(getCuisineLabel).join(' ')}`.toLowerCase();
+        return hay.includes(q);
+      });
+    }
+
+    return result;
+  }, [restaurants, selectedCuisine, query]);
+
+  const activeFilterCount =
+    (selectedCity ? 1 : 0) +
+    (selectedCuisine ? 1 : 0) +
+    (query.trim() ? 1 : 0);
+
+  const clearFilters = () => {
+    setSelectedCity('');
+    setSelectedCuisine('');
+    setQuery('');
+  };
 
   return (
     <div className="space-y-6 pb-24 min-h-screen relative">
       {/* Sticky controls */}
-      <div className="sticky top-[60px] z-30 -mx-4 px-4 bg-rose-50/80 backdrop-blur-xl border-b border-rose-200/50 py-4 space-y-4 shadow-sm">
+      <div className="sticky top-[60px] z-30 -mx-4 px-4 bg-white/80 backdrop-blur-xl border-b border-rose-100 py-4 space-y-3 shadow-sm">
         <div className="flex items-center justify-between">
-          <div className="text-[12px] font-black text-rose-900/50 uppercase tracking-wider">Khám phá deal</div>
-
+          <h1 className="text-lg font-black text-gray-900">
+            Khám phá nhà hàng
+          </h1>
           {!loading && (
-            <div className="text-[12px] font-black text-rose-600 bg-white/60 border border-rose-100 px-3 py-1.5 rounded-full">
-              {filtered.length} kết quả
+            <div className="text-xs font-semibold text-rose-600 bg-rose-50 border border-rose-100 px-3 py-1.5 rounded-full">
+              {filtered.length} nhà hàng
             </div>
           )}
         </div>
 
         <div className="flex gap-2">
+          {/* Search */}
           <div className="relative flex-1 group">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-rose-400 group-focus-within:text-rose-600 transition-colors" />
+            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 group-focus-within:text-rose-500 transition-colors" />
             <input
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder="Tìm theo tiêu đề, địa điểm..."
-              className="w-full pl-11 pr-10 py-3 bg-white/70 border border-rose-100 rounded-2xl text-sm focus:bg-white focus:border-rose-300 focus:ring-4 focus:ring-rose-500/10 outline-none transition-all"
+              placeholder="Tìm nhà hàng, món ăn..."
+              className="w-full pl-10 pr-10 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:bg-white focus:border-rose-300 focus:ring-2 focus:ring-rose-500/10 outline-none transition-all"
             />
             {query.trim() && (
               <button
                 onClick={() => setQuery('')}
-                className="absolute right-3 top-1/2 -translate-y-1/2 w-8 h-8 rounded-xl hover:bg-rose-50 flex items-center justify-center text-rose-400 hover:text-rose-600 transition"
+                className="absolute right-3 top-1/2 -translate-y-1/2 w-7 h-7 rounded-lg hover:bg-gray-100 flex items-center justify-center text-gray-400 hover:text-gray-600 transition"
                 aria-label="Xóa tìm kiếm"
               >
                 <X className="w-4 h-4" />
@@ -151,25 +134,43 @@ export default function DiscoverDealsClient() {
             )}
           </div>
 
+          {/* City selector */}
+          <div className="relative">
+            <select
+              value={selectedCity}
+              onChange={(e) => setSelectedCity(e.target.value)}
+              className="appearance-none pl-3 pr-8 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm font-medium text-gray-700 focus:border-rose-300 focus:ring-2 focus:ring-rose-500/10 outline-none cursor-pointer"
+            >
+              {CITIES.map((c) => (
+                <option key={c.value} value={c.value}>
+                  {c.label}
+                </option>
+              ))}
+            </select>
+            <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+          </div>
+
+          {/* Filter toggle */}
           <button
             onClick={() => setShowFilters((v) => !v)}
             className={cn(
-              'w-11 h-11 rounded-2xl flex items-center justify-center transition-all relative',
-              showFilters || activeFiltersCount > 0
+              'w-10 h-10 rounded-xl flex items-center justify-center transition-all relative',
+              showFilters || activeFilterCount > 0
                 ? 'bg-rose-500 text-white shadow-lg shadow-rose-500/30'
-                : 'bg-white border border-rose-100 text-rose-400 hover:bg-rose-50'
+                : 'bg-gray-50 border border-gray-200 text-gray-500 hover:bg-gray-100'
             )}
             aria-label="Bộ lọc"
           >
-            <Filter className="w-5 h-5 stroke-[2.5px]" />
-            {activeFiltersCount > 0 && (
+            <SlidersHorizontal className="w-4.5 h-4.5" />
+            {activeFilterCount > 0 && (
               <span className="absolute -top-1 -right-1 w-5 h-5 bg-white text-rose-600 text-[10px] font-black rounded-full border-2 border-rose-500 flex items-center justify-center">
-                {activeFiltersCount}
+                {activeFilterCount}
               </span>
             )}
           </button>
         </div>
 
+        {/* Cuisine chips */}
         <AnimatePresence>
           {showFilters && (
             <motion.div
@@ -178,46 +179,45 @@ export default function DiscoverDealsClient() {
               exit={{ height: 0, opacity: 0 }}
               className="overflow-hidden"
             >
-              <div className="pt-2">
+              <div className="pt-1 pb-1">
                 <div className="flex flex-wrap gap-2">
                   <button
-                    onClick={() => setSelectedActivity('all')}
+                    onClick={() => setSelectedCuisine('')}
                     className={cn(
-                      'px-4 py-2 rounded-2xl font-black text-sm transition border',
-                      selectedActivity === 'all'
+                      'px-3 py-1.5 rounded-full text-xs font-bold transition border',
+                      !selectedCuisine
                         ? 'bg-gray-900 text-white border-gray-900'
-                        : 'bg-white text-gray-700 border-rose-100 hover:bg-rose-50'
+                        : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'
                     )}
                   >
-                    🌟 Tất cả
+                    Tất cả
                   </button>
 
-                  {ACTIVITY_OPTIONS.map((a) => {
-                    const active = selectedActivity === a.type;
+                  {CUISINE_OPTIONS.map((cuisine) => {
+                    const active = selectedCuisine === cuisine;
                     return (
                       <button
-                        key={a.type}
-                        onClick={() => setSelectedActivity(active ? 'all' : a.type)}
+                        key={cuisine}
+                        onClick={() =>
+                          setSelectedCuisine(active ? '' : cuisine)
+                        }
                         className={cn(
-                          'px-4 py-2 rounded-2xl font-black text-sm transition border',
+                          'px-3 py-1.5 rounded-full text-xs font-bold transition border',
                           active
-                            ? 'bg-rose-500 text-white border-rose-500 shadow-sm shadow-rose-500/30'
-                            : 'bg-white text-gray-700 border-rose-100 hover:bg-rose-50'
+                            ? 'bg-rose-500 text-white border-rose-500'
+                            : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'
                         )}
                       >
-                        {a.emoji} {a.label}
+                        {getCuisineIcon(cuisine)} {getCuisineLabel(cuisine)}
                       </button>
                     );
                   })}
                 </div>
 
-                {(selectedActivity !== 'all' || query.trim()) && (
+                {activeFilterCount > 0 && (
                   <button
-                    onClick={() => {
-                      setSelectedActivity('all');
-                      setQuery('');
-                    }}
-                    className="mt-3 text-sm font-black text-rose-600 hover:text-rose-700 transition"
+                    onClick={clearFilters}
+                    className="mt-2 text-xs font-bold text-rose-600 hover:text-rose-700 transition"
                   >
                     Xóa bộ lọc
                   </button>
@@ -228,49 +228,88 @@ export default function DiscoverDealsClient() {
         </AnimatePresence>
       </div>
 
-      {/* List */}
-      <div className="space-y-3">
+      {/* Error state */}
+      {error && (
+        <div className="rounded-2xl bg-red-50 border border-red-200 p-4 text-center">
+          <p className="text-sm text-red-600 font-medium mb-2">
+            Có lỗi xảy ra khi tải dữ liệu
+          </p>
+          <button
+            onClick={() => refetch()}
+            className="text-sm font-bold text-red-600 hover:text-red-700 underline"
+          >
+            Thử lại
+          </button>
+        </div>
+      )}
+
+      {/* Restaurant grid */}
+      <div>
         {loading ? (
-          <div className="py-20 text-center">
-            <Loader2 className="w-8 h-8 animate-spin text-primary-500 mx-auto" />
-            <p className="text-gray-500 mt-2">Đang tải deal...</p>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <div
+                key={i}
+                className="bg-white rounded-2xl border border-gray-100 overflow-hidden animate-pulse"
+              >
+                <div className="aspect-[16/9] bg-gray-200" />
+                <div className="p-4">
+                  <div className="h-4 w-32 bg-gray-200 rounded mb-2" />
+                  <div className="flex gap-1.5 mb-2.5">
+                    <div className="h-5 w-16 bg-gray-100 rounded-full" />
+                    <div className="h-5 w-14 bg-gray-100 rounded-full" />
+                  </div>
+                  <div className="flex justify-between">
+                    <div className="h-3 w-20 bg-gray-100 rounded" />
+                    <div className="h-3 w-14 bg-gray-100 rounded" />
+                  </div>
+                </div>
+              </div>
+            ))}
           </div>
         ) : filtered.length > 0 ? (
-          filtered.map((r, idx) => (
-            <motion.div
-              key={r.id}
-              initial={{ opacity: 0, y: 12 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: idx * 0.03 }}
-            >
-              <DealRowCard request={r} />
-            </motion.div>
-          ))
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {filtered.map((restaurant, idx) => (
+              <motion.div
+                key={restaurant.id}
+                initial={{ opacity: 0, y: 16 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: idx * 0.04, duration: 0.3 }}
+              >
+                <RestaurantCard
+                  restaurant={restaurant}
+                  onClick={() =>
+                    router.push(`/restaurants/${restaurant.id}`)
+                  }
+                />
+              </motion.div>
+            ))}
+          </div>
         ) : (
-          <DiscoverEmptyState
-            title={query.trim() ? 'Không có deal phù hợp' : 'Chưa có deal nào'}
-            description={
-              query.trim()
-                ? 'Thử đổi từ khóa hoặc bỏ bớt bộ lọc nhé! Nếu bạn muốn chủ động, hãy đăng một lời mời để người khác ứng tuyển.'
-                : 'Hiện chưa có lời mời nào được đăng. Hãy là người đầu tiên tạo deal để kết nối nhanh với người phù hợp.'
-            }
-          />
+          <div className="py-16 text-center bg-white rounded-[28px] border border-dashed border-rose-200">
+            <div className="text-6xl mb-4">
+              <UtensilsCrossed className="w-16 h-16 text-gray-300 mx-auto" />
+            </div>
+            <h3 className="text-lg font-black text-gray-900">
+              {query.trim() || selectedCuisine || selectedCity
+                ? 'Không tìm thấy nhà hàng'
+                : 'Chưa có nhà hàng nào'}
+            </h3>
+            <p className="text-gray-500 text-sm mt-2 max-w-md mx-auto px-6">
+              {query.trim() || selectedCuisine || selectedCity
+                ? 'Thử đổi từ khóa hoặc bớt bộ lọc nhé!'
+                : 'Hệ thống đang cập nhật nhà hàng mới. Quay lại sau nhé!'}
+            </p>
+            {activeFilterCount > 0 && (
+              <button
+                onClick={clearFilters}
+                className="mt-4 text-sm font-bold text-rose-600 hover:text-rose-700 transition"
+              >
+                Xóa bộ lọc
+              </button>
+            )}
+          </div>
         )}
-      </div>
-
-      {/* Floating CTA */}
-      <div className="fixed right-4 bottom-28 md:bottom-10 z-40">
-        <Link href="/create-request">
-          <motion.button
-            whileHover={{ y: -3 }}
-            whileTap={{ scale: 0.98 }}
-            className="inline-flex items-center gap-2 px-5 py-3 rounded-full bg-gradient-primary text-white font-black shadow-[0_12px_30px_rgba(244,63,94,0.35)] border border-white/30 backdrop-blur"
-          >
-            <Plus className="w-5 h-5" />
-            <span className="hidden sm:inline">Đăng lời mời</span>
-            <span className="sm:hidden">Đăng</span>
-          </motion.button>
-        </Link>
       </div>
     </div>
   );

@@ -20,37 +20,16 @@ function getCorsHeaders(req: Request) {
   };
 }
 
-const BASE_PLATFORM_FEE_RATE = 0.3
-const DEFAULT_SESSION_HOURS = 3;
-const DEFAULT_DAY_HOURS = 8;
+// Platform fee per person (fixed amount, e.g. 29,000 VND)
+const PLATFORM_FEE_PER_PERSON = 29000
+// VIP users get 50% off platform fee
+const VIP_FEE_DISCOUNT = 0.5
+// Restaurant commission rate (platform keeps this from combo price)
+const RESTAURANT_COMMISSION_RATE = 0.15
 
-// VIP Discount Rates (Percentage off the fee)
-// E.g. Bronze gets 5% off the 30% fee.
-const VIP_DISCOUNTS = {
-    free: 0,
-    bronze: 0.05,
-    silver: 0.10,
-    gold: 0.20,
-    platinum: 0.30
-};
-
-type CreateBookingBody = {
-  providerId: string
-  serviceId: string
-  date: string // YYYY-MM-DD
-  time: string // HH:mm
-  location: string
-  message?: string
-  durationHours?: number
-  promoCodeId?: string // Optional promo code ID (pre-validated)
-}
-
-function toIso(date: string, time: string) {
-  // interpret as local time; store as ISO
-  const [y, m, d] = date.split('-').map((x) => Number(x))
-  const [hh, mm] = time.split(':').map((x) => Number(x))
-  const dt = new Date(y, (m - 1), d, hh, mm, 0, 0)
-  return dt.toISOString()
+type CreateDateOrderBody = {
+  dateOrderId: string   // The date_order being matched
+  applicantId: string   // The user who applied and got accepted
 }
 
 serve(async (req: Request) => {
@@ -76,7 +55,7 @@ serve(async (req: Request) => {
     auth: { persistSession: false },
   })
 
-  // Rate limit check - use IP + user token hash as identifier
+  // Rate limit check
   const clientIP = getClientIP(req)
   const rateLimitId = `${clientIP}:${token.substring(0, 16)}`
   const rateLimitResult = await checkRateLimitDb(supabaseAdmin, rateLimitId, 'booking')
@@ -101,255 +80,230 @@ serve(async (req: Request) => {
 
   const userId = userData.user.id
 
-  const body = (await req.json()) as CreateBookingBody
+  const body = (await req.json()) as CreateDateOrderBody
 
-  if (!body?.providerId || !body?.serviceId || !body?.date || !body?.time || !body?.location) {
-    return new Response(JSON.stringify({ error: 'Missing required fields' }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+  if (!body?.dateOrderId || !body?.applicantId) {
+    return new Response(JSON.stringify({ error: 'Missing required fields: dateOrderId, applicantId' }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
   }
 
-  // 1) Fetch service
-  const { data: serviceRow, error: serviceErr } = await supabaseAdmin
-    .from('services')
-    .select('id, user_id, activity, title, price, available, duration')
-    .eq('id', body.serviceId)
+  // 1) Fetch date_order with restaurant combo info
+  const { data: dateOrder, error: dateOrderErr } = await supabaseAdmin
+    .from('date_orders')
+    .select('id, creator_id, status, restaurant_id, combo_id, date_time, payment_split, expires_at')
+    .eq('id', body.dateOrderId)
     .single()
 
-  if (serviceErr || !serviceRow) {
-    return new Response(JSON.stringify({ error: 'Service not found' }), { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+  if (dateOrderErr || !dateOrder) {
+    return new Response(JSON.stringify({ error: 'Date order not found' }), { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
   }
 
-  if (!serviceRow.available) {
-    return new Response(JSON.stringify({ error: 'Service not available' }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+  if (dateOrder.status !== 'active') {
+    return new Response(JSON.stringify({ error: 'Date order is not active' }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
   }
 
-  if (serviceRow.user_id !== body.providerId) {
-    return new Response(JSON.stringify({ error: 'Service does not belong to provider' }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+  // Only creator can accept an applicant
+  if (dateOrder.creator_id !== userId) {
+    return new Response(JSON.stringify({ error: 'Only the creator can accept an applicant' }), { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
   }
 
-  // 1.5) Fetch Provider Info to check VIP status
-  const { data: providerRow } = await supabaseAdmin
+  // 2) Fetch combo details
+  const { data: combo, error: comboErr } = await supabaseAdmin
+    .from('restaurant_combos')
+    .select('id, restaurant_id, name, price')
+    .eq('id', dateOrder.combo_id)
+    .single()
+
+  if (comboErr || !combo) {
+    return new Response(JSON.stringify({ error: 'Restaurant combo not found' }), { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+  }
+
+  const comboPrice = Number(combo.price || 0)
+  if (comboPrice <= 0) {
+    return new Response(JSON.stringify({ error: 'Invalid combo price' }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+  }
+
+  // 3) Fetch both users (creator + applicant) for VIP status & wallet
+  const { data: creatorRow, error: creatorErr } = await supabaseAdmin
     .from('users')
-    .select('vip_tier')
-    .eq('id', body.providerId)
-    .single();
-  
-  const providerTier = providerRow?.vip_tier || 'free';
-  const discountRate = VIP_DISCOUNTS[providerTier] || 0;
-  
-  // Calculate effective fee rate: 30% * (1 - discount)
-  // E.g. Gold (20% off) -> 0.30 * 0.8 = 0.24 (24% fee)
-  const effectiveFeeRate = BASE_PLATFORM_FEE_RATE * (1 - discountRate);
+    .select('id, wallet_balance, wallet_escrow, vip_tier, name')
+    .eq('id', dateOrder.creator_id)
+    .single()
 
-  // Determine duration
-  let durationHours = Number(body.durationHours || 0);
-  
-  if (serviceRow.duration === 'day') {
-      // If service is per day, default to 8 hours if not specified
-      if (durationHours <= 0) durationHours = DEFAULT_DAY_HOURS;
-  } else {
-      // If service is per session, enforce 3 hours (or allow override if logic changes later)
-      durationHours = DEFAULT_SESSION_HOURS;
+  if (creatorErr || !creatorRow) {
+    return new Response(JSON.stringify({ error: 'Creator not found' }), { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
   }
 
-  // Price Calculation
-  // service.price is the unit price (per session or per day)
-  const unitPrice = Number(serviceRow.price || 0)
-  if (unitPrice <= 0) {
-    return new Response(JSON.stringify({ error: 'Invalid service price' }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
-  }
-
-  // For now, 1 booking = 1 unit (1 session or 1 day).
-  // If we want to support multiple days/sessions later, we'd multiply here.
-  const subTotal = Math.round(unitPrice)
-
-  // Handle promo code discount
-  let promoDiscount = 0
-  let promoCodeData = null
-
-  if (body.promoCodeId) {
-    // Fetch and validate promo code
-    const { data: promoCode, error: promoErr } = await supabaseAdmin
-      .from('promo_codes')
-      .select('*')
-      .eq('id', body.promoCodeId)
-      .single()
-
-    if (!promoErr && promoCode && promoCode.is_active) {
-      // Verify the promo code is still valid
-      const now = new Date()
-      const validFrom = promoCode.valid_from ? new Date(promoCode.valid_from) : null
-      const validUntil = promoCode.valid_until ? new Date(promoCode.valid_until) : null
-
-      const isDateValid = (!validFrom || validFrom <= now) && (!validUntil || validUntil >= now)
-      const isUsageLimitValid = promoCode.usage_limit === 0 || promoCode.used_count < promoCode.usage_limit
-      const isMinOrderValid = promoCode.min_order_amount === 0 || subTotal >= promoCode.min_order_amount
-
-      // Check per-user limit
-      let userUsageValid = true
-      if (promoCode.user_limit > 0) {
-        const { count } = await supabaseAdmin
-          .from('promo_code_usages')
-          .select('*', { count: 'exact', head: true })
-          .eq('promo_code_id', promoCode.id)
-          .eq('user_id', userId)
-
-        if (count !== null && count >= promoCode.user_limit) {
-          userUsageValid = false
-        }
-      }
-
-      // Check first_booking_only
-      let firstBookingValid = true
-      if (promoCode.first_booking_only) {
-        const { count: bookingCount } = await supabaseAdmin
-          .from('bookings')
-          .select('*', { count: 'exact', head: true })
-          .eq('user_id', userId)
-          .not('status', 'in', '("rejected","auto_rejected","cancelled")')
-
-        if (bookingCount !== null && bookingCount > 0) {
-          firstBookingValid = false
-        }
-      }
-
-      if (isDateValid && isUsageLimitValid && isMinOrderValid && userUsageValid && firstBookingValid) {
-        promoCodeData = promoCode
-
-        // Calculate discount
-        if (promoCode.discount_type === 'percentage') {
-          promoDiscount = Math.round((subTotal * promoCode.discount_value) / 100)
-          if (promoCode.max_discount_amount > 0 && promoDiscount > promoCode.max_discount_amount) {
-            promoDiscount = promoCode.max_discount_amount
-          }
-        } else {
-          promoDiscount = promoCode.discount_value
-        }
-
-        // Ensure discount doesn't exceed order amount
-        if (promoDiscount > subTotal) {
-          promoDiscount = subTotal
-        }
-      }
-    }
-  }
-
-  // Calculate final amounts after discount
-  const discountedSubTotal = subTotal - promoDiscount
-
-  // Apply fee logic (fee calculated on discounted amount)
-  const platformFee = Math.round(discountedSubTotal * effectiveFeeRate)
-  const partnerEarning = Math.round(discountedSubTotal - platformFee)
-  const totalCharge = discountedSubTotal 
-
-  // 2) Fetch booker wallet
-  const { data: bookerRow, error: bookerErr } = await supabaseAdmin
+  const { data: applicantRow, error: applicantErr } = await supabaseAdmin
     .from('users')
-    .select('id, wallet_balance, wallet_escrow')
-    .eq('id', userId)
+    .select('id, wallet_balance, wallet_escrow, vip_tier, name')
+    .eq('id', body.applicantId)
     .single()
 
-  if (bookerErr || !bookerRow) {
-    return new Response(JSON.stringify({ error: 'Booker not found' }), { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+  if (applicantErr || !applicantRow) {
+    return new Response(JSON.stringify({ error: 'Applicant not found' }), { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
   }
 
-  const walletBalance = Number(bookerRow.wallet_balance || 0)
-  const walletEscrow = Number(bookerRow.wallet_escrow || 0)
+  // 4) Calculate payment split
+  // payment_split: '50_50' | '70_30' | '100_0' (creator pays %)
+  const splitParts = (dateOrder.payment_split || '50_50').split('_').map(Number)
+  const creatorShareRate = (splitParts[0] || 50) / 100
+  const applicantShareRate = (splitParts[1] || 50) / 100
 
-  if (walletBalance < totalCharge) {
-    return new Response(JSON.stringify({ error: 'INSUFFICIENT_FUNDS' }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+  const creatorComboShare = Math.round(comboPrice * creatorShareRate)
+  const applicantComboShare = Math.round(comboPrice * applicantShareRate)
+
+  // 5) Calculate platform fees with VIP discount
+  const isCreatorVip = creatorRow.vip_tier && creatorRow.vip_tier !== 'free'
+  const isApplicantVip = applicantRow.vip_tier && applicantRow.vip_tier !== 'free'
+
+  const creatorPlatformFee = Math.round(PLATFORM_FEE_PER_PERSON * (isCreatorVip ? (1 - VIP_FEE_DISCOUNT) : 1))
+  const applicantPlatformFee = Math.round(PLATFORM_FEE_PER_PERSON * (isApplicantVip ? (1 - VIP_FEE_DISCOUNT) : 1))
+
+  const creatorTotal = creatorComboShare + creatorPlatformFee
+  const applicantTotal = applicantComboShare + applicantPlatformFee
+
+  // 6) Check wallet balances
+  const creatorBalance = Number(creatorRow.wallet_balance || 0)
+  const applicantBalance = Number(applicantRow.wallet_balance || 0)
+
+  if (creatorBalance < creatorTotal) {
+    return new Response(JSON.stringify({ error: 'CREATOR_INSUFFICIENT_FUNDS', required: creatorTotal, available: creatorBalance }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
   }
 
-  // 3) Insert booking
-  const startTimeIso = toIso(body.date, body.time)
-
-  const { data: bookingRow, error: bookingErr } = await supabaseAdmin
-    .from('bookings')
-    .insert({
-      user_id: userId,
-      partner_id: body.providerId,
-      activity: serviceRow.activity,
-      duration_hours: durationHours,
-      start_time: startTimeIso,
-      meeting_location: body.location,
-      meeting_lat: null,
-      meeting_lng: null,
-      hourly_rate: null,
-      original_amount: subTotal, // Original price before discount
-      promo_code_id: promoCodeData?.id || null,
-      promo_discount: promoDiscount,
-      total_amount: discountedSubTotal, // Amount after discount
-      platform_fee: platformFee,
-      partner_earning: partnerEarning,
-      status: 'pending',
-    })
-    .select('*')
-    .single()
-
-  if (bookingErr || !bookingRow) {
-    return new Response(JSON.stringify({ error: 'Failed to create booking: ' + bookingErr.message }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+  if (applicantBalance < applicantTotal) {
+    return new Response(JSON.stringify({ error: 'APPLICANT_INSUFFICIENT_FUNDS', required: applicantTotal, available: applicantBalance }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
   }
 
-  // 4) Update wallets (hold escrow)
-  const { error: walletUpdateErr } = await supabaseAdmin
+  // 7) Hold escrow for creator
+  const creatorEscrow = Number(creatorRow.wallet_escrow || 0)
+  const { error: creatorWalletErr } = await supabaseAdmin
     .from('users')
     .update({
-      wallet_balance: walletBalance - totalCharge,
-      wallet_escrow: walletEscrow + totalCharge,
+      wallet_balance: creatorBalance - creatorTotal,
+      wallet_escrow: creatorEscrow + creatorTotal,
     })
-    .eq('id', userId)
+    .eq('id', dateOrder.creator_id)
 
-  if (walletUpdateErr) {
-    return new Response(JSON.stringify({ error: 'Wallet update failed' }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+  if (creatorWalletErr) {
+    return new Response(JSON.stringify({ error: 'Failed to update creator wallet' }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
   }
 
-  // 5) Insert transaction for booker
-  const { error: txErr } = await supabaseAdmin
-    .from('transactions')
+  // 8) Hold escrow for applicant
+  const applicantEscrow = Number(applicantRow.wallet_escrow || 0)
+  const { error: applicantWalletErr } = await supabaseAdmin
+    .from('users')
+    .update({
+      wallet_balance: applicantBalance - applicantTotal,
+      wallet_escrow: applicantEscrow + applicantTotal,
+    })
+    .eq('id', body.applicantId)
+
+  if (applicantWalletErr) {
+    // Rollback creator wallet
+    await supabaseAdmin.from('users').update({
+      wallet_balance: creatorBalance,
+      wallet_escrow: creatorEscrow,
+    }).eq('id', dateOrder.creator_id)
+
+    return new Response(JSON.stringify({ error: 'Failed to update applicant wallet' }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+  }
+
+  // 9) Update date_order to 'matched'
+  const restaurantPayout = Math.round(comboPrice * (1 - RESTAURANT_COMMISSION_RATE))
+  const totalPlatformFees = creatorPlatformFee + applicantPlatformFee
+  const restaurantCommission = comboPrice - restaurantPayout
+
+  const { error: dateOrderUpdateErr } = await supabaseAdmin
+    .from('date_orders')
+    .update({
+      status: 'matched',
+      matched_user_id: body.applicantId,
+      matched_at: new Date().toISOString(),
+      combo_price: comboPrice,
+      creator_charge: creatorTotal,
+      applicant_charge: applicantTotal,
+      creator_platform_fee: creatorPlatformFee,
+      applicant_platform_fee: applicantPlatformFee,
+      creator_combo_share: creatorComboShare,
+      applicant_combo_share: applicantComboShare,
+      restaurant_payout: restaurantPayout,
+      platform_earning: totalPlatformFees + restaurantCommission,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', body.dateOrderId)
+
+  if (dateOrderUpdateErr) {
+    console.error('Failed to update date_order:', dateOrderUpdateErr)
+    return new Response(JSON.stringify({ error: 'Failed to update date order' }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+  }
+
+  // 10) Create table_booking for the restaurant
+  const { error: tableBookingErr } = await supabaseAdmin
+    .from('table_bookings')
     .insert({
-      user_id: userId,
-      type: 'escrow_hold',
-      amount: totalCharge,
-      status: 'completed',
-      description: `Giữ tiền (escrow) cho booking: ${serviceRow.title}`,
-      related_id: bookingRow.id,
-      payment_method: 'wallet',
+      date_order_id: body.dateOrderId,
+      restaurant_id: dateOrder.restaurant_id,
+      combo_id: dateOrder.combo_id,
+      date_time: dateOrder.date_time,
+      guest_count: 2,
+      status: 'confirmed',
+      creator_id: dateOrder.creator_id,
+      applicant_id: body.applicantId,
     })
 
-  if (txErr) {
-    // Log only, don't fail the request since money is already moved
-    console.error("Tx log failed", txErr);
+  if (tableBookingErr) {
+    console.error('Failed to create table booking:', tableBookingErr)
+    // Non-fatal: date order is already matched
   }
 
-  // 6) Record promo code usage if applicable
-  if (promoCodeData && promoDiscount > 0) {
-    // Insert usage record
-    const { error: usageErr } = await supabaseAdmin
-      .from('promo_code_usages')
-      .insert({
-        promo_code_id: promoCodeData.id,
-        user_id: userId,
-        booking_id: bookingRow.id,
-        discount_amount: promoDiscount,
-      })
+  // 11) Log escrow transactions for both users
+  await supabaseAdmin.from('transactions').insert([
+    {
+      user_id: dateOrder.creator_id,
+      type: 'escrow_hold',
+      amount: creatorTotal,
+      status: 'completed',
+      description: `Giu tien cho date: ${combo.name}`,
+      related_id: body.dateOrderId,
+      payment_method: 'wallet',
+    },
+    {
+      user_id: body.applicantId,
+      type: 'escrow_hold',
+      amount: applicantTotal,
+      status: 'completed',
+      description: `Giu tien cho date: ${combo.name}`,
+      related_id: body.dateOrderId,
+      payment_method: 'wallet',
+    },
+  ])
 
-    if (usageErr) {
-      console.error("Promo usage log failed", usageErr);
-    }
+  // 12) Send notifications to both users
+  await supabaseAdmin.from('notifications').insert([
+    {
+      user_id: dateOrder.creator_id,
+      type: 'date_matched',
+      title: 'Date da duoc ghep!',
+      message: `${applicantRow.name || 'Ai do'} da chap nhan loi moi cua ban. Hen gap nhau tai nha hang!`,
+      data: { dateOrderId: body.dateOrderId },
+      is_read: false,
+    },
+    {
+      user_id: body.applicantId,
+      type: 'date_matched',
+      title: 'Ban duoc chon!',
+      message: `${creatorRow.name || 'Ai do'} da chap nhan ban. Hen gap nhau tai nha hang!`,
+      data: { dateOrderId: body.dateOrderId },
+      is_read: false,
+    },
+  ])
 
-    // Increment used_count on promo_codes
-    const { error: updatePromoErr } = await supabaseAdmin
-      .from('promo_codes')
-      .update({
-        used_count: promoCodeData.used_count + 1,
-      })
-      .eq('id', promoCodeData.id)
-
-    if (updatePromoErr) {
-      console.error("Promo count update failed", updatePromoErr);
-    }
-  }
-
-  return new Response(JSON.stringify({ bookingId: bookingRow.id, promoDiscount }), {
+  return new Response(JSON.stringify({
+    dateOrderId: body.dateOrderId,
+    status: 'matched',
+    creatorCharge: creatorTotal,
+    applicantCharge: applicantTotal,
+  }), {
     status: 200,
     headers: addRateLimitHeaders({ ...corsHeaders, 'Content-Type': 'application/json' }, rateLimitResult, 'booking'),
   })

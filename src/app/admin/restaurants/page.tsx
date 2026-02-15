@@ -126,13 +126,21 @@ export default function AdminRestaurantsPage() {
       status: formData.status,
     };
 
+    let error;
     if (editingId) {
-      await supabase.from('restaurants').update(payload).eq('id', editingId);
+      ({ error } = await supabase.from('restaurants').update(payload).eq('id', editingId));
     } else {
-      await supabase.from('restaurants').insert(payload);
+      ({ error } = await supabase.from('restaurants').insert(payload));
     }
 
     setSaving(false);
+
+    if (error) {
+      console.error('Lỗi lưu nhà hàng:', error);
+      alert('Không thể lưu nhà hàng: ' + error.message);
+      return;
+    }
+
     setShowModal(false);
     fetchRestaurants();
   };

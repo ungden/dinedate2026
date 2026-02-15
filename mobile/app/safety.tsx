@@ -81,8 +81,8 @@ export default function SafetyScreen() {
       if (error) throw error;
       Alert.alert('Đã gửi', 'Báo cáo của bạn đã được ghi nhận. Chúng tôi sẽ xem xét trong 24 giờ.');
     } catch (err) {
-      // Fallback for unauthenticated users
-      Alert.alert('Đã gửi', 'Báo cáo của bạn đã được ghi nhận. Chúng tôi sẽ xem xét trong 24 giờ.');
+      const msg = err instanceof Error ? err.message : 'Không thể gửi báo cáo';
+      Alert.alert('Lỗi', msg + '. Vui lòng đăng nhập và thử lại.');
     }
   };
 

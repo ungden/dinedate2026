@@ -12,16 +12,23 @@ import {
   Loader2,
   MoreHorizontal,
   Mail,
-  Phone
+  Phone,
+  Ban,
+  Unlock,
+  Eye,
+  X,
 } from 'lucide-react';
 import Image from 'next/image';
-import { formatRelativeTime } from '@/lib/utils';
+import { formatRelativeTime, cn } from '@/lib/utils';
+import toast from 'react-hot-toast';
 
 export default function AdminUsersPage() {
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [filterRole, setFilterRole] = useState<'all' | 'admin' | 'user'>('all');
+  const [actionMenuId, setActionMenuId] = useState<string | null>(null);
+  const [processing, setProcessing] = useState<string | null>(null);
 
   useEffect(() => {
     fetchUsers();
@@ -39,6 +46,53 @@ export default function AdminUsersPage() {
       setUsers(mapped);
     }
     setLoading(false);
+  };
+
+  const handleBanToggle = async (userId: string, currentlyBanned: boolean) => {
+    setProcessing(userId);
+    try {
+      const { error } = await supabase
+        .from('users')
+        .update({ is_banned: !currentlyBanned })
+        .eq('id', userId);
+
+      if (error) {
+        toast.error('Không thể cập nhật trạng thái');
+        console.error(error);
+      } else {
+        toast.success(currentlyBanned ? 'Đã mở khóa người dùng' : 'Đã khóa người dùng');
+        await fetchUsers();
+      }
+    } catch (err) {
+      toast.error('Lỗi xử lý');
+    } finally {
+      setProcessing(null);
+      setActionMenuId(null);
+    }
+  };
+
+  const handleRoleToggle = async (userId: string, currentRole: string) => {
+    const newRole = currentRole === 'admin' ? 'user' : 'admin';
+    setProcessing(userId);
+    try {
+      const { error } = await supabase
+        .from('users')
+        .update({ role: newRole })
+        .eq('id', userId);
+
+      if (error) {
+        toast.error('Không thể thay đổi vai trò');
+        console.error(error);
+      } else {
+        toast.success(`Đã đổi vai trò thành ${newRole === 'admin' ? 'Admin' : 'User'}`);
+        await fetchUsers();
+      }
+    } catch (err) {
+      toast.error('Lỗi xử lý');
+    } finally {
+      setProcessing(null);
+      setActionMenuId(null);
+    }
   };
 
   const filteredUsers = users.filter(user => {
@@ -175,9 +229,60 @@ export default function AdminUsersPage() {
                       {user.createdAt ? formatRelativeTime(user.createdAt) : '—'}
                     </td>
                     <td className="px-6 py-4 text-right">
-                      <button className="p-2 hover:bg-gray-100 rounded-lg text-gray-400 hover:text-gray-600 transition">
-                        <MoreHorizontal className="w-5 h-5" />
-                      </button>
+                      <div className="relative inline-block">
+                        <button
+                          onClick={() => setActionMenuId(actionMenuId === user.id ? null : user.id)}
+                          disabled={processing === user.id}
+                          className={cn(
+                            'p-2 hover:bg-gray-100 rounded-lg text-gray-400 hover:text-gray-600 transition',
+                            processing === user.id && 'opacity-50 cursor-not-allowed'
+                          )}
+                        >
+                          {processing === user.id ? (
+                            <Loader2 className="w-5 h-5 animate-spin" />
+                          ) : (
+                            <MoreHorizontal className="w-5 h-5" />
+                          )}
+                        </button>
+
+                        {actionMenuId === user.id && (
+                          <div className="absolute right-0 top-full mt-1 bg-white rounded-xl shadow-lg border border-gray-100 py-2 w-52 z-10">
+                            {user.isBanned ? (
+                              <button
+                                onClick={() => handleBanToggle(user.id, true)}
+                                className="w-full px-4 py-2 text-left text-sm text-green-600 hover:bg-green-50 flex items-center gap-2"
+                              >
+                                <Unlock className="w-4 h-4" />
+                                Mở khóa người dùng
+                              </button>
+                            ) : (
+                              <button
+                                onClick={() => handleBanToggle(user.id, false)}
+                                className="w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"
+                              >
+                                <Ban className="w-4 h-4" />
+                                Khóa người dùng
+                              </button>
+                            )}
+
+                            <button
+                              onClick={() => handleRoleToggle(user.id, user.role || 'user')}
+                              className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
+                            >
+                              <Shield className="w-4 h-4 text-purple-500" />
+                              {user.role === 'admin' ? 'Hạ quyền thành User' : 'Nâng quyền Admin'}
+                            </button>
+
+                            <button
+                              onClick={() => setActionMenuId(null)}
+                              className="w-full px-4 py-2 text-left text-sm text-gray-500 hover:bg-gray-50 flex items-center gap-2"
+                            >
+                              <X className="w-4 h-4" />
+                              Đóng
+                            </button>
+                          </div>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 ))

@@ -25,9 +25,9 @@ interface ReportRow {
   id: string;
   reporter_id: string;
   reported_user_id: string;
-  reason: string;
+  category: string;
   description: string;
-  status: 'pending' | 'reviewed' | 'resolved';
+  status: 'pending' | 'reviewing' | 'resolved' | 'dismissed';
   created_at: string;
   reporter?: {
     id: string;
@@ -50,14 +50,14 @@ const REASON_LABELS: Record<string, string> = {
   'other': 'Khác',
 };
 
-const STATUS_CONFIG = {
+const STATUS_CONFIG: Record<string, { label: string; color: string; icon: typeof Clock }> = {
   pending: {
     label: 'Chờ xử lý',
     color: 'bg-amber-50 text-amber-700 border-amber-100',
     icon: Clock,
   },
-  reviewed: {
-    label: 'Đã xem xét',
+  reviewing: {
+    label: 'Đang xem xét',
     color: 'bg-blue-50 text-blue-700 border-blue-100',
     icon: Eye,
   },
@@ -66,13 +66,18 @@ const STATUS_CONFIG = {
     color: 'bg-green-50 text-green-700 border-green-100',
     icon: CheckCircle,
   },
+  dismissed: {
+    label: 'Đã bác bỏ',
+    color: 'bg-gray-50 text-gray-600 border-gray-100',
+    icon: X,
+  },
 };
 
 export default function AdminReportsPage() {
   const [reports, setReports] = useState<ReportRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
-  const [filterStatus, setFilterStatus] = useState<'all' | 'pending' | 'reviewed' | 'resolved'>('all');
+  const [filterStatus, setFilterStatus] = useState<'all' | 'pending' | 'reviewing' | 'resolved' | 'dismissed'>('all');
   const [actionMenuId, setActionMenuId] = useState<string | null>(null);
   const [processing, setProcessing] = useState<string | null>(null);
 
@@ -91,7 +96,7 @@ export default function AdminReportsPage() {
           id,
           reporter_id,
           reported_user_id,
-          reason,
+          category,
           description,
           status,
           created_at
@@ -130,7 +135,7 @@ export default function AdminReportsPage() {
     }
   };
 
-  const handleUpdateStatus = async (reportId: string, newStatus: 'reviewed' | 'resolved') => {
+  const handleUpdateStatus = async (reportId: string, newStatus: 'reviewing' | 'resolved' | 'dismissed') => {
     setProcessing(reportId);
 
     try {
@@ -238,8 +243,9 @@ export default function AdminReportsPage() {
           >
             <option value="all">Tất cả trạng thái</option>
             <option value="pending">Chờ xử lý</option>
-            <option value="reviewed">Đã xem xét</option>
+            <option value="reviewing">Đang xem xét</option>
             <option value="resolved">Đã xử lý</option>
+            <option value="dismissed">Đã bác bỏ</option>
           </select>
         </div>
       </div>
@@ -326,7 +332,7 @@ export default function AdminReportsPage() {
                       {/* Reason */}
                       <div className="flex items-center gap-2 mb-2">
                         <span className="px-2.5 py-1 bg-red-50 text-red-700 rounded-lg text-xs font-bold border border-red-100">
-                          {REASON_LABELS[report.reason] || report.reason}
+                          {REASON_LABELS[report.category] || report.category}
                         </span>
                         <span className={cn('px-2.5 py-1 rounded-lg text-xs font-medium border flex items-center gap-1', statusConfig.color)}>
                           <StatusIcon className="w-3 h-3" />
@@ -368,11 +374,11 @@ export default function AdminReportsPage() {
                         <div className="absolute right-0 top-full mt-1 bg-white rounded-xl shadow-lg border border-gray-100 py-2 w-48 z-10">
                           {report.status === 'pending' && (
                             <button
-                              onClick={() => handleUpdateStatus(report.id, 'reviewed')}
+                              onClick={() => handleUpdateStatus(report.id, 'reviewing')}
                               className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
                             >
                               <Eye className="w-4 h-4 text-blue-500" />
-                               Đánh dấu đã xem
+                               Đánh dấu đang xem
                             </button>
                           )}
 

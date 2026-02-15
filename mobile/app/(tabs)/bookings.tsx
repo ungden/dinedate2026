@@ -6,6 +6,7 @@ import { Colors, Spacing, FontSize, BorderRadius, Shadows } from '@/constants/th
 import { useMyDateOrders } from '@/hooks/use-date-orders';
 import { useAuth } from '@/contexts/auth-context';
 import { DateOrderStatus } from '@/constants/types';
+import AuthGuard from '@/components/auth-guard';
 
 type Tab = 'active' | 'upcoming' | 'past';
 
@@ -29,6 +30,14 @@ const UPCOMING_STATUSES: DateOrderStatus[] = ['confirmed'];
 const PAST_STATUSES: DateOrderStatus[] = ['completed', 'expired', 'cancelled', 'no_show'];
 
 export default function BookingsScreen() {
+  return (
+    <AuthGuard>
+      <BookingsContent />
+    </AuthGuard>
+  );
+}
+
+function BookingsContent() {
   const [tab, setTab] = useState<Tab>('active');
   const router = useRouter();
   const { user } = useAuth();

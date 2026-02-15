@@ -136,13 +136,21 @@ export default function AdminCombosPage() {
       is_available: formData.isAvailable,
     };
 
+    let error;
     if (editingId) {
-      await supabase.from('combos').update(payload).eq('id', editingId);
+      ({ error } = await supabase.from('combos').update(payload).eq('id', editingId));
     } else {
-      await supabase.from('combos').insert(payload);
+      ({ error } = await supabase.from('combos').insert(payload));
     }
 
     setSaving(false);
+
+    if (error) {
+      console.error('Lỗi lưu combo:', error);
+      alert('Không thể lưu combo: ' + error.message);
+      return;
+    }
+
     setShowModal(false);
     fetchCombos();
   };
@@ -182,7 +190,7 @@ export default function AdminCombosPage() {
         </Link>
         <div className="flex-1">
           <h1 className="text-2xl font-bold text-gray-900">
-            Quan ly Combo
+            Quản lý Combo
           </h1>
           {restaurant && (
             <p className="text-gray-500 text-sm mt-0.5">
@@ -195,7 +203,7 @@ export default function AdminCombosPage() {
           className="flex items-center gap-2 px-4 py-2.5 bg-gray-900 text-white rounded-xl font-bold text-sm hover:bg-gray-800 transition"
         >
           <Plus className="w-4 h-4" />
-          Them combo
+          Thêm combo
         </button>
       </div>
 
@@ -207,8 +215,8 @@ export default function AdminCombosPage() {
       ) : combos.length === 0 ? (
         <div className="text-center py-12 text-gray-500 bg-white rounded-2xl border border-gray-100">
           <UtensilsCrossed className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-          <p className="font-bold">Chua co combo nao</p>
-          <p className="text-sm mt-1">Nhan "Them combo" de tao combo moi cho nha hang nay.</p>
+          <p className="font-bold">Chưa có combo nào</p>
+          <p className="text-sm mt-1">Nhấn &ldquo;Thêm combo&rdquo; để tạo combo mới cho nhà hàng này.</p>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -248,7 +256,7 @@ export default function AdminCombosPage() {
                         : 'bg-gray-100 text-gray-500'
                     )}
                   >
-                    {combo.isAvailable ? 'Con ban' : 'Het'}
+                    {combo.isAvailable ? 'Còn bán' : 'Hết'}
                   </span>
                 </div>
 
@@ -256,7 +264,7 @@ export default function AdminCombosPage() {
 
                 <div className="mt-3">
                   <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">
-                    Mon trong combo
+                    Món trong combo
                   </p>
                   <div className="flex flex-wrap gap-1">
                     {combo.items.slice(0, 4).map((item, i) => (
@@ -266,7 +274,7 @@ export default function AdminCombosPage() {
                     ))}
                     {combo.items.length > 4 && (
                       <span className="px-2 py-0.5 bg-gray-50 rounded text-xs text-gray-400">
-                        +{combo.items.length - 4} mon
+                        +{combo.items.length - 4} món
                       </span>
                     )}
                   </div>
@@ -278,7 +286,7 @@ export default function AdminCombosPage() {
                     className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 bg-gray-100 hover:bg-gray-200 rounded-xl text-sm font-medium text-gray-700 transition"
                   >
                     <Pencil className="w-3.5 h-3.5" />
-                    Sua
+                    Sửa
                   </button>
                   <button
                     onClick={() => toggleAvailability(combo.id, combo.isAvailable)}
@@ -292,12 +300,12 @@ export default function AdminCombosPage() {
                     {combo.isAvailable ? (
                       <>
                         <ToggleRight className="w-4 h-4" />
-                        Bat
+                         Bật
                       </>
                     ) : (
                       <>
                         <ToggleLeft className="w-4 h-4" />
-                        Tat
+                         Tắt
                       </>
                     )}
                   </button>
@@ -314,7 +322,7 @@ export default function AdminCombosPage() {
           <div className="bg-white rounded-2xl w-full max-w-lg mx-4 max-h-[90vh] overflow-y-auto shadow-2xl">
             <div className="flex items-center justify-between p-6 border-b border-gray-100">
               <h2 className="text-lg font-bold text-gray-900">
-                {editingId ? 'Chinh sua combo' : 'Them combo moi'}
+                {editingId ? 'Chỉnh sửa combo' : 'Thêm combo mới'}
               </h2>
               <button onClick={() => setShowModal(false)} className="p-2 hover:bg-gray-100 rounded-lg">
                 <X className="w-5 h-5 text-gray-500" />
@@ -323,7 +331,7 @@ export default function AdminCombosPage() {
 
             <div className="p-6 space-y-4">
               <div>
-                <label className="block text-sm font-bold text-gray-700 mb-1">Ten combo *</label>
+                <label className="block text-sm font-bold text-gray-700 mb-1">Tên combo *</label>
                 <input
                   type="text"
                   value={formData.name}
@@ -334,18 +342,18 @@ export default function AdminCombosPage() {
               </div>
 
               <div>
-                <label className="block text-sm font-bold text-gray-700 mb-1">Mo ta</label>
+                <label className="block text-sm font-bold text-gray-700 mb-1">Mô tả</label>
                 <textarea
                   value={formData.description}
                   onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                   className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-primary-500 h-20 resize-none"
-                  placeholder="Mo ta combo..."
+                  placeholder="Mô tả combo..."
                 />
               </div>
 
               <div>
                 <label className="block text-sm font-bold text-gray-700 mb-1">
-                  Cac mon trong combo
+                  Các món trong combo
                 </label>
                 <div className="space-y-2">
                   {formData.items.map((item, index) => (
@@ -355,7 +363,7 @@ export default function AdminCombosPage() {
                         value={item}
                         onChange={(e) => updateItem(index, e.target.value)}
                         className="flex-1 px-4 py-2 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-primary-500 text-sm"
-                        placeholder={`Mon ${index + 1}`}
+                        placeholder={`Món ${index + 1}`}
                       />
                       {formData.items.length > 1 && (
                         <button
@@ -372,14 +380,14 @@ export default function AdminCombosPage() {
                     onClick={addItem}
                     className="w-full px-4 py-2 bg-gray-50 border border-dashed border-gray-300 rounded-xl text-sm text-gray-500 hover:bg-gray-100 transition"
                   >
-                    + Them mon
+                    + Thêm món
                   </button>
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-sm font-bold text-gray-700 mb-1">Gia (VND) *</label>
+                  <label className="block text-sm font-bold text-gray-700 mb-1">Giá (VND) *</label>
                   <input
                     type="number"
                     value={formData.price}
@@ -389,7 +397,7 @@ export default function AdminCombosPage() {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-bold text-gray-700 mb-1">Trang thai</label>
+                  <label className="block text-sm font-bold text-gray-700 mb-1">Trạng thái</label>
                   <select
                     value={formData.isAvailable ? 'true' : 'false'}
                     onChange={(e) =>
@@ -397,14 +405,14 @@ export default function AdminCombosPage() {
                     }
                     className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-primary-500"
                   >
-                    <option value="true">Con ban</option>
-                    <option value="false">Het hang</option>
+                    <option value="true">Còn bán</option>
+                    <option value="false">Hết hàng</option>
                   </select>
                 </div>
               </div>
 
               <div>
-                <label className="block text-sm font-bold text-gray-700 mb-1">URL Hinh anh</label>
+                <label className="block text-sm font-bold text-gray-700 mb-1">URL Hình ảnh</label>
                 <input
                   type="text"
                   value={formData.imageUrl}
@@ -420,7 +428,7 @@ export default function AdminCombosPage() {
                 onClick={() => setShowModal(false)}
                 className="px-4 py-2.5 bg-gray-100 text-gray-700 rounded-xl font-bold text-sm hover:bg-gray-200 transition"
               >
-                Huy
+                Hủy
               </button>
               <button
                 onClick={handleSave}
@@ -428,7 +436,7 @@ export default function AdminCombosPage() {
                 className="px-6 py-2.5 bg-gray-900 text-white rounded-xl font-bold text-sm hover:bg-gray-800 transition disabled:opacity-50 flex items-center gap-2"
               >
                 {saving && <Loader2 className="w-4 h-4 animate-spin" />}
-                {editingId ? 'Cap nhat' : 'Them moi'}
+                {editingId ? 'Cập nhật' : 'Thêm mới'}
               </button>
             </div>
           </div>

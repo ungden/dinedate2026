@@ -117,9 +117,9 @@ export function useFinancialReports() {
 
       // Fetch top-ups
       let topupsQuery = supabase
-        .from('transactions')
+        .from('wallet_transactions')
         .select('amount')
-        .eq('type', 'top_up')
+        .eq('type', 'topup')
         .eq('status', 'completed');
 
       if (dateFilter) {
@@ -133,9 +133,9 @@ export function useFinancialReports() {
 
       // Fetch withdrawals
       let withdrawalsQuery = supabase
-        .from('transactions')
+        .from('wallet_transactions')
         .select('amount')
-        .eq('type', 'withdrawal')
+        .eq('type', 'withdraw')
         .eq('status', 'completed');
 
       if (dateFilter) {
@@ -223,7 +223,7 @@ export function useFinancialReports() {
       const dateFilter = getPeriodFilter(period);
 
       let query = supabase
-        .from('transactions')
+        .from('wallet_transactions')
         .select('type, amount, status')
         .eq('status', 'completed');
 
@@ -234,9 +234,10 @@ export function useFinancialReports() {
       const { data: transactions, error: txErr } = await query;
       if (txErr) throw new Error(txErr.message || 'Failed to fetch transactions');
 
-      // Group by type
+      // Group by type — matches wallet_transactions.type CHECK constraint:
+      // topup, payment, escrow, refund, withdraw
       const typeMap = new Map<string, { amount: number; count: number }>();
-      const types = ['top_up', 'date_order_payment', 'date_order_refund', 'vip_payment', 'refund', 'restaurant_commission'];
+      const types = ['topup', 'payment', 'escrow', 'refund', 'withdraw'];
 
       types.forEach(t => typeMap.set(t, { amount: 0, count: 0 }));
 
@@ -251,21 +252,19 @@ export function useFinancialReports() {
       const totalAmount = Array.from(typeMap.values()).reduce((sum, v) => sum + v.amount, 0) || 1;
 
       const typeLabels: Record<string, string> = {
-        top_up: 'Nap tien',
-        date_order_payment: 'Thanh toan don hen',
-        date_order_refund: 'Hoan tien don hen',
-        vip_payment: 'Mua VIP',
-        refund: 'Hoan tien',
-        restaurant_commission: 'Hoa hong nha hang',
+        topup: 'Nạp tiền',
+        payment: 'Thanh toán đơn hẹn',
+        escrow: 'Ký quỹ',
+        refund: 'Hoàn tiền',
+        withdraw: 'Rút tiền',
       };
 
       const typeColors: Record<string, string> = {
-        top_up: '#22c55e',
-        date_order_payment: '#3b82f6',
-        date_order_refund: '#f97316',
-        vip_payment: '#eab308',
+        topup: '#22c55e',
+        payment: '#3b82f6',
+        escrow: '#f97316',
         refund: '#ef4444',
-        restaurant_commission: '#8b5cf6',
+        withdraw: '#8b5cf6',
       };
 
       return Array.from(typeMap.entries())

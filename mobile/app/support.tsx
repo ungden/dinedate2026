@@ -69,7 +69,8 @@ export default function SupportScreen() {
       if (error) throw error;
       Alert.alert('Đã gửi', 'Chúng tôi đã nhận được báo cáo lỗi. Đội hỗ trợ sẽ liên hệ bạn trong 24 giờ.');
     } catch (err) {
-      Alert.alert('Đã gửi', 'Chúng tôi đã nhận được báo cáo lỗi. Đội hỗ trợ sẽ liên hệ bạn trong 24 giờ.');
+      const msg = err instanceof Error ? err.message : 'Không thể gửi báo cáo';
+      Alert.alert('Lỗi', msg + '. Vui lòng đăng nhập và thử lại.');
     }
   };
 

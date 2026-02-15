@@ -18,7 +18,7 @@ export interface SupportTicket {
   priority: TicketPriority;
   status: TicketStatus;
   assigned_to?: string;
-  related_booking_id?: string;
+  date_order_id?: string;
   created_at: string;
   updated_at: string;
   resolved_at?: string;
@@ -33,9 +33,9 @@ export interface SupportTicket {
     name: string;
     avatar_url: string;
   };
-  booking?: {
+  date_order?: {
     id: string;
-    activity: string;
+    description: string;
   };
   messages_count?: number;
 }
@@ -43,11 +43,11 @@ export interface SupportTicket {
 export interface TicketMessage {
   id: string;
   ticket_id: string;
-  user_id: string;
-  message: string;
+  sender_id: string;
+  content: string;
   is_admin: boolean;
   created_at: string;
-  user?: {
+  sender?: {
     id: string;
     name: string;
     avatar_url: string;
@@ -59,7 +59,7 @@ interface CreateTicketInput {
   description: string;
   category: TicketCategory;
   priority?: TicketPriority;
-  related_booking_id?: string;
+  date_order_id?: string;
 }
 
 // Hook for user's tickets
@@ -106,7 +106,7 @@ export function useSupportTickets() {
 
   const createTicket = async (input: CreateTicketInput): Promise<SupportTicket | null> => {
     if (!userId) {
-      toast.error('Ban can dang nhap');
+      toast.error('Bạn cần đăng nhập');
       return null;
     }
 
@@ -119,14 +119,14 @@ export function useSupportTickets() {
           description: input.description,
           category: input.category,
           priority: input.priority || 'medium',
-          related_booking_id: input.related_booking_id || null,
+          date_order_id: input.date_order_id || null,
         })
         .select()
         .single();
 
       if (error) {
         console.error('Error creating ticket:', error);
-        toast.error('Khong the tao yeu cau ho tro');
+        toast.error('Không thể tạo yêu cầu hỗ trợ');
         return null;
       }
 
@@ -134,7 +134,7 @@ export function useSupportTickets() {
       return data;
     } catch (err) {
       console.error('Error:', err);
-      toast.error('Khong the tao yeu cau ho tro');
+      toast.error('Không thể tạo yêu cầu hỗ trợ');
       return null;
     }
   };
@@ -196,20 +196,20 @@ export function useTicketDetail(ticketId: string) {
         console.error('Error fetching messages:', messagesError);
         setMessages([]);
       } else {
-        // Enrich messages with user info
-        const userIds = [...new Set(messagesData?.map(m => m.user_id) || [])];
+        // Enrich messages with sender info
+        const senderIds = [...new Set(messagesData?.map((m: any) => m.sender_id) || [])];
 
-        if (userIds.length > 0) {
+        if (senderIds.length > 0) {
           const { data: users } = await supabase
             .from('users')
             .select('id, name, avatar_url')
-            .in('id', userIds);
+            .in('id', senderIds);
 
           const usersMap = new Map((users || []).map(u => [u.id, u]));
 
-          const enrichedMessages = (messagesData || []).map(msg => ({
+          const enrichedMessages = (messagesData || []).map((msg: any) => ({
             ...msg,
-            user: usersMap.get(msg.user_id),
+            sender: usersMap.get(msg.sender_id),
           }));
 
           setMessages(enrichedMessages);
@@ -240,14 +240,14 @@ export function useTicketDetail(ticketId: string) {
         .from('ticket_messages')
         .insert({
           ticket_id: ticketId,
-          user_id: userId,
-          message: message.trim(),
+          sender_id: userId,
+          content: message.trim(),
           is_admin: false,
         });
 
       if (error) {
         console.error('Error sending message:', error);
-        toast.error('Khong the gui tin nhan');
+        toast.error('Không thể gửi tin nhắn');
         return false;
       }
 
@@ -255,7 +255,7 @@ export function useTicketDetail(ticketId: string) {
       return true;
     } catch (err) {
       console.error('Error:', err);
-      toast.error('Khong the gui tin nhan');
+      toast.error('Không thể gửi tin nhắn');
       return false;
     }
   };
@@ -299,7 +299,7 @@ export function useAdminSupportTickets() {
       const userIds = [...new Set(data.map(t => t.user_id))];
       const assignedIds = [...new Set(data.filter(t => t.assigned_to).map(t => t.assigned_to))];
       const allUserIds = [...new Set([...userIds, ...assignedIds])];
-      const bookingIds = [...new Set(data.filter(t => t.related_booking_id).map(t => t.related_booking_id))];
+      const dateOrderIds = [...new Set(data.filter(t => t.date_order_id).map(t => t.date_order_id))];
 
       // Fetch users
       const { data: users } = await supabase
@@ -309,14 +309,14 @@ export function useAdminSupportTickets() {
 
       const usersMap = new Map((users || []).map(u => [u.id, u]));
 
-      // Fetch bookings if any
-      let bookingsMap = new Map();
-      if (bookingIds.length > 0) {
-        const { data: bookings } = await supabase
-          .from('bookings')
-          .select('id, activity')
-          .in('id', bookingIds);
-        bookingsMap = new Map((bookings || []).map(b => [b.id, b]));
+      // Fetch date orders if any
+      let dateOrdersMap = new Map();
+      if (dateOrderIds.length > 0) {
+        const { data: dateOrders } = await supabase
+          .from('date_orders')
+          .select('id, description')
+          .in('id', dateOrderIds);
+        dateOrdersMap = new Map((dateOrders || []).map(d => [d.id, d]));
       }
 
       // Fetch message counts
@@ -325,7 +325,7 @@ export function useAdminSupportTickets() {
         .select('ticket_id');
 
       const countMap = new Map<string, number>();
-      (messageCounts || []).forEach(m => {
+      (messageCounts || []).forEach((m: any) => {
         countMap.set(m.ticket_id, (countMap.get(m.ticket_id) || 0) + 1);
       });
 
@@ -334,7 +334,7 @@ export function useAdminSupportTickets() {
         ...ticket,
         user: usersMap.get(ticket.user_id),
         assigned_admin: ticket.assigned_to ? usersMap.get(ticket.assigned_to) : null,
-        booking: ticket.related_booking_id ? bookingsMap.get(ticket.related_booking_id) : null,
+        date_order: ticket.date_order_id ? dateOrdersMap.get(ticket.date_order_id) : null,
         messages_count: countMap.get(ticket.id) || 0,
       }));
 
@@ -369,7 +369,7 @@ export function useAdminSupportTickets() {
 
       if (error) {
         console.error('Error updating ticket:', error);
-        toast.error('Khong the cap nhat ticket');
+        toast.error('Không thể cập nhật ticket');
         return false;
       }
 
@@ -377,7 +377,7 @@ export function useAdminSupportTickets() {
       return true;
     } catch (err) {
       console.error('Error:', err);
-      toast.error('Khong the cap nhat ticket');
+      toast.error('Không thể cập nhật ticket');
       return false;
     }
   };
@@ -392,14 +392,14 @@ export function useAdminSupportTickets() {
         .from('ticket_messages')
         .insert({
           ticket_id: ticketId,
-          user_id: adminId,
-          message: message.trim(),
+          sender_id: adminId,
+          content: message.trim(),
           is_admin: true,
         });
 
       if (error) {
         console.error('Error sending admin message:', error);
-        toast.error('Khong the gui tin nhan');
+        toast.error('Không thể gửi tin nhắn');
         return false;
       }
 
@@ -407,7 +407,7 @@ export function useAdminSupportTickets() {
       return true;
     } catch (err) {
       console.error('Error:', err);
-      toast.error('Khong the gui tin nhan');
+      toast.error('Không thể gửi tin nhắn');
       return false;
     }
   };
@@ -464,21 +464,21 @@ export function useAdminTicketDetail(ticketId: string) {
 
       const usersMap = new Map((users || []).map(u => [u.id, u]));
 
-      let bookingInfo = null;
-      if (ticketData.related_booking_id) {
-        const { data: booking } = await supabase
-          .from('bookings')
-          .select('id, activity')
-          .eq('id', ticketData.related_booking_id)
+      let dateOrderInfo = null;
+      if (ticketData.date_order_id) {
+        const { data: dateOrder } = await supabase
+          .from('date_orders')
+          .select('id, description')
+          .eq('id', ticketData.date_order_id)
           .single();
-        bookingInfo = booking;
+        dateOrderInfo = dateOrder;
       }
 
       setTicket({
         ...ticketData,
         user: usersMap.get(ticketData.user_id),
         assigned_admin: ticketData.assigned_to ? usersMap.get(ticketData.assigned_to) : null,
-        booking: bookingInfo,
+        date_order: dateOrderInfo,
       });
 
       // Fetch messages
@@ -492,20 +492,20 @@ export function useAdminTicketDetail(ticketId: string) {
         console.error('Error fetching messages:', messagesError);
         setMessages([]);
       } else {
-        // Enrich messages with user info
-        const msgUserIds = [...new Set(messagesData?.map(m => m.user_id) || [])];
+        // Enrich messages with sender info
+        const msgSenderIds = [...new Set(messagesData?.map((m: any) => m.sender_id) || [])];
 
-        if (msgUserIds.length > 0) {
+        if (msgSenderIds.length > 0) {
           const { data: msgUsers } = await supabase
             .from('users')
             .select('id, name, avatar_url')
-            .in('id', msgUserIds);
+            .in('id', msgSenderIds);
 
           const msgUsersMap = new Map((msgUsers || []).map(u => [u.id, u]));
 
-          const enrichedMessages = (messagesData || []).map(msg => ({
+          const enrichedMessages = (messagesData || []).map((msg: any) => ({
             ...msg,
-            user: msgUsersMap.get(msg.user_id),
+            sender: msgUsersMap.get(msg.sender_id),
           }));
 
           setMessages(enrichedMessages);
@@ -545,7 +545,7 @@ export function useAdminTicketDetail(ticketId: string) {
 
       if (error) {
         console.error('Error updating ticket:', error);
-        toast.error('Khong the cap nhat ticket');
+        toast.error('Không thể cập nhật ticket');
         return false;
       }
 
@@ -553,7 +553,7 @@ export function useAdminTicketDetail(ticketId: string) {
       return true;
     } catch (err) {
       console.error('Error:', err);
-      toast.error('Khong the cap nhat ticket');
+      toast.error('Không thể cập nhật ticket');
       return false;
     }
   };
@@ -568,14 +568,14 @@ export function useAdminTicketDetail(ticketId: string) {
         .from('ticket_messages')
         .insert({
           ticket_id: ticketId,
-          user_id: adminId,
-          message: message.trim(),
+          sender_id: adminId,
+          content: message.trim(),
           is_admin: true,
         });
 
       if (error) {
         console.error('Error sending admin message:', error);
-        toast.error('Khong the gui tin nhan');
+        toast.error('Không thể gửi tin nhắn');
         return false;
       }
 
@@ -583,7 +583,7 @@ export function useAdminTicketDetail(ticketId: string) {
       return true;
     } catch (err) {
       console.error('Error:', err);
-      toast.error('Khong the gui tin nhan');
+      toast.error('Không thể gửi tin nhắn');
       return false;
     }
   };

@@ -76,6 +76,7 @@ export default function DateOrderDetailScreen() {
     );
   }
 
+  const isCreator = user?.id === order.creatorId;
   const cuisine = order.restaurant?.cuisineTypes?.[0];
   const icon = cuisine ? CUISINE_ICONS[cuisine] || '🍽️' : '🍽️';
 
@@ -162,18 +163,37 @@ export default function DateOrderDetailScreen() {
         {/* Pricing */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Chi phí</Text>
-          <View style={styles.priceRow}>
-            <Text style={styles.priceLabel}>Combo (phần của bạn)</Text>
-            <Text style={styles.priceValue}>{formatPrice(order.creatorTotal - order.platformFee)}</Text>
-          </View>
-          <View style={styles.priceRow}>
-            <Text style={styles.priceLabel}>Phí nền tảng</Text>
-            <Text style={styles.priceValue}>{formatPrice(order.platformFee)}</Text>
-          </View>
-          <View style={[styles.priceRow, styles.totalRow]}>
-            <Text style={styles.totalLabel}>Bạn trả</Text>
-            <Text style={styles.totalValue}>{formatPrice(order.applicantTotal)}</Text>
-          </View>
+          {isCreator ? (
+            <>
+              <View style={styles.priceRow}>
+                <Text style={styles.priceLabel}>Combo (phần của bạn)</Text>
+                <Text style={styles.priceValue}>{formatPrice(order.creatorTotal - order.platformFee)}</Text>
+              </View>
+              <View style={styles.priceRow}>
+                <Text style={styles.priceLabel}>Phí nền tảng</Text>
+                <Text style={styles.priceValue}>{formatPrice(order.platformFee)}</Text>
+              </View>
+              <View style={[styles.priceRow, styles.totalRow]}>
+                <Text style={styles.totalLabel}>Bạn trả (chủ đơn)</Text>
+                <Text style={styles.totalValue}>{formatPrice(order.creatorTotal)}</Text>
+              </View>
+            </>
+          ) : (
+            <>
+              <View style={styles.priceRow}>
+                <Text style={styles.priceLabel}>Combo (phần của bạn)</Text>
+                <Text style={styles.priceValue}>{formatPrice(order.applicantTotal - order.platformFee)}</Text>
+              </View>
+              <View style={styles.priceRow}>
+                <Text style={styles.priceLabel}>Phí nền tảng</Text>
+                <Text style={styles.priceValue}>{formatPrice(order.platformFee)}</Text>
+              </View>
+              <View style={[styles.priceRow, styles.totalRow]}>
+                <Text style={styles.totalLabel}>Bạn trả (ứng viên)</Text>
+                <Text style={styles.totalValue}>{formatPrice(order.applicantTotal)}</Text>
+              </View>
+            </>
+          )}
         </View>
 
         {/* Apply section */}

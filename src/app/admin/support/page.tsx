@@ -367,10 +367,10 @@ export default function AdminSupportPage() {
                               {ticket.assigned_admin.name}
                             </span>
                           )}
-                          {ticket.booking && (
+                          {ticket.date_order && (
                             <span className="flex items-center gap-1">
                               <Tag className="w-3 h-3" />
-                              {ticket.booking.activity}
+                              {ticket.date_order.description}
                             </span>
                           )}
                         </div>
@@ -678,7 +678,7 @@ function ExpandedTicketDetail({ ticketId, adminId }: { ticketId: string; adminId
                   >
                     <div className="flex items-center gap-2 mb-1">
                       <span className="font-medium text-gray-700 text-xs">
-                        {msg.user?.name || 'User'}
+                        {msg.sender?.name || 'User'}
                       </span>
                       {msg.is_admin && (
                         <span className="px-1 py-0.5 bg-blue-100 text-blue-700 text-[10px] font-bold rounded">
@@ -689,7 +689,7 @@ function ExpandedTicketDetail({ ticketId, adminId }: { ticketId: string; adminId
                         {formatRelativeTime(msg.created_at)}
                       </span>
                     </div>
-                    <p className="text-gray-600 whitespace-pre-wrap">{msg.message}</p>
+                    <p className="text-gray-600 whitespace-pre-wrap">{msg.content}</p>
                   </div>
                 ))}
                 <div ref={messagesEndRef} />

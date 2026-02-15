@@ -10,12 +10,11 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 
 const CATEGORIES: { value: TicketCategory; label: string }[] = [
-  { value: 'booking', label: 'Van de ve booking' },
-  { value: 'payment', label: 'Thanh toan & Hoan tien' },
-  { value: 'account', label: 'Tai khoan' },
-  { value: 'partner', label: 'Partner' },
-  { value: 'technical', label: 'Loi ky thuat' },
-  { value: 'other', label: 'Khac' },
+  { value: 'booking', label: 'Vấn đề về đơn hẹn' },
+  { value: 'payment', label: 'Thanh toán & Hoàn tiền' },
+  { value: 'account', label: 'Tài khoản' },
+  { value: 'technical', label: 'Lỗi kỹ thuật' },
+  { value: 'other', label: 'Khác' },
 ];
 
 interface SupportTicketModalProps {
@@ -25,9 +24,9 @@ interface SupportTicketModalProps {
   defaultBookingId?: string;
 }
 
-interface BookingOption {
+interface DateOrderOption {
   id: string;
-  activity: string;
+  description: string;
   created_at: string;
 }
 
@@ -43,53 +42,53 @@ export default function SupportTicketModal({
   const [category, setCategory] = useState<TicketCategory>('other');
   const [subject, setSubject] = useState('');
   const [description, setDescription] = useState('');
-  const [selectedBookingId, setSelectedBookingId] = useState<string>(defaultBookingId || '');
-  const [bookings, setBookings] = useState<BookingOption[]>([]);
+  const [selectedDateOrderId, setSelectedDateOrderId] = useState<string>(defaultBookingId || '');
+  const [dateOrders, setDateOrders] = useState<DateOrderOption[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
-  const [loadingBookings, setLoadingBookings] = useState(false);
+  const [loadingDateOrders, setLoadingDateOrders] = useState(false);
 
-  // Fetch user's recent bookings
+  // Fetch user's recent date orders
   useEffect(() => {
-    const fetchBookings = async () => {
+    const fetchDateOrders = async () => {
       if (!user?.id || !isOpen) return;
 
-      setLoadingBookings(true);
+      setLoadingDateOrders(true);
       try {
         const { data } = await supabase
-          .from('bookings')
-          .select('id, activity, created_at')
-          .eq('user_id', user.id)
+          .from('date_orders')
+          .select('id, description, created_at')
+          .eq('creator_id', user.id)
           .order('created_at', { ascending: false })
           .limit(20);
 
-        setBookings(data || []);
+        setDateOrders(data || []);
       } catch (err) {
-        console.error('Error fetching bookings:', err);
+        console.error('Error fetching date orders:', err);
       } finally {
-        setLoadingBookings(false);
+        setLoadingDateOrders(false);
       }
     };
 
-    fetchBookings();
+    fetchDateOrders();
   }, [user?.id, isOpen]);
 
-  // Set default booking if provided
+  // Set default date order if provided
   useEffect(() => {
     if (defaultBookingId) {
-      setSelectedBookingId(defaultBookingId);
+      setSelectedDateOrderId(defaultBookingId);
       setCategory('booking');
     }
   }, [defaultBookingId]);
 
   const handleSubmit = async () => {
     if (!subject.trim()) {
-      toast.error('Vui long nhap tieu de');
+      toast.error('Vui lòng nhập tiêu đề');
       return;
     }
 
     if (!description.trim()) {
-      toast.error('Vui long mo ta chi tiet van de');
+      toast.error('Vui lòng mô tả chi tiết vấn đề');
       return;
     }
 
@@ -100,26 +99,26 @@ export default function SupportTicketModal({
         subject: subject.trim(),
         description: description.trim(),
         category,
-        related_booking_id: selectedBookingId || undefined,
+        date_order_id: selectedDateOrderId || undefined,
       });
 
       if (result) {
         setIsSuccess(true);
-        toast.success('Da gui yeu cau ho tro thanh cong');
+        toast.success('Đã gửi yêu cầu hỗ trợ thành công');
 
         setTimeout(() => {
           setIsSuccess(false);
           setCategory('other');
           setSubject('');
           setDescription('');
-          setSelectedBookingId('');
+          setSelectedDateOrderId('');
           onClose();
           onSuccess?.();
         }, 1500);
       }
     } catch (err: any) {
       console.error('Submit error:', err);
-      toast.error(err?.message || 'Khong the gui yeu cau. Vui long thu lai.');
+      toast.error(err?.message || 'Không thể gửi yêu cầu. Vui lòng thử lại.');
     } finally {
       setIsSubmitting(false);
     }
@@ -130,7 +129,7 @@ export default function SupportTicketModal({
       setCategory('other');
       setSubject('');
       setDescription('');
-      setSelectedBookingId('');
+      setSelectedDateOrderId('');
       setIsSuccess(false);
       onClose();
     }
@@ -208,26 +207,26 @@ export default function SupportTicketModal({
                   </div>
 
                   {/* Booking Reference (Optional) */}
-                  {(category === 'booking' || category === 'payment' || category === 'partner') && (
+                  {(category === 'booking' || category === 'payment') && (
                     <div>
                       <label className="block text-sm font-bold text-gray-700 mb-2">
-                        Booking lien quan (khong bat buoc)
+                        Đơn hẹn liên quan (không bắt buộc)
                       </label>
                       <div className="relative">
                         <select
-                          value={selectedBookingId}
-                          onChange={(e) => setSelectedBookingId(e.target.value)}
-                          disabled={loadingBookings}
+                          value={selectedDateOrderId}
+                          onChange={(e) => setSelectedDateOrderId(e.target.value)}
+                          disabled={loadingDateOrders}
                           className={cn(
                             'w-full px-4 py-3 bg-gray-50 border rounded-xl outline-none transition appearance-none',
                             'focus:ring-2 focus:ring-primary-500 focus:border-primary-500',
-                            loadingBookings && 'opacity-50'
+                            loadingDateOrders && 'opacity-50'
                           )}
                         >
-                          <option value="">-- Chon booking --</option>
-                          {bookings.map((booking) => (
-                            <option key={booking.id} value={booking.id}>
-                              {booking.activity} - {new Date(booking.created_at).toLocaleDateString('vi-VN')}
+                          <option value="">-- Chọn đơn hẹn --</option>
+                          {dateOrders.map((order: DateOrderOption) => (
+                            <option key={order.id} value={order.id}>
+                              {order.description?.slice(0, 50) || 'Đơn hẹn'} - {new Date(order.created_at).toLocaleDateString('vi-VN')}
                             </option>
                           ))}
                         </select>
@@ -239,13 +238,13 @@ export default function SupportTicketModal({
                   {/* Subject */}
                   <div>
                     <label className="block text-sm font-bold text-gray-700 mb-2">
-                      Tieu de <span className="text-red-500">*</span>
+                      Tiêu đề <span className="text-red-500">*</span>
                     </label>
                     <input
                       type="text"
                       value={subject}
                       onChange={(e) => setSubject(e.target.value)}
-                      placeholder="Tom tat van de ban gap..."
+                      placeholder="Tóm tắt vấn đề bạn gặp..."
                       maxLength={100}
                       className={cn(
                         'w-full px-4 py-3 bg-gray-50 border rounded-xl outline-none transition',
@@ -257,12 +256,12 @@ export default function SupportTicketModal({
                   {/* Description */}
                   <div>
                     <label className="block text-sm font-bold text-gray-700 mb-2">
-                      Mo ta chi tiet <span className="text-red-500">*</span>
+                      Mô tả chi tiết <span className="text-red-500">*</span>
                     </label>
                     <textarea
                       value={description}
                       onChange={(e) => setDescription(e.target.value)}
-                      placeholder="Vui long mo ta cu the van de ban gap phai de chung toi co the ho tro tot hon..."
+                      placeholder="Vui lòng mô tả cụ thể vấn đề bạn gặp phải để chúng tôi có thể hỗ trợ tốt hơn..."
                       rows={4}
                       maxLength={2000}
                       className={cn(
@@ -278,8 +277,8 @@ export default function SupportTicketModal({
                   {/* Info Box */}
                   <div className="bg-blue-50 border border-blue-100 rounded-xl p-3">
                     <p className="text-xs text-blue-800 leading-relaxed">
-                      <strong>Luu y:</strong> De nhan phan hoi nhanh hon, vui long mo ta cu the van de,
-                      bao gom thoi gian va cac buoc da thuc hien. Doi ngu ho tro se phan hoi trong vong 24h.
+                      <strong>Lưu ý:</strong> Để nhận phản hồi nhanh hơn, vui lòng mô tả cụ thể vấn đề,
+                      bao gồm thời gian và các bước đã thực hiện. Đội ngũ hỗ trợ sẽ phản hồi trong vòng 24h.
                     </p>
                   </div>
 
@@ -290,7 +289,7 @@ export default function SupportTicketModal({
                       disabled={isSubmitting}
                       className="flex-1 py-3 bg-gray-100 text-gray-700 rounded-xl font-bold hover:bg-gray-200 transition disabled:opacity-50"
                     >
-                      Huy
+                      Hủy
                     </button>
                     <button
                       onClick={handleSubmit}
@@ -305,10 +304,10 @@ export default function SupportTicketModal({
                       {isSubmitting ? (
                         <>
                           <Loader2 className="w-4 h-4 animate-spin" />
-                          Dang gui...
+                          Đang gửi...
                         </>
                       ) : (
-                        'Gui yeu cau'
+                        'Gửi yêu cầu'
                       )}
                     </button>
                   </div>

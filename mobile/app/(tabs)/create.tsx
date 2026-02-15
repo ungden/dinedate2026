@@ -20,6 +20,7 @@ import { useAuth } from '@/contexts/auth-context';
 import { useLocalSearchParams } from 'expo-router';
 import { Restaurant, Combo, PaymentSplit } from '@/constants/types';
 import { formatPrice } from '@/lib/format';
+import AuthGuard from '@/components/auth-guard';
 
 type Step = 'restaurant' | 'combo' | 'datetime' | 'details' | 'payment' | 'review';
 type PreferredGender = 'male' | 'female' | 'other' | null;
@@ -42,6 +43,14 @@ const GENDER_OPTIONS: { value: PreferredGender; label: string }[] = [
 ];
 
 export default function CreateDateScreen() {
+  return (
+    <AuthGuard>
+      <CreateDateContent />
+    </AuthGuard>
+  );
+}
+
+function CreateDateContent() {
   const { user } = useAuth();
   const { restaurants } = useRestaurants();
   const params = useLocalSearchParams<{ restaurantId?: string }>();
@@ -97,27 +106,30 @@ export default function CreateDateScreen() {
       // Submit to Supabase
       setSubmitting(true);
       try {
+        // Null guard — AuthGuard ensures user exists, but double-check
+        if (!user?.id || !selectedRestaurant?.id || !selectedCombo?.id) {
+          Alert.alert('Lỗi', 'Thiếu thông tin. Vui lòng kiểm tra lại.');
+          setSubmitting(false);
+          return;
+        }
+
         // Calculate required fields
-        const comboPrice = selectedCombo?.price || 0;
-        const commissionRate = selectedRestaurant?.commissionRate || 0.15;
+        const comboPrice = selectedCombo.price || 0;
+        const commissionRate = selectedRestaurant.commissionRate || 0.15;
         const restaurantCommission = Math.round(comboPrice * commissionRate);
 
         // Calculate creator total
-        const calcCreatorTotal = selectedCombo
-          ? PLATFORM_FEE_PER_PERSON + (paymentSplit === 'applicant_pays' ? 0 : paymentSplit === 'split' ? Math.round(comboPrice / 2) : comboPrice)
-          : PLATFORM_FEE_PER_PERSON;
+        const calcCreatorTotal = PLATFORM_FEE_PER_PERSON + (paymentSplit === 'applicant_pays' ? 0 : paymentSplit === 'split' ? Math.round(comboPrice / 2) : comboPrice);
 
-        const applicantTotal = selectedCombo
-          ? PLATFORM_FEE_PER_PERSON + (paymentSplit === 'creator_pays' ? 0 : paymentSplit === 'split' ? Math.round(comboPrice / 2) : comboPrice)
-          : PLATFORM_FEE_PER_PERSON;
+        const applicantTotal = PLATFORM_FEE_PER_PERSON + (paymentSplit === 'creator_pays' ? 0 : paymentSplit === 'split' ? Math.round(comboPrice / 2) : comboPrice);
 
         // expires_at = 1 hour before date_time
         const expiresAt = new Date(selectedDate.getTime() - 60 * 60 * 1000).toISOString();
 
         const { error } = await supabase.from('date_orders').insert({
-          creator_id: user?.id,
-          restaurant_id: selectedRestaurant?.id,
-          combo_id: selectedCombo?.id,
+          creator_id: user.id,
+          restaurant_id: selectedRestaurant.id,
+          combo_id: selectedCombo.id,
           date_time: selectedDate.toISOString(),
           description,
           preferred_gender: preferredGender,

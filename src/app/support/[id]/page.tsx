@@ -205,20 +205,20 @@ export default function TicketDetailPage() {
 
         {/* Description */}
         <div className="mt-4 pt-4 border-t border-gray-100">
-          <h4 className="text-sm font-bold text-gray-700 mb-2">Mo ta</h4>
+          <h4 className="text-sm font-bold text-gray-700 mb-2">Mô tả</h4>
           <p className="text-gray-600 text-sm leading-relaxed whitespace-pre-wrap">{ticket.description}</p>
         </div>
 
-        {/* Related Booking */}
-        {ticket.related_booking_id && (
+        {/* Related Date Order */}
+        {ticket.date_order_id && (
           <div className="mt-4 pt-4 border-t border-gray-100">
-            <h4 className="text-sm font-bold text-gray-700 mb-2">Booking lien quan</h4>
+            <h4 className="text-sm font-bold text-gray-700 mb-2">Đơn hẹn liên quan</h4>
             <Link
-              href={`/manage-bookings`}
+              href={`/admin/bookings`}
               className="inline-flex items-center gap-2 text-primary-600 text-sm hover:underline"
             >
               <FileText className="w-4 h-4" />
-              Xem booking #{ticket.related_booking_id.slice(0, 8)}
+              Xem đơn hẹn #{ticket.date_order_id.slice(0, 8)}
             </Link>
           </div>
         )}
@@ -238,14 +238,14 @@ export default function TicketDetailPage() {
           {messages.length === 0 ? (
             <div className="text-center py-8">
               <MessageSquare className="w-12 h-12 text-gray-300 mx-auto mb-2" />
-              <p className="text-gray-500 text-sm">Chua co tin nhan nao.</p>
+              <p className="text-gray-500 text-sm">Chưa có tin nhắn nào.</p>
               {!isClosed && (
-                <p className="text-gray-400 text-xs mt-1">Gui tin nhan de bat dau trao doi.</p>
+                <p className="text-gray-400 text-xs mt-1">Gửi tin nhắn để bắt đầu trao đổi.</p>
               )}
             </div>
           ) : (
             messages.map((msg) => {
-              const isOwn = msg.user_id === user?.id;
+              const isOwn = msg.sender_id === user?.id;
               const isAdmin = msg.is_admin;
 
               return (
@@ -258,10 +258,10 @@ export default function TicketDetailPage() {
                 >
                   {!isOwn && (
                     <div className="w-8 h-8 rounded-full overflow-hidden bg-gray-200 flex-shrink-0 relative">
-                      {msg.user?.avatar_url ? (
+                      {msg.sender?.avatar_url ? (
                         <Image
-                          src={msg.user.avatar_url}
-                          alt={msg.user.name || 'User'}
+                          src={msg.sender.avatar_url}
+                          alt={msg.sender.name || 'User'}
                           fill
                           className="object-cover"
                         />
@@ -286,7 +286,7 @@ export default function TicketDetailPage() {
                     {!isOwn && (
                       <div className="flex items-center gap-2 mb-1">
                         <span className="text-xs font-bold text-gray-700">
-                          {msg.user?.name || 'Ho tro'}
+                          {msg.sender?.name || 'Hỗ trợ'}
                         </span>
                         {isAdmin && (
                           <span className="px-1.5 py-0.5 bg-blue-100 text-blue-700 text-[10px] font-bold rounded">
@@ -295,7 +295,7 @@ export default function TicketDetailPage() {
                         )}
                       </div>
                     )}
-                    <p className="text-sm leading-relaxed whitespace-pre-wrap">{msg.message}</p>
+                    <p className="text-sm leading-relaxed whitespace-pre-wrap">{msg.content}</p>
                     <p className={cn(
                       'text-[10px] mt-1',
                       isOwn ? 'text-primary-200' : 'text-gray-400'

@@ -17,6 +17,8 @@ export default function DateOrderCard({ order }: { order: DateOrder }) {
   const router = useRouter();
   const cuisine = order.restaurant?.cuisineTypes?.[0];
   const icon = cuisine ? CUISINE_ICONS[cuisine] || '🍽️' : '🍽️';
+  const isHot = order.applicantCount >= 5;
+  const isNew = Date.now() - new Date(order.createdAt).getTime() <= 60 * 60 * 1000;
 
   return (
     <Pressable
@@ -33,6 +35,21 @@ export default function DateOrderCard({ order }: { order: DateOrder }) {
         contentFit="cover"
         accessibilityLabel={`Ảnh nhà hàng ${order.restaurant?.name || ''}`}
       />
+
+      {(isHot || isNew) && (
+        <View style={styles.topLeftBadges}>
+          {isHot && (
+            <View style={[styles.flagBadge, styles.hotFlag]}>
+              <Text style={styles.flagText}>🔥 HOT</Text>
+            </View>
+          )}
+          {isNew && (
+            <View style={[styles.flagBadge, styles.newFlag]}>
+              <Text style={styles.flagText}>MỚI</Text>
+            </View>
+          )}
+        </View>
+      )}
 
       {/* Status badge */}
       <View style={styles.statusBadge}>
@@ -115,6 +132,29 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.sm,
     paddingVertical: Spacing.xs,
     borderRadius: BorderRadius.full,
+  },
+  topLeftBadges: {
+    position: 'absolute',
+    top: Spacing.sm,
+    left: Spacing.sm,
+    flexDirection: 'row',
+    gap: Spacing.xs,
+  },
+  flagBadge: {
+    borderRadius: BorderRadius.full,
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 2,
+  },
+  hotFlag: {
+    backgroundColor: Colors.secondary,
+  },
+  newFlag: {
+    backgroundColor: Colors.info,
+  },
+  flagText: {
+    color: Colors.white,
+    fontSize: FontSize.xs,
+    fontWeight: '700',
   },
   statusText: {
     color: Colors.white,

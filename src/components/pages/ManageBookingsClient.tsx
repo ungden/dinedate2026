@@ -22,9 +22,9 @@ import DateOrderCard from '@/components/DateOrderCard';
 type TabType = 'created' | 'applied' | 'completed';
 
 const TABS: { key: TabType; label: string; icon: React.ReactNode }[] = [
-  { key: 'created', label: 'Da tao', icon: <ClipboardList className="w-4 h-4" /> },
-  { key: 'applied', label: 'Da ung tuyen', icon: <Send className="w-4 h-4" /> },
-  { key: 'completed', label: 'Da hoan thanh', icon: <CheckCircle2 className="w-4 h-4" /> },
+  { key: 'created', label: 'Đã tạo', icon: <ClipboardList className="w-4 h-4" /> },
+  { key: 'applied', label: 'Đã ứng tuyển', icon: <Send className="w-4 h-4" /> },
+  { key: 'completed', label: 'Đã hoàn thành', icon: <CheckCircle2 className="w-4 h-4" /> },
 ];
 
 export default function ManageBookingsClient() {
@@ -81,19 +81,21 @@ export default function ManageBookingsClient() {
   if (!isAuthenticated) {
     return (
       <div className="text-center py-16">
-        <p className="text-gray-500 mb-4">Vui long dang nhap de xem lich su date.</p>
+        <div className="text-5xl mb-4">📋</div>
+        <h3 className="text-lg font-bold text-gray-800 mb-2">Vui lòng đăng nhập</h3>
+        <p className="text-gray-500 text-sm mb-6">Đăng nhập để xem lịch sử date của bạn.</p>
         <Link
           href="/login"
-          className="px-6 py-3 bg-primary-500 text-white rounded-xl font-semibold inline-block"
+          className="px-6 py-3 bg-gradient-to-r from-pink-500 to-pink-600 text-white rounded-2xl font-bold inline-block shadow-primary"
         >
-          Dang nhap
+          Đăng nhập
         </Link>
       </div>
     );
   }
 
   return (
-    <div className="max-w-3xl mx-auto space-y-6 pb-20">
+    <div className="max-w-5xl mx-auto space-y-6 pb-24 md:pb-8">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
@@ -103,14 +105,14 @@ export default function ManageBookingsClient() {
           >
             <ArrowLeft className="w-5 h-5" />
           </Link>
-          <h1 className="text-xl font-bold text-gray-900">My Date Orders</h1>
+          <h1 className="text-xl font-bold text-gray-900">Lịch hẹn của tôi</h1>
         </div>
         <Link
           href="/create-request"
-          className="flex items-center gap-1.5 px-4 py-2 bg-primary-500 text-white rounded-xl text-sm font-semibold hover:bg-primary-600 transition"
+          className="flex items-center gap-1.5 px-4 py-2 bg-gradient-to-r from-pink-500 to-pink-600 text-white rounded-xl text-sm font-bold hover:opacity-95 transition shadow-primary"
         >
           <Plus className="w-4 h-4" />
-          Tao moi
+          Tạo mới
         </Link>
       </div>
 
@@ -123,7 +125,7 @@ export default function ManageBookingsClient() {
             className={cn(
               'flex-1 flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-lg font-semibold text-sm transition',
               activeTab === tab.key
-                ? 'bg-white text-primary-600 shadow-sm'
+                ? 'bg-white text-pink-600 shadow-sm'
                 : 'text-gray-500 hover:text-gray-700'
             )}
           >
@@ -133,7 +135,7 @@ export default function ManageBookingsClient() {
               className={cn(
                 'ml-0.5 px-1.5 py-0.5 rounded-full text-xs font-bold min-w-[20px] text-center',
                 activeTab === tab.key
-                  ? 'bg-primary-100 text-primary-600'
+                  ? 'bg-pink-100 text-pink-600'
                   : 'bg-gray-200 text-gray-500'
               )}
             >
@@ -146,11 +148,11 @@ export default function ManageBookingsClient() {
       {/* Content */}
       {isLoading ? (
         <div className="py-20 text-center">
-          <Loader2 className="w-8 h-8 animate-spin text-primary-500 mx-auto" />
-          <p className="text-gray-500 mt-3 text-sm">Dang tai du lieu...</p>
+          <Loader2 className="w-8 h-8 animate-spin text-pink-500 mx-auto" />
+          <p className="text-gray-500 mt-3 text-sm">Đang tải dữ liệu...</p>
         </div>
       ) : currentList.length > 0 ? (
-        <div className="space-y-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <AnimatePresence>
             {currentList.map((order, i) => (
               <motion.div
@@ -179,30 +181,30 @@ export default function ManageBookingsClient() {
             <Inbox className="w-10 h-10 text-gray-300" />
           </div>
           <h3 className="text-lg font-bold text-gray-900 mb-1">
-            {activeTab === 'created' && 'Chua tao Date Order nao'}
-            {activeTab === 'applied' && 'Chua ung tuyen Date Order nao'}
-            {activeTab === 'completed' && 'Chua hoan thanh buoi date nao'}
+            {activeTab === 'created' && 'Chưa tạo Date Order nào'}
+            {activeTab === 'applied' && 'Chưa ứng tuyển Date Order nào'}
+            {activeTab === 'completed' && 'Chưa hoàn thành buổi date nào'}
           </h3>
           <p className="text-gray-500 text-sm mb-4">
-            {activeTab === 'created' && 'Tao Date Order dau tien de tim nguoi di date!'}
-            {activeTab === 'applied' && 'Kham pha va ung tuyen cac Date Order hap dan.'}
-            {activeTab === 'completed' && 'Hoan thanh buoi date de co danh gia.'}
+            {activeTab === 'created' && 'Tạo Date Order đầu tiên để tìm người đi date!'}
+            {activeTab === 'applied' && 'Khám phá và ứng tuyển các Date Order hấp dẫn.'}
+            {activeTab === 'completed' && 'Hoàn thành buổi date để có đánh giá.'}
           </p>
           {activeTab === 'created' && (
             <Link
               href="/create-request"
-              className="inline-flex items-center gap-2 px-5 py-2.5 bg-primary-500 text-white rounded-xl text-sm font-semibold hover:bg-primary-600 transition"
+              className="inline-flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-pink-500 to-pink-600 text-white rounded-xl text-sm font-bold hover:opacity-95 transition shadow-primary"
             >
               <Plus className="w-4 h-4" />
-              Tao Date Order
+              Tạo Date Order
             </Link>
           )}
           {activeTab === 'applied' && (
             <Link
-              href="/discover"
-              className="inline-flex items-center gap-2 px-5 py-2.5 bg-primary-500 text-white rounded-xl text-sm font-semibold hover:bg-primary-600 transition"
+              href="/"
+              className="inline-flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-pink-500 to-pink-600 text-white rounded-xl text-sm font-bold hover:opacity-95 transition shadow-primary"
             >
-              Kham pha
+              Khám phá
             </Link>
           )}
         </motion.div>

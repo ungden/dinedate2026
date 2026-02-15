@@ -2,20 +2,20 @@
 @tailwind components;
 @tailwind utilities;
 
-/* ===== PREMIUM MODERN DESIGN TOKENS ===== */
+/* ===== DESIGN TOKENS — DineDate 2026 ===== */
 :root {
-  /* Màu chủ đạo: Hồng rực rỡ */
-  --primary-500: 244, 63, 94;  /* Rose 500 */
-  --primary-600: 225, 29, 72;  /* Rose 600 */
+  /* Màu chủ đạo: Pink #EC4899 */
+  --primary-500: 236, 72, 153;
+  --primary-600: 219, 39, 119;
   
-  /* Nền chủ đạo: Chuyển sang Hồng phấn nhẹ thay vì trắng */
-  --bg-main: 255, 241, 242; /* Rose 50 #FFF1F2 */
+  /* Nền chủ đạo */
+  --bg-main: 253, 242, 248; /* primary-50 */
   --surface: 255, 255, 255;
   
   /* Shadow hồng */
-  --shadow-sm: 0 4px 16px -4px rgba(244, 63, 94, 0.15);
-  --shadow-md: 0 12px 32px -8px rgba(244, 63, 94, 0.2);
-  --shadow-primary: 0 8px 24px -4px rgba(244, 63, 94, 0.4);
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.04), 0 4px 12px rgba(0, 0, 0, 0.04);
+  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.08), 0 8px 24px rgba(236, 72, 153, 0.08);
+  --shadow-primary: 0 8px 24px -4px rgba(236, 72, 153, 0.35);
 }
 
 body {
@@ -24,9 +24,9 @@ body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   background-image: 
-    radial-gradient(at 0% 0%, rgba(253, 164, 175, 0.3) 0px, transparent 50%),
-    radial-gradient(at 100% 0%, rgba(251, 113, 133, 0.2) 0px, transparent 50%),
-    radial-gradient(at 100% 100%, rgba(255, 228, 230, 0.5) 0px, transparent 50%);
+    radial-gradient(at 0% 0%, rgba(249, 168, 212, 0.3) 0px, transparent 50%),
+    radial-gradient(at 100% 0%, rgba(244, 114, 182, 0.15) 0px, transparent 50%),
+    radial-gradient(at 100% 100%, rgba(252, 231, 243, 0.4) 0px, transparent 50%);
   background-attachment: fixed;
 }
 
@@ -34,36 +34,51 @@ body {
 input:-webkit-autofill,
 input:-webkit-autofill:hover, 
 input:-webkit-autofill:focus, 
-input:-webkit-autofill:active{
-    -webkit-box-shadow: 0 0 0 30px white inset !important;
-    -webkit-text-fill-color: #111827 !important;
-    transition: background-color 5000s ease-in-out 0s;
+input:-webkit-autofill:active {
+  -webkit-box-shadow: 0 0 0 30px white inset !important;
+  -webkit-text-fill-color: #111827 !important;
+  transition: background-color 5000s ease-in-out 0s;
 }
 
 @layer components {
-  /* Input chuẩn cho toàn app */
+  /* ===== INPUTS ===== */
   .input-field {
-    @apply w-full px-5 py-3.5 bg-gray-50 border border-gray-200 rounded-[16px] text-[15px] font-medium text-gray-900 placeholder:text-gray-400 focus:bg-white focus:border-rose-400 focus:ring-4 focus:ring-rose-500/10 transition-all duration-200 outline-none;
+    @apply w-full px-5 py-3.5 bg-gray-50 border border-gray-200 rounded-2xl text-[15px] font-medium text-gray-900 placeholder:text-gray-400 focus:bg-white focus:border-pink-400 focus:ring-4 focus:ring-pink-500/10 transition-all duration-200 outline-none;
   }
 
   .input-modern {
-    @apply w-full px-5 py-3.5 bg-white/80 backdrop-blur-sm border border-rose-200 rounded-[20px] text-[15px] font-medium text-gray-900 placeholder:text-gray-400 focus:border-rose-400 focus:ring-4 focus:ring-rose-500/20 transition-all duration-200 outline-none;
+    @apply w-full px-5 py-3.5 bg-white/80 backdrop-blur-sm border border-pink-200 rounded-2xl text-[15px] font-medium text-gray-900 placeholder:text-gray-400 focus:border-pink-400 focus:ring-4 focus:ring-pink-500/20 transition-all duration-200 outline-none;
   }
 
+  /* ===== CARDS ===== */
   .card-premium {
-    @apply bg-white/90 backdrop-blur-sm rounded-[24px] shadow-[var(--shadow-sm)] border border-rose-100 overflow-hidden transition-all duration-300 hover:shadow-[var(--shadow-md)] hover:border-rose-200 hover:-translate-y-0.5;
+    @apply bg-white rounded-2xl shadow-card border border-gray-100/80 overflow-hidden transition-all duration-300 hover:shadow-card-hover hover:border-pink-100 hover:-translate-y-0.5;
   }
 
+  .ios-card {
+    @apply bg-white rounded-2xl shadow-card border border-gray-100/60 overflow-hidden;
+  }
+
+  /* ===== BUTTONS ===== */
   .btn-primary {
-    @apply px-6 py-3 bg-gradient-to-r from-rose-500 to-pink-600 text-white font-bold rounded-2xl shadow-[var(--shadow-primary)] hover:opacity-95 hover:shadow-lg active:scale-[0.98] transition-all;
+    @apply px-6 py-3 bg-gradient-to-r from-pink-500 to-pink-600 text-white font-bold rounded-2xl shadow-primary hover:shadow-primary-lg hover:opacity-95 active:scale-[0.98] transition-all duration-200;
   }
   
   .btn-secondary {
-    @apply px-6 py-3 bg-white/80 backdrop-blur text-rose-600 font-bold border-2 border-rose-200 rounded-2xl hover:bg-rose-50 hover:border-rose-300 active:scale-[0.98] transition-all;
+    @apply px-6 py-3 bg-white text-pink-600 font-bold border-2 border-pink-200 rounded-2xl hover:bg-pink-50 hover:border-pink-300 active:scale-[0.98] transition-all duration-200;
   }
 
+  .btn-ghost {
+    @apply px-4 py-2 text-gray-600 font-semibold rounded-xl hover:bg-gray-100 active:scale-[0.98] transition-all duration-200;
+  }
+
+  /* ===== TEXT ===== */
   .text-gradient {
-    @apply bg-clip-text text-transparent bg-gradient-to-r from-rose-600 to-pink-600;
+    @apply bg-clip-text text-transparent bg-gradient-to-r from-pink-600 to-pink-500;
+  }
+
+  .gradient-text {
+    @apply text-transparent bg-clip-text bg-gradient-to-br from-pink-600 via-pink-500 to-rose-600;
   }
 }
 
@@ -76,22 +91,34 @@ input:-webkit-autofill:active{
   }
   
   .glass-pink {
-    @apply bg-rose-50/80 backdrop-blur-xl border border-rose-100/50 shadow-sm;
+    @apply bg-pink-50/80 backdrop-blur-xl border border-pink-100/50 shadow-sm;
   }
-  
-  .gradient-text {
-    @apply text-transparent bg-clip-text bg-gradient-to-br from-rose-600 via-pink-500 to-rose-700;
-  }
-  
-  /* Safe area padding for mobile notches/home bars */
+
+  /* Safe area padding */
   .safe-bottom {
     padding-bottom: env(safe-area-inset-bottom);
   }
   .safe-top {
     padding-top: env(safe-area-inset-top);
   }
-}
+  .safe-area-bottom {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
 
-.tap-effect {
-  @apply active:scale-[0.95] transition-transform duration-150;
+  /* Shadow utilities */
+  .shadow-soft {
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  }
+
+  /* Tap effects */
+  .tap-effect {
+    @apply active:scale-[0.95] transition-transform duration-150;
+  }
+  .tap-highlight {
+    @apply active:scale-[0.97] active:bg-gray-50 transition-all duration-150;
+  }
+
+  /* Scrollbar hide */
+  .scrollbar-hide::-webkit-scrollbar { display: none; }
+  .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
 }

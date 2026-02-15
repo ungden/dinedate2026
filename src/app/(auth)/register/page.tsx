@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useAuth } from '@/contexts/AuthContext';
 import { Eye, EyeOff, Mail, Lock, User, Heart } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { motion } from '@/lib/motion';
 
 export default function RegisterPage() {
   const { register, signInWithGoogle, isLoading } = useAuth();
@@ -52,38 +53,48 @@ export default function RegisterPage() {
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin w-8 h-8 border-4 border-primary-500 border-t-transparent rounded-full" />
+        <div className="animate-spin w-8 h-8 border-4 border-pink-500 border-t-transparent rounded-full" />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen flex">
-      {/* Left side - Branding */}
-      <div className="hidden lg:flex lg:w-1/2 bg-gradient-primary items-center justify-center p-12">
-        <div className="text-center text-white">
-          <div className="w-24 h-24 bg-white/20 rounded-3xl flex items-center justify-center mx-auto mb-8">
-            <Heart className="w-12 h-12" />
-          </div>
-          <h1 className="text-4xl font-bold mb-4">DineDate</h1>
-          <p className="text-xl text-primary-100 max-w-md">
-            Bắt đầu hành trình tìm kiếm những kết nối ý nghĩa
+    <div className="min-h-screen flex bg-white">
+      {/* Left side - Branding (Desktop Only) */}
+      <div className="hidden lg:flex lg:w-1/2 bg-gradient-primary items-center justify-center p-12 relative overflow-hidden">
+        <div className="absolute inset-0 opacity-10 bg-[radial-gradient(circle_at_1px_1px,#fff_1px,transparent_0)] bg-[size:24px_24px]" />
+        <div className="relative z-10 text-center text-white max-w-lg">
+          <motion.div
+            className="w-24 h-24 bg-white/20 backdrop-blur-xl rounded-[32px] flex items-center justify-center mx-auto mb-10 shadow-2xl"
+            animate={{ y: [0, -10, 0] }}
+            transition={{ duration: 4, repeat: Infinity }}
+          >
+            <Heart className="w-12 h-12 fill-white" />
+          </motion.div>
+          <h1 className="text-5xl font-black mb-6 tracking-tight">DineDate</h1>
+          <p className="text-xl text-pink-100 font-medium leading-relaxed">
+            Bắt đầu hành trình tìm kiếm những kết nối ý nghĩa qua ẩm thực
           </p>
         </div>
       </div>
 
       {/* Right side - Form */}
-      <div className="flex-1 flex items-center justify-center p-8">
-        <div className="w-full max-w-md">
+      <div className="flex-1 flex items-center justify-center p-6 md:p-12 bg-white lg:bg-transparent">
+        <motion.div
+          className="w-full max-w-md"
+          initial={{ opacity: 0, x: 20 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ duration: 0.5 }}
+        >
           {/* Mobile logo */}
-          <div className="lg:hidden text-center mb-8">
-            <div className="w-16 h-16 bg-gradient-primary rounded-2xl flex items-center justify-center mx-auto mb-4">
-              <Heart className="w-8 h-8 text-white" />
+          <div className="lg:hidden text-center mb-8 mt-4">
+            <div className="w-16 h-16 bg-gradient-primary rounded-[20px] flex items-center justify-center mx-auto mb-4 shadow-primary">
+              <Heart className="w-8 h-8 text-white fill-white" />
             </div>
-            <h1 className="text-2xl font-bold gradient-text">DineDate</h1>
+            <h1 className="text-3xl font-black gradient-text">DineDate</h1>
           </div>
 
-          <div className="bg-white rounded-2xl shadow-lg p-8">
+          <div className="bg-white p-2 md:p-8 rounded-[32px]">
             <h2 className="text-2xl font-bold text-gray-900 mb-2">
               Tạo tài khoản
             </h2>
@@ -110,7 +121,7 @@ export default function RegisterPage() {
                     onChange={(e) => setName(e.target.value)}
                     placeholder="Nguyễn Văn A"
                     required
-                    className="w-full pl-12 pr-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent outline-none transition"
+                    className="w-full pl-12 pr-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-pink-500 focus:border-transparent outline-none transition"
                   />
                 </div>
               </div>
@@ -127,7 +138,7 @@ export default function RegisterPage() {
                     onChange={(e) => setEmail(e.target.value)}
                     placeholder="email@example.com"
                     required
-                    className="w-full pl-12 pr-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent outline-none transition"
+                    className="w-full pl-12 pr-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-pink-500 focus:border-transparent outline-none transition"
                   />
                 </div>
               </div>
@@ -144,7 +155,7 @@ export default function RegisterPage() {
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder="Tối thiểu 8 ký tự"
                     required
-                    className="w-full pl-12 pr-12 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent outline-none transition"
+                    className="w-full pl-12 pr-12 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-pink-500 focus:border-transparent outline-none transition"
                   />
                   <button
                     type="button"
@@ -172,7 +183,7 @@ export default function RegisterPage() {
                     onChange={(e) => setConfirmPassword(e.target.value)}
                     placeholder="Nhập lại mật khẩu"
                     required
-                    className="w-full pl-12 pr-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent outline-none transition"
+                    className="w-full pl-12 pr-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-pink-500 focus:border-transparent outline-none transition"
                   />
                 </div>
               </div>
@@ -181,15 +192,15 @@ export default function RegisterPage() {
                 <input
                   type="checkbox"
                   required
-                  className="w-4 h-4 mt-0.5 text-primary-500 rounded focus:ring-primary-500"
+                  className="w-4 h-4 mt-0.5 text-pink-500 rounded focus:ring-pink-500"
                 />
                 <span className="text-sm text-gray-600">
                   Tôi đồng ý với{' '}
-                  <a href="#" className="text-primary-600 hover:underline">
+                  <a href="#" className="text-pink-600 hover:underline">
                     Điều khoản dịch vụ
                   </a>{' '}
                   và{' '}
-                  <a href="#" className="text-primary-600 hover:underline">
+                  <a href="#" className="text-pink-600 hover:underline">
                     Chính sách bảo mật
                   </a>
                 </span>
@@ -256,14 +267,14 @@ export default function RegisterPage() {
                 Đã có tài khoản?{' '}
                 <Link
                   href="/login"
-                  className="text-primary-600 font-medium hover:underline"
+                  className="text-pink-600 font-medium hover:underline"
                 >
                   Đăng nhập
                 </Link>
               </p>
             </div>
           </div>
-        </div>
+        </motion.div>
       </div>
     </div>
   );

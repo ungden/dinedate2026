@@ -72,7 +72,7 @@ export default function DateOrderDetailClient() {
   const handleApply = async () => {
     if (!user || !applyMessage.trim()) {
       if (!user) {
-        toast.error('Vui long dang nhap');
+        toast.error('Vui lòng đăng nhập');
         router.push('/login');
       }
       return;
@@ -85,12 +85,12 @@ export default function DateOrderDetailClient() {
     });
 
     if (result) {
-      toast.success('Da gui ung tuyen thanh cong!');
+      toast.success('Đã gửi ứng tuyển thành công!');
       setApplyMessage('');
       setShowApplyForm(false);
       refetch();
     } else {
-      toast.error('Co loi xay ra khi ung tuyen');
+      toast.error('Có lỗi xảy ra khi ứng tuyển');
     }
   };
 
@@ -108,24 +108,24 @@ export default function DateOrderDetailClient() {
     });
 
     if (success) {
-      toast.success('Da chap nhan! Buoi hen da duoc ghep doi.');
+      toast.success('Đã chấp nhận! Buổi hẹn đã được ghép đôi.');
       refetch();
     } else {
-      toast.error('Co loi xay ra');
+      toast.error('Có lỗi xảy ra');
     }
     setProcessingAppId(null);
   };
 
   // Handle cancel
   const handleCancel = async () => {
-    if (!confirm('Ban co chac muon huy Date Order nay?')) return;
+    if (!confirm('Bạn có chắc muốn hủy Date Order này?')) return;
 
     const success = await cancelDateOrder(orderId);
     if (success) {
-      toast.success('Da huy Date Order');
+      toast.success('Đã hủy Date Order');
       refetch();
     } else {
-      toast.error('Khong the huy');
+      toast.error('Không thể hủy');
     }
   };
 
@@ -139,8 +139,8 @@ export default function DateOrderDetailClient() {
   if (orderLoading) {
     return (
       <div className="flex flex-col items-center justify-center py-20">
-        <Loader2 className="w-8 h-8 animate-spin text-primary-500" />
-        <p className="text-gray-500 mt-3 text-sm">Dang tai...</p>
+        <Loader2 className="w-8 h-8 animate-spin text-pink-500" />
+        <p className="text-gray-500 mt-3 text-sm">Đang tải...</p>
       </div>
     );
   }
@@ -151,16 +151,16 @@ export default function DateOrderDetailClient() {
       <div className="max-w-2xl mx-auto text-center py-16">
         <AlertCircle className="w-12 h-12 text-gray-300 mx-auto mb-3" />
         <h3 className="text-lg font-semibold text-gray-900 mb-2">
-          Khong tim thay Date Order
+          Không tìm thấy Date Order
         </h3>
         <p className="text-gray-500 mb-4 text-sm">
-          {orderError || 'Date Order khong ton tai hoac da bi xoa.'}
+          {orderError || 'Date Order không tồn tại hoặc đã bị xóa.'}
         </p>
         <Link
           href="/discover"
-          className="text-primary-600 hover:underline text-sm font-medium"
+          className="text-pink-600 hover:underline text-sm font-medium"
         >
-          Quay lai trang Kham pha
+          Quay lại trang Khám phá
         </Link>
       </div>
     );
@@ -169,7 +169,7 @@ export default function DateOrderDetailClient() {
   const { restaurant, combo, creator, matchedUser } = dateOrder;
 
   return (
-    <div className="max-w-3xl mx-auto space-y-6 pb-20">
+    <div className="max-w-5xl mx-auto space-y-6 pb-24 md:pb-8">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
@@ -180,7 +180,7 @@ export default function DateOrderDetailClient() {
             <ArrowLeft className="w-5 h-5" />
           </button>
           <div>
-            <h1 className="text-xl font-bold text-gray-900">Chi tiet Date Order</h1>
+            <h1 className="text-xl font-bold text-gray-900">Chi tiết Date Order</h1>
             <span
               className={cn(
                 'inline-block px-2.5 py-0.5 rounded-full text-xs font-semibold mt-1',
@@ -206,7 +206,7 @@ export default function DateOrderDetailClient() {
             ) : (
               <XCircle className="w-4 h-4" />
             )}
-            Huy
+            Hủy
           </motion.button>
         )}
       </div>
@@ -224,17 +224,18 @@ export default function DateOrderDetailClient() {
           <div className="relative z-10">
             <div className="flex items-center gap-2 mb-2">
               <Heart className="w-6 h-6 fill-white text-white" />
-              <h3 className="text-lg font-black">Da ghep doi!</h3>
+              <h3 className="text-lg font-black">Đã ghép đôi!</h3>
             </div>
             <p className="text-sm text-white/90">
-              Buoi hen da duoc ghep doi thanh cong. Hay den nha hang dung gio nhe!
+              Buổi hẹn đã được ghép đôi thành công. Hãy đến nhà hàng đúng giờ nhé!
             </p>
           </div>
         </motion.div>
       )}
 
-      {/* Main Card */}
-      <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden shadow-sm">
+      {/* Main Card — 2-column on desktop */}
+      <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden shadow-card lg:grid lg:grid-cols-[1fr_380px]">
+      <div>
         {/* Creator info */}
         <div className="p-6 border-b border-gray-100">
           <div className="flex items-center gap-4">
@@ -248,7 +249,7 @@ export default function DateOrderDetailClient() {
             />
             <div className="flex-1 min-w-0">
               <p className="font-semibold text-gray-900 text-base">
-                {creator?.name || 'An danh'}
+                {creator?.name || 'Ẩn danh'}
               </p>
               {creator?.occupation && (
                 <p className="text-sm text-gray-500">{creator.occupation}</p>
@@ -263,8 +264,8 @@ export default function DateOrderDetailClient() {
               )}
             </div>
             {isCreator && (
-              <span className="px-3 py-1 text-xs font-semibold text-primary-600 bg-primary-50 rounded-full">
-                Don cua ban
+              <span className="px-3 py-1 text-xs font-semibold text-pink-600 bg-pink-50 rounded-full">
+                Đơn của bạn
               </span>
             )}
           </div>
@@ -296,7 +297,7 @@ export default function DateOrderDetailClient() {
                       {combo.name}
                     </span>
                   </div>
-                  <span className="font-bold text-primary-600 text-sm">
+                  <span className="font-bold text-pink-600 text-sm">
                     {formatCurrency(dateOrder.comboPrice)}
                   </span>
                 </div>
@@ -321,20 +322,20 @@ export default function DateOrderDetailClient() {
         <div className="p-6 border-b border-gray-100">
           <div className="grid grid-cols-2 gap-4 mb-4">
             <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl">
-              <Calendar className="w-5 h-5 text-primary-500" />
+              <Calendar className="w-5 h-5 text-pink-500" />
               <div>
-                <p className="text-xs text-gray-500">Ngay & gio</p>
+                <p className="text-xs text-gray-500">Ngày & giờ</p>
                 <p className="font-semibold text-gray-900 text-sm">
                   {formatDateTime(dateOrder.dateTime)}
                 </p>
               </div>
             </div>
             <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl">
-              <Users className="w-5 h-5 text-primary-500" />
+              <Users className="w-5 h-5 text-pink-500" />
               <div>
-                <p className="text-xs text-gray-500">Ung vien</p>
+                <p className="text-xs text-gray-500">Ứng viên</p>
                 <p className="font-semibold text-gray-900 text-sm">
-                  {dateOrder.applicantCount} nguoi
+                  {dateOrder.applicantCount} người
                 </p>
               </div>
             </div>
@@ -352,8 +353,8 @@ export default function DateOrderDetailClient() {
         {/* Pricing Breakdown */}
         <div className="p-6 border-b border-gray-100">
           <div className="flex items-center gap-2 mb-3">
-            <CreditCard className="w-5 h-5 text-primary-500" />
-            <h3 className="font-semibold text-gray-900 text-sm">Chi tiet chi phi</h3>
+            <CreditCard className="w-5 h-5 text-pink-500" />
+            <h3 className="font-semibold text-gray-900 text-sm">Chi tiết chi phí</h3>
           </div>
           <div className="space-y-2">
             <div className="flex justify-between text-sm">
@@ -361,18 +362,18 @@ export default function DateOrderDetailClient() {
               <span className="font-medium">{formatCurrency(dateOrder.comboPrice)}</span>
             </div>
             <div className="flex justify-between text-sm">
-              <span className="text-gray-600">Phi nen tang (moi nguoi)</span>
+              <span className="text-gray-600">Phí nền tảng (mỗi người)</span>
               <span className="font-medium">{formatCurrency(PLATFORM_FEE_PER_PERSON)}</span>
             </div>
             <div className="h-px bg-gray-100" />
             <div className="flex justify-between text-sm">
-              <span className="font-semibold text-gray-900">Nguoi tao tra</span>
-              <span className="font-bold text-primary-600">
+              <span className="font-semibold text-gray-900">Người tạo trả</span>
+              <span className="font-bold text-pink-600">
                 {formatCurrency(dateOrder.creatorTotal)}
               </span>
             </div>
             <div className="flex justify-between text-sm">
-              <span className="text-gray-600">Doi phuong tra</span>
+              <span className="text-gray-600">Đối phương trả</span>
               <span className="font-medium">
                 {formatCurrency(dateOrder.applicantTotal)}
               </span>
@@ -384,7 +385,7 @@ export default function DateOrderDetailClient() {
         {isMatched && matchedUser && (
           <div className="p-6 border-b border-gray-100">
             <h3 className="font-semibold text-gray-900 text-sm mb-3">
-              Doi phuong da duoc ghep
+              Đối phương đã được ghép
             </h3>
             <div className="flex items-center gap-4 p-4 bg-green-50 rounded-xl">
               <DiceBearAvatar
@@ -398,7 +399,7 @@ export default function DateOrderDetailClient() {
               />
               <div className="flex-1 min-w-0">
                 <p className="font-semibold text-gray-900">
-                  {matchedUser.name || 'An danh'}
+                  {matchedUser.name || 'Ẩn danh'}
                 </p>
                 {matchedUser.occupation && (
                   <p className="text-sm text-gray-500">{matchedUser.occupation}</p>
@@ -406,7 +407,7 @@ export default function DateOrderDetailClient() {
               </div>
             </div>
             <p className="text-xs text-gray-400 mt-2 text-center italic">
-              Day la buoi blind date - khong co chat truoc khi gap mat!
+              Đây là buổi blind date - không có chat trước khi gặp mặt!
             </p>
           </div>
         )}
@@ -416,31 +417,36 @@ export default function DateOrderDetailClient() {
           <div className="p-6 border-b border-gray-100">
             <Link
               href={`/date/${orderId}/review`}
-              className="block w-full py-3 bg-primary-500 text-white rounded-xl font-semibold text-center text-sm hover:bg-primary-600 transition"
+              className="block w-full py-3 bg-pink-500 text-white rounded-xl font-semibold text-center text-sm hover:bg-pink-600 transition"
             >
-              Danh gia buoi hen
+              Đánh giá buổi hẹn
             </Link>
           </div>
         )}
 
+        </div>{/* End left column of 2-col grid */}
+
+        {/* Right Column (desktop sidebar for actions/applicants) */}
+        <div className="lg:border-l lg:border-gray-100">
+
         {/* Creator View: Applicants List */}
         {isCreator && isActive && (
-          <div className="p-6 bg-gray-50">
+          <div className="p-6 bg-gray-50 lg:bg-white">
             <h3 className="font-bold text-gray-900 mb-4 flex items-center gap-2 text-sm">
               <Users className="w-5 h-5 text-gray-600" />
-              Danh sach ung tuyen ({applications.length})
+              Danh sách ứng tuyển ({applications.length})
             </h3>
 
             {appsLoading ? (
               <div className="py-6 text-center text-gray-500 text-sm">
                 <Loader2 className="w-5 h-5 animate-spin mx-auto mb-2" />
-                Dang tai ung vien...
+                Đang tải ứng viên...
               </div>
             ) : applications.length === 0 ? (
               <div className="text-center py-8">
                 <Users className="w-10 h-10 text-gray-300 mx-auto mb-2" />
                 <p className="text-sm text-gray-500 italic">
-                  Chua co ai ung tuyen. Chia se don cua ban de co nguoi tham gia!
+                  Chưa có ai ứng tuyển. Chia sẻ đơn của bạn để có người tham gia!
                 </p>
               </div>
             ) : (
@@ -467,21 +473,21 @@ export default function DateOrderDetailClient() {
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center justify-between mb-1">
                             <p className="font-semibold text-gray-900 text-sm">
-                              {app.applicant?.name || 'An danh'}
+                              {app.applicant?.name || 'Ẩn danh'}
                             </p>
                             {app.status === 'pending' && (
                               <span className="text-xs bg-yellow-100 text-yellow-700 px-2 py-0.5 rounded-full font-medium">
-                                Cho duyet
+                                Chờ duyệt
                               </span>
                             )}
                             {app.status === 'accepted' && (
                               <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-medium">
-                                Da chap nhan
+                                Đã chấp nhận
                               </span>
                             )}
                             {app.status === 'rejected' && (
                               <span className="text-xs bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full font-medium">
-                                Da tu choi
+                                Đã từ chối
                               </span>
                             )}
                           </div>
@@ -509,7 +515,7 @@ export default function DateOrderDetailClient() {
                               ) : (
                                 <CheckCircle className="w-4 h-4" />
                               )}
-                              Chap nhan
+                              Chấp nhận
                             </motion.button>
                           )}
                         </div>
@@ -537,10 +543,10 @@ export default function DateOrderDetailClient() {
                   <textarea
                     value={applyMessage}
                     onChange={(e) => setApplyMessage(e.target.value)}
-                    placeholder="Gioi thieu ban than ngan gon..."
+                    placeholder="Giới thiệu bản thân ngắn gọn..."
                     rows={3}
                     maxLength={200}
-                    className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary-500 outline-none resize-none text-sm"
+                    className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-pink-500 outline-none resize-none text-sm"
                   />
                   <div className="flex gap-3">
                     <button
@@ -548,7 +554,7 @@ export default function DateOrderDetailClient() {
                       onClick={() => setShowApplyForm(false)}
                       className="flex-1 py-3 bg-gray-100 text-gray-700 rounded-xl font-medium hover:bg-gray-200 transition text-sm"
                     >
-                      Huy
+                      Hủy
                     </button>
                     <motion.button
                       type="button"
@@ -558,7 +564,7 @@ export default function DateOrderDetailClient() {
                       className={cn(
                         'flex-1 py-3 rounded-xl font-medium transition flex items-center justify-center gap-2 text-sm',
                         applyMessage.trim() && !applying
-                          ? 'bg-primary-500 text-white hover:bg-primary-600'
+                          ? 'bg-pink-500 text-white hover:bg-pink-600'
                           : 'bg-gray-200 text-gray-400 cursor-not-allowed'
                       )}
                     >
@@ -567,7 +573,7 @@ export default function DateOrderDetailClient() {
                       ) : (
                         <Send className="w-4 h-4" />
                       )}
-                      Ung tuyen
+                      Ứng tuyển
                     </motion.button>
                   </div>
                 </motion.div>
@@ -580,9 +586,9 @@ export default function DateOrderDetailClient() {
                   type="button"
                   whileTap={{ scale: 0.97 }}
                   onClick={() => setShowApplyForm(true)}
-                  className="w-full py-3.5 bg-gradient-to-r from-primary-500 to-rose-500 text-white rounded-xl font-bold hover:opacity-90 transition shadow-lg text-sm"
+                  className="w-full py-3.5 bg-gradient-to-r from-pink-500 to-pink-600 text-white rounded-xl font-bold hover:opacity-90 transition shadow-lg text-sm"
                 >
-                  Ung tuyen di date
+                  Ứng tuyển đi date
                 </motion.button>
               )}
             </AnimatePresence>
@@ -594,7 +600,7 @@ export default function DateOrderDetailClient() {
           <div className="p-6 bg-green-50">
             <p className="text-center text-green-600 font-medium flex items-center justify-center gap-2 text-sm">
               <CheckCircle className="w-5 h-5" />
-              Ban da ung tuyen Date Order nay
+              Bạn đã ứng tuyển Date Order này
             </p>
           </div>
         )}
@@ -604,13 +610,15 @@ export default function DateOrderDetailClient() {
           <div className="p-6">
             <Link
               href="/login"
-              className="block w-full py-3.5 bg-primary-500 text-white rounded-xl font-bold text-center text-sm hover:bg-primary-600 transition"
+              className="block w-full py-3.5 bg-pink-500 text-white rounded-xl font-bold text-center text-sm hover:bg-pink-600 transition"
             >
-              Dang nhap de ung tuyen
+              Đăng nhập để ứng tuyển
             </Link>
           </div>
         )}
-      </div>
+
+        </div>{/* End right column */}
+      </div>{/* End 2-col grid */}
     </div>
   );
 }

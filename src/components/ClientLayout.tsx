@@ -48,13 +48,13 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
 
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-white p-4">
+      <div className="min-h-screen flex items-center justify-center p-4">
         <motion.div
           className="text-center flex flex-col items-center max-w-xs w-full"
           initial={{ opacity: 0, scale: 0.9 }}
           animate={{ opacity: 1, scale: 1 }}
         >
-          <div className="w-12 h-12 border-4 border-primary-500 border-t-transparent rounded-full animate-spin mb-4" />
+          <div className="w-12 h-12 border-4 border-pink-500 border-t-transparent rounded-full animate-spin mb-4" />
           <p className="text-gray-500 text-sm font-medium animate-pulse">Đang kết nối...</p>
         </motion.div>
       </div>
@@ -98,12 +98,12 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
 
   // Layout chính cho các trang trong ứng dụng
   return (
-    <div className="min-h-screen bg-gray-50/50">
+    <div className="min-h-screen">
       <Header />
       <AnimatePresence mode="wait">
         <motion.main
           key={pathname}
-          className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-10 safe-bottom"
+          className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6 md:pt-8 pb-4 md:pb-8"
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: -10 }}

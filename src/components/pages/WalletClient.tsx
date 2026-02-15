@@ -53,7 +53,7 @@ export default function WalletClient() {
       case 'top_up':
         return { label: 'Nạp tiền', color: 'bg-green-100 text-green-700' };
       case 'date_order_payment':
-        return { label: 'Thanh toán date', color: 'bg-rose-100 text-rose-700' };
+        return { label: 'Thanh toán date', color: 'bg-pink-100 text-pink-700' };
       case 'date_order_refund':
         return { label: 'Hoàn tiền', color: 'bg-emerald-100 text-emerald-700' };
       case 'vip_payment':
@@ -61,7 +61,7 @@ export default function WalletClient() {
       case 'referral_bonus':
         return { label: 'Giới thiệu', color: 'bg-blue-100 text-blue-700' };
       case 'booking_payment':
-        return { label: 'Thanh toán', color: 'bg-rose-100 text-rose-700' };
+        return { label: 'Thanh toán', color: 'bg-pink-100 text-pink-700' };
       case 'escrow_hold':
         return { label: 'Escrow', color: 'bg-amber-100 text-amber-800' };
       case 'escrow_release':
@@ -78,7 +78,7 @@ export default function WalletClient() {
   };
 
   return (
-    <motion.div className="space-y-6" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+    <motion.div className="max-w-5xl mx-auto space-y-6 pb-24 md:pb-8" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
@@ -98,8 +98,8 @@ export default function WalletClient() {
       <div className="bg-white rounded-3xl border border-gray-100 p-6 shadow-sm">
         <div className="flex items-start justify-between gap-4">
           <div className="flex items-start gap-4">
-            <div className="w-12 h-12 rounded-2xl bg-primary-50 border border-primary-100 flex items-center justify-center">
-              <WalletIcon className="w-6 h-6 text-primary-600" />
+            <div className="w-12 h-12 rounded-2xl bg-pink-50 border border-pink-100 flex items-center justify-center">
+              <WalletIcon className="w-6 h-6 text-pink-600" />
             </div>
             <div>
               <p className="text-sm text-gray-500 font-bold">Số dư khả dụng</p>
@@ -155,7 +155,7 @@ export default function WalletClient() {
 
         <div className="bg-white rounded-2xl border border-gray-100 p-4">
           <div className="flex items-center gap-2 mb-2">
-            <CreditCard className="w-5 h-5 text-rose-600" />
+            <CreditCard className="w-5 h-5 text-pink-600" />
             <span className="text-sm text-gray-500 font-bold">Tổng chi</span>
           </div>
           <p className="text-xl font-black text-gray-900">{formatCurrency(totalSpend)}</p>
@@ -190,7 +190,7 @@ export default function WalletClient() {
                     <p className="text-sm text-gray-500">{formatRelativeTime(tx.created_at)}</p>
                   </div>
 
-                  <p className={cn('text-lg font-black', isIncome ? 'text-green-600' : 'text-rose-600')}>
+                  <p className={cn('text-lg font-black', isIncome ? 'text-green-600' : 'text-pink-600')}>
                     {isIncome ? '+' : '-'}
                     {formatCurrency(amount)}
                   </p>

@@ -112,11 +112,11 @@ export default function DateOrdersFeedClient() {
   };
 
   return (
-    <div className="min-h-screen pb-24">
+    <div className="min-h-screen pb-24 md:pb-4">
       {/* ============================================================ */}
       {/* Hero Section */}
       {/* ============================================================ */}
-      <section className="relative overflow-hidden bg-gradient-to-br from-rose-500 via-pink-500 to-rose-600 -mx-4 px-4 pt-8 pb-10 md:pt-12 md:pb-14">
+      <section className="relative overflow-hidden bg-gradient-to-br from-pink-500 via-pink-500 to-pink-600 -mx-4 sm:-mx-6 lg:-mx-8 px-4 sm:px-6 lg:px-8 pt-8 pb-10 md:pt-14 md:pb-16 md:rounded-none lg:rounded-3xl lg:mx-0 lg:mt-2">
         {/* Decorative blobs */}
         <div className="absolute -top-20 -right-20 w-64 h-64 rounded-full bg-white/10 blur-3xl" />
         <div className="absolute -bottom-16 -left-16 w-48 h-48 rounded-full bg-pink-300/20 blur-3xl" />
@@ -132,7 +132,7 @@ export default function DateOrdersFeedClient() {
               Blind Date x Ẩm Thực
             </div>
 
-            <h1 className="text-3xl md:text-4xl font-black text-white leading-tight mb-3">
+            <h1 className="text-3xl md:text-5xl font-black text-white leading-tight mb-3">
               Hẹn hò mù
               <br />
               <span className="text-yellow-200">Khám phá ẩm thực</span>
@@ -149,7 +149,7 @@ export default function DateOrdersFeedClient() {
                 <motion.button
                   whileHover={{ scale: 1.03 }}
                   whileTap={{ scale: 0.97 }}
-                  className="inline-flex items-center gap-2 px-6 py-3 rounded-2xl bg-white text-rose-600 font-black shadow-lg shadow-rose-700/30 hover:shadow-xl transition-all"
+                  className="inline-flex items-center gap-2 px-6 py-3 rounded-2xl bg-white text-pink-600 font-black shadow-lg shadow-pink-700/30 hover:shadow-xl transition-all"
                 >
                   <Plus className="w-5 h-5" />
                   Tạo Date Order
@@ -174,14 +174,14 @@ export default function DateOrdersFeedClient() {
       {/* ============================================================ */}
       {/* Filter Bar */}
       {/* ============================================================ */}
-      <div className="sticky top-[60px] z-30 -mx-4 px-4 bg-white/80 backdrop-blur-xl border-b border-rose-100 py-3 space-y-3 shadow-sm">
+      <div className="sticky top-[70px] z-30 -mx-4 sm:-mx-6 lg:-mx-8 px-4 sm:px-6 lg:px-8 bg-white/80 backdrop-blur-xl border-b border-pink-100 py-3 space-y-3 shadow-sm">
         <div className="flex items-center gap-2">
           {/* City selector */}
           <div className="relative">
             <select
               value={selectedCity}
               onChange={(e) => setSelectedCity(e.target.value)}
-              className="appearance-none pl-3 pr-8 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm font-medium text-gray-700 focus:border-rose-300 focus:ring-2 focus:ring-rose-500/10 outline-none cursor-pointer"
+              className="appearance-none pl-3 pr-8 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm font-medium text-gray-700 focus:border-pink-300 focus:ring-2 focus:ring-pink-500/10 outline-none cursor-pointer"
             >
               {CITIES.map((c) => (
                 <option key={c.value} value={c.value}>
@@ -197,7 +197,7 @@ export default function DateOrdersFeedClient() {
             <select
               value={sortBy}
               onChange={(e) => setSortBy(e.target.value as SortOption)}
-              className="appearance-none pl-3 pr-8 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm font-medium text-gray-700 focus:border-rose-300 focus:ring-2 focus:ring-rose-500/10 outline-none cursor-pointer"
+              className="appearance-none pl-3 pr-8 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm font-medium text-gray-700 focus:border-pink-300 focus:ring-2 focus:ring-pink-500/10 outline-none cursor-pointer"
             >
               {SORT_OPTIONS.map((s) => (
                 <option key={s.value} value={s.value}>
@@ -214,14 +214,14 @@ export default function DateOrdersFeedClient() {
             className={cn(
               'ml-auto w-10 h-10 rounded-xl flex items-center justify-center transition-all relative',
               showFilters || activeFilterCount > 0
-                ? 'bg-rose-500 text-white shadow-lg shadow-rose-500/30'
+                ? 'bg-pink-500 text-white shadow-lg shadow-pink-500/30'
                 : 'bg-gray-50 border border-gray-200 text-gray-500 hover:bg-gray-100'
             )}
             aria-label="Bộ lọc"
           >
-            <SlidersHorizontal className="w-4.5 h-4.5" />
+            <SlidersHorizontal className="w-[18px] h-[18px]" />
             {activeFilterCount > 0 && (
-              <span className="absolute -top-1 -right-1 w-5 h-5 bg-white text-rose-600 text-[10px] font-black rounded-full border-2 border-rose-500 flex items-center justify-center">
+              <span className="absolute -top-1 -right-1 w-5 h-5 bg-white text-pink-600 text-[10px] font-black rounded-full border-2 border-pink-500 flex items-center justify-center">
                 {activeFilterCount}
               </span>
             )}
@@ -268,7 +268,7 @@ export default function DateOrdersFeedClient() {
                         className={cn(
                           'px-3 py-1.5 rounded-full text-xs font-bold transition border',
                           active
-                            ? 'bg-rose-500 text-white border-rose-500'
+                            ? 'bg-pink-500 text-white border-pink-500'
                             : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'
                         )}
                       >
@@ -281,7 +281,7 @@ export default function DateOrdersFeedClient() {
                 {activeFilterCount > 0 && (
                   <button
                     onClick={clearFilters}
-                    className="mt-2 text-xs font-bold text-rose-600 hover:text-rose-700 transition"
+                    className="mt-2 text-xs font-bold text-pink-600 hover:text-pink-700 transition"
                   >
                     Xóa bộ lọc
                   </button>
@@ -370,7 +370,7 @@ export default function DateOrdersFeedClient() {
           </div>
         ) : (
           /* Empty state */
-          <div className="py-16 text-center bg-white rounded-[28px] border border-dashed border-rose-200">
+          <div className="py-16 text-center bg-white rounded-[28px] border border-dashed border-pink-200">
             <div className="text-6xl mb-4">🍽️</div>
             <h3 className="text-lg font-black text-gray-900">
               Chưa có Date Order nào
@@ -385,7 +385,7 @@ export default function DateOrdersFeedClient() {
                 <motion.button
                   whileHover={{ scale: 1.03 }}
                   whileTap={{ scale: 0.97 }}
-                  className="inline-flex items-center gap-2 px-6 py-3 rounded-2xl bg-gradient-to-r from-rose-500 to-pink-500 text-white font-black shadow-lg shadow-rose-500/30 hover:shadow-xl transition-all"
+                  className="inline-flex items-center gap-2 px-6 py-3 rounded-2xl bg-gradient-to-r from-pink-500 to-pink-600 text-white font-black shadow-lg shadow-pink-500/30 hover:shadow-xl transition-all"
                 >
                   <Plus className="w-5 h-5" />
                   Tạo Date Order ngay
@@ -406,7 +406,7 @@ export default function DateOrdersFeedClient() {
           </h2>
           <Link
             href="/restaurants"
-            className="inline-flex items-center gap-1 text-sm font-bold text-rose-600 hover:text-rose-700 transition"
+            className="inline-flex items-center gap-1 text-sm font-bold text-pink-600 hover:text-pink-700 transition"
           >
             Xem tất cả
             <ArrowRight className="w-4 h-4" />
@@ -414,11 +414,11 @@ export default function DateOrdersFeedClient() {
         </div>
 
         {restaurantsLoading ? (
-          <div className="flex gap-4 overflow-x-auto pb-4 -mx-4 px-4 scrollbar-hide">
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
             {Array.from({ length: 4 }).map((_, i) => (
               <div
                 key={i}
-                className="flex-shrink-0 w-64 bg-white rounded-2xl border border-gray-100 overflow-hidden animate-pulse"
+                className="bg-white rounded-2xl border border-gray-100 overflow-hidden animate-pulse"
               >
                 <div className="aspect-[16/9] bg-gray-200" />
                 <div className="p-4">
@@ -430,14 +430,13 @@ export default function DateOrdersFeedClient() {
             ))}
           </div>
         ) : featuredRestaurants.length > 0 ? (
-          <div className="flex gap-4 overflow-x-auto pb-4 -mx-4 px-4 scrollbar-hide snap-x snap-mandatory">
-            {featuredRestaurants.slice(0, 10).map((restaurant, idx) => (
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+            {featuredRestaurants.slice(0, 8).map((restaurant, idx) => (
               <motion.div
                 key={restaurant.id}
-                initial={{ opacity: 0, x: 20 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: idx * 0.05, duration: 0.3 }}
-                className="flex-shrink-0 w-64 snap-start"
+                initial={{ opacity: 0, y: 16 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: idx * 0.04, duration: 0.3 }}
               >
                 <RestaurantCard
                   restaurant={restaurant}
@@ -458,16 +457,15 @@ export default function DateOrdersFeedClient() {
       {/* ============================================================ */}
       {/* Floating CTA */}
       {/* ============================================================ */}
-      <div className="fixed right-4 bottom-28 md:bottom-10 z-40">
+      <div className="fixed right-4 bottom-28 z-40 md:hidden">
         <Link href="/create-request">
           <motion.button
             whileHover={{ y: -3 }}
             whileTap={{ scale: 0.95 }}
-            className="inline-flex items-center gap-2 px-5 py-3 rounded-full bg-gradient-to-r from-rose-500 to-pink-500 text-white font-black shadow-[0_12px_30px_rgba(244,63,94,0.35)] border border-white/30 backdrop-blur"
+            className="inline-flex items-center gap-2 px-5 py-3 rounded-full bg-gradient-to-r from-pink-500 to-pink-600 text-white font-black shadow-[0_12px_30px_rgba(236,72,153,0.35)] border border-white/30 backdrop-blur"
           >
             <Plus className="w-5 h-5" />
-            <span className="hidden sm:inline">Tạo Date Order</span>
-            <span className="sm:hidden">Tạo</span>
+            Tạo
           </motion.button>
         </Link>
       </div>

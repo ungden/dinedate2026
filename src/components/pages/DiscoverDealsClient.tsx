@@ -101,13 +101,13 @@ export default function DiscoverDealsClient() {
   return (
     <div className="space-y-6 pb-24 min-h-screen relative">
       {/* Sticky controls */}
-      <div className="sticky top-[60px] z-30 -mx-4 px-4 bg-white/80 backdrop-blur-xl border-b border-rose-100 py-4 space-y-3 shadow-sm">
+      <div className="sticky top-[60px] z-30 -mx-4 px-4 bg-white/80 backdrop-blur-xl border-b border-pink-100 py-4 space-y-3 shadow-sm">
         <div className="flex items-center justify-between">
           <h1 className="text-lg font-black text-gray-900">
             Khám phá nhà hàng
           </h1>
           {!loading && (
-            <div className="text-xs font-semibold text-rose-600 bg-rose-50 border border-rose-100 px-3 py-1.5 rounded-full">
+            <div className="text-xs font-semibold text-pink-600 bg-pink-50 border border-pink-100 px-3 py-1.5 rounded-full">
               {filtered.length} nhà hàng
             </div>
           )}
@@ -116,12 +116,12 @@ export default function DiscoverDealsClient() {
         <div className="flex gap-2">
           {/* Search */}
           <div className="relative flex-1 group">
-            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 group-focus-within:text-rose-500 transition-colors" />
+            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 group-focus-within:text-pink-500 transition-colors" />
             <input
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Tìm nhà hàng, món ăn..."
-              className="w-full pl-10 pr-10 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:bg-white focus:border-rose-300 focus:ring-2 focus:ring-rose-500/10 outline-none transition-all"
+              className="w-full pl-10 pr-10 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:bg-white focus:border-pink-300 focus:ring-2 focus:ring-pink-500/10 outline-none transition-all"
             />
             {query.trim() && (
               <button
@@ -139,7 +139,7 @@ export default function DiscoverDealsClient() {
             <select
               value={selectedCity}
               onChange={(e) => setSelectedCity(e.target.value)}
-              className="appearance-none pl-3 pr-8 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm font-medium text-gray-700 focus:border-rose-300 focus:ring-2 focus:ring-rose-500/10 outline-none cursor-pointer"
+              className="appearance-none pl-3 pr-8 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm font-medium text-gray-700 focus:border-pink-300 focus:ring-2 focus:ring-pink-500/10 outline-none cursor-pointer"
             >
               {CITIES.map((c) => (
                 <option key={c.value} value={c.value}>
@@ -156,14 +156,14 @@ export default function DiscoverDealsClient() {
             className={cn(
               'w-10 h-10 rounded-xl flex items-center justify-center transition-all relative',
               showFilters || activeFilterCount > 0
-                ? 'bg-rose-500 text-white shadow-lg shadow-rose-500/30'
+                ? 'bg-pink-500 text-white shadow-lg shadow-pink-500/30'
                 : 'bg-gray-50 border border-gray-200 text-gray-500 hover:bg-gray-100'
             )}
             aria-label="Bộ lọc"
           >
-            <SlidersHorizontal className="w-4.5 h-4.5" />
+            <SlidersHorizontal className="w-[18px] h-[18px]" />
             {activeFilterCount > 0 && (
-              <span className="absolute -top-1 -right-1 w-5 h-5 bg-white text-rose-600 text-[10px] font-black rounded-full border-2 border-rose-500 flex items-center justify-center">
+              <span className="absolute -top-1 -right-1 w-5 h-5 bg-white text-pink-600 text-[10px] font-black rounded-full border-2 border-pink-500 flex items-center justify-center">
                 {activeFilterCount}
               </span>
             )}
@@ -204,7 +204,7 @@ export default function DiscoverDealsClient() {
                         className={cn(
                           'px-3 py-1.5 rounded-full text-xs font-bold transition border',
                           active
-                            ? 'bg-rose-500 text-white border-rose-500'
+                            ? 'bg-pink-500 text-white border-pink-500'
                             : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'
                         )}
                       >
@@ -217,7 +217,7 @@ export default function DiscoverDealsClient() {
                 {activeFilterCount > 0 && (
                   <button
                     onClick={clearFilters}
-                    className="mt-2 text-xs font-bold text-rose-600 hover:text-rose-700 transition"
+                    className="mt-2 text-xs font-bold text-pink-600 hover:text-pink-700 transition"
                   >
                     Xóa bộ lọc
                   </button>
@@ -286,7 +286,7 @@ export default function DiscoverDealsClient() {
             ))}
           </div>
         ) : (
-          <div className="py-16 text-center bg-white rounded-[28px] border border-dashed border-rose-200">
+          <div className="py-16 text-center bg-white rounded-[28px] border border-dashed border-pink-200">
             <div className="text-6xl mb-4">
               <UtensilsCrossed className="w-16 h-16 text-gray-300 mx-auto" />
             </div>
@@ -303,7 +303,7 @@ export default function DiscoverDealsClient() {
             {activeFilterCount > 0 && (
               <button
                 onClick={clearFilters}
-                className="mt-4 text-sm font-bold text-rose-600 hover:text-rose-700 transition"
+                className="mt-4 text-sm font-bold text-pink-600 hover:text-pink-700 transition"
               >
                 Xóa bộ lọc
               </button>

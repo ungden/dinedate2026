@@ -42,13 +42,13 @@ interface FormValues {
 const TOTAL_STEPS = 7;
 
 const STEP_LABELS = [
-  'Chon nha hang',
-  'Chon combo',
-  'Ngay & gio',
-  'Mo ta',
-  'Gioi tinh',
-  'Thanh toan',
-  'Xac nhan',
+  'Chọn nhà hàng',
+  'Chọn combo',
+  'Ngày & giờ',
+  'Mô tả',
+  'Giới tính',
+  'Thanh toán',
+  'Xác nhận',
 ];
 
 function getTomorrowDate(): string {
@@ -179,10 +179,10 @@ export default function CreateRequestClient() {
     });
 
     if (result) {
-      toast.success('Tao Date Order thanh cong!');
+      toast.success('Tạo Date Order thành công!');
       router.push(`/request/${result.id}`);
     } else {
-      toast.error('Co loi xay ra. Vui long thu lai.');
+      toast.error('Có lỗi xảy ra. Vui lòng thử lại.');
     }
   };
 
@@ -190,7 +190,7 @@ export default function CreateRequestClient() {
   const progressPercent = (step / TOTAL_STEPS) * 100;
 
   return (
-    <div className="max-w-2xl mx-auto pb-20">
+    <div className="max-w-4xl mx-auto pb-24 md:pb-8">
       {/* Header */}
       <div className="flex items-center gap-4 mb-6">
         <button
@@ -200,9 +200,9 @@ export default function CreateRequestClient() {
           <ArrowLeft className="w-5 h-5" />
         </button>
         <div className="flex-1">
-          <h1 className="text-xl font-bold text-gray-900">Tao Date Order</h1>
+          <h1 className="text-xl font-bold text-gray-900">Tạo Date Order</h1>
           <p className="text-sm text-gray-500">
-            Buoc {step}/{TOTAL_STEPS} - {STEP_LABELS[step - 1]}
+            Bước {step}/{TOTAL_STEPS} — {STEP_LABELS[step - 1]}
           </p>
         </div>
       </div>
@@ -210,7 +210,7 @@ export default function CreateRequestClient() {
       {/* Progress bar */}
       <div className="w-full h-1.5 bg-gray-100 rounded-full mb-6 overflow-hidden">
         <motion.div
-          className="h-full bg-gradient-to-r from-primary-500 to-rose-500 rounded-full"
+          className="h-full bg-gradient-to-r from-pink-500 to-pink-600 rounded-full"
           initial={{ width: 0 }}
           animate={{ width: `${progressPercent}%` }}
           transition={{ duration: 0.3 }}
@@ -231,10 +231,10 @@ export default function CreateRequestClient() {
             >
               <div className="bg-white rounded-2xl border border-gray-100 p-6">
                 <h2 className="text-lg font-semibold text-gray-900 mb-1">
-                  Chon nha hang
+                  Chọn nhà hàng
                 </h2>
                 <p className="text-sm text-gray-500 mb-4">
-                  Chon nha hang ban muon den cho buoi hen
+                  Chọn nhà hàng bạn muốn đến cho buổi hẹn
                 </p>
                 <RestaurantPicker
                   restaurants={restaurants}
@@ -266,23 +266,23 @@ export default function CreateRequestClient() {
             >
               <div className="bg-white rounded-2xl border border-gray-100 p-6">
                 <h2 className="text-lg font-semibold text-gray-900 mb-1">
-                  Chon combo
+                  Chọn combo
                 </h2>
                 <p className="text-sm text-gray-500 mb-4">
                   {selectedRestaurant
                     ? `${getCuisineIcon(selectedRestaurant.cuisineTypes[0] || '')} ${selectedRestaurant.name}`
-                    : 'Chon combo set menu cho 2 nguoi'}
+                    : 'Chọn combo set menu cho 2 người'}
                 </p>
 
                 {combosLoading ? (
                   <div className="flex items-center justify-center py-12">
-                    <Loader2 className="w-6 h-6 text-primary-500 animate-spin" />
-                    <span className="ml-2 text-sm text-gray-500">Dang tai combo...</span>
+                    <Loader2 className="w-6 h-6 text-pink-500 animate-spin" />
+                    <span className="ml-2 text-sm text-gray-500">Đang tải combo...</span>
                   </div>
                 ) : combos.length === 0 ? (
                   <div className="text-center py-12">
                     <p className="text-sm text-gray-500">
-                      Nha hang nay chua co combo nao.
+                      Nhà hàng này chưa có combo nào.
                     </p>
                   </div>
                 ) : (
@@ -311,27 +311,27 @@ export default function CreateRequestClient() {
             >
               <div className="bg-white rounded-2xl border border-gray-100 p-6">
                 <h2 className="text-lg font-semibold text-gray-900 mb-4">
-                  Chon ngay & gio
+                  Chọn ngày & giờ
                 </h2>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <div className="flex items-center gap-2 mb-2">
-                      <Calendar className="w-5 h-5 text-primary-500" />
+                      <Calendar className="w-5 h-5 text-pink-500" />
                       <label className="text-sm font-medium text-gray-700">
-                        Ngay <span className="text-red-500">*</span>
+                        Ngày <span className="text-red-500">*</span>
                       </label>
                     </div>
                     <Controller
                       name="date"
                       control={control}
-                      rules={{ required: 'Vui long chon ngay' }}
+                      rules={{ required: 'Vui lòng chọn ngày' }}
                       render={({ field }) => (
                         <input
                           type="date"
                           {...field}
                           min={getTomorrowDate()}
                           className={cn(
-                            'w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-primary-500 outline-none',
+                            'w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-pink-500 outline-none',
                             errors.date ? 'border-red-300' : 'border-gray-200'
                           )}
                         />
@@ -343,9 +343,9 @@ export default function CreateRequestClient() {
                   </div>
                   <div>
                     <div className="flex items-center gap-2 mb-2">
-                      <Clock className="w-5 h-5 text-primary-500" />
+                      <Clock className="w-5 h-5 text-pink-500" />
                       <label className="text-sm font-medium text-gray-700">
-                        Gio
+                        Giờ
                       </label>
                     </div>
                     <Controller
@@ -355,7 +355,7 @@ export default function CreateRequestClient() {
                         <input
                           type="time"
                           {...field}
-                          className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary-500 outline-none"
+                          className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-pink-500 outline-none"
                         />
                       )}
                     />
@@ -377,21 +377,21 @@ export default function CreateRequestClient() {
             >
               <div className="bg-white rounded-2xl border border-gray-100 p-6">
                 <div className="flex items-center gap-2 mb-4">
-                  <FileText className="w-5 h-5 text-primary-500" />
-                  <h2 className="text-lg font-semibold text-gray-900">Mo ta</h2>
+                  <FileText className="w-5 h-5 text-pink-500" />
+                  <h2 className="text-lg font-semibold text-gray-900">Mô tả</h2>
                 </div>
                 <Controller
                   name="description"
                   control={control}
-                  rules={{ maxLength: { value: 200, message: 'Toi da 200 ky tu' } }}
+                  rules={{ maxLength: { value: 200, message: 'Tối đa 200 ký tự' } }}
                   render={({ field }) => (
                     <div>
                       <textarea
                         {...field}
                         rows={4}
                         maxLength={200}
-                        placeholder="Mo ta ngan ve buoi hen..."
-                        className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary-500 outline-none resize-none text-sm"
+                        placeholder="Mô tả ngắn về buổi hẹn..."
+                        className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-pink-500 outline-none resize-none text-sm"
                       />
                       <div className="flex justify-between items-center mt-1">
                         <p className="text-xs text-gray-400">
@@ -420,13 +420,13 @@ export default function CreateRequestClient() {
             >
               <div className="bg-white rounded-2xl border border-gray-100 p-6">
                 <div className="flex items-center gap-2 mb-4">
-                  <Users className="w-5 h-5 text-primary-500" />
+                  <Users className="w-5 h-5 text-pink-500" />
                   <h2 className="text-lg font-semibold text-gray-900">
-                    Gioi tinh mong muon
+                    Giới tính mong muốn
                   </h2>
                 </div>
                 <p className="text-sm text-gray-500 mb-4">
-                  Tuy chon, ban co the de mac dinh neu khong co yeu cau
+                  Tùy chọn, bạn có thể để mặc định nếu không có yêu cầu
                 </p>
                 <Controller
                   name="preferredGender"
@@ -435,8 +435,8 @@ export default function CreateRequestClient() {
                     <div className="grid grid-cols-3 gap-3">
                       {([
                         { value: 'male', label: 'Nam', icon: '👨' },
-                        { value: 'female', label: 'Nu', icon: '👩' },
-                        { value: 'any', label: 'Khong quan tam', icon: '🤝' },
+                        { value: 'female', label: 'Nữ', icon: '👩' },
+                        { value: 'any', label: 'Không quan tâm', icon: '🤝' },
                       ] as const).map((opt) => (
                         <motion.button
                           key={opt.value}
@@ -446,7 +446,7 @@ export default function CreateRequestClient() {
                           className={cn(
                             'flex flex-col items-center gap-2 p-4 rounded-xl border-2 transition',
                             field.value === opt.value
-                              ? 'border-primary-500 bg-primary-50'
+                              ? 'border-pink-500 bg-pink-50'
                               : 'border-gray-200 hover:border-gray-300'
                           )}
                         >
@@ -473,9 +473,9 @@ export default function CreateRequestClient() {
             >
               <div className="bg-white rounded-2xl border border-gray-100 p-6">
                 <div className="flex items-center gap-2 mb-4">
-                  <CreditCard className="w-5 h-5 text-primary-500" />
+                  <CreditCard className="w-5 h-5 text-pink-500" />
                   <h2 className="text-lg font-semibold text-gray-900">
-                    Hinh thuc thanh toan
+                    Hình thức thanh toán
                   </h2>
                 </div>
                 <Controller
@@ -506,9 +506,9 @@ export default function CreateRequestClient() {
               {/* Summary Card */}
               <div className="bg-white rounded-2xl border border-gray-100 p-6 space-y-4">
                 <div className="flex items-center gap-2 mb-2">
-                  <CheckCircle className="w-5 h-5 text-primary-500" />
+                  <CheckCircle className="w-5 h-5 text-pink-500" />
                   <h2 className="text-lg font-semibold text-gray-900">
-                    Xac nhan Date Order
+                    Xác nhận Date Order
                   </h2>
                 </div>
 
@@ -539,7 +539,7 @@ export default function CreateRequestClient() {
                         {selectedCombo.items.length > 3 && '...'}
                       </p>
                     </div>
-                    <p className="font-bold text-primary-600 text-sm">
+                    <p className="font-bold text-pink-600 text-sm">
                       {formatCurrency(selectedCombo.price)}
                     </p>
                   </div>
@@ -547,7 +547,7 @@ export default function CreateRequestClient() {
 
                 {/* Date/Time */}
                 <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl">
-                  <Calendar className="w-5 h-5 text-primary-500" />
+                  <Calendar className="w-5 h-5 text-pink-500" />
                   <div>
                     <p className="text-sm font-medium text-gray-900">
                       {watch('date')} luc {watch('time')}
@@ -568,7 +568,7 @@ export default function CreateRequestClient() {
               {/* Pricing Breakdown */}
               {pricing && (
                 <div className="bg-white rounded-2xl border border-gray-100 p-6">
-                  <h3 className="font-semibold text-gray-900 mb-4">Chi tiet chi phi</h3>
+                  <h3 className="font-semibold text-gray-900 mb-4">Chi tiết chi phí</h3>
                   <div className="space-y-3">
                     <div className="flex items-center justify-between text-sm">
                       <span className="text-gray-600">Combo</span>
@@ -578,7 +578,7 @@ export default function CreateRequestClient() {
                     </div>
                     <div className="flex items-center justify-between text-sm">
                       <span className="text-gray-600">
-                        Phi nen tang (cua ban)
+                        Phí nền tảng (của bạn)
                       </span>
                       <span className="font-medium text-gray-900">
                         {formatCurrency(pricing.creatorFee)}
@@ -586,13 +586,13 @@ export default function CreateRequestClient() {
                     </div>
                     <div className="h-px bg-gray-100" />
                     <div className="flex items-center justify-between text-sm">
-                      <span className="font-semibold text-gray-900">Ban tra</span>
-                      <span className="font-bold text-primary-600 text-base">
+                      <span className="font-semibold text-gray-900">Bạn trả</span>
+                      <span className="font-bold text-pink-600 text-base">
                         {formatCurrency(pricing.creatorTotal)}
                       </span>
                     </div>
                     <div className="flex items-center justify-between text-sm">
-                      <span className="text-gray-600">Doi phuong tra</span>
+                      <span className="text-gray-600">Đối phương trả</span>
                       <span className="font-medium text-gray-900">
                         {formatCurrency(pricing.applicantTotal)}
                       </span>
@@ -614,7 +614,7 @@ export default function CreateRequestClient() {
               className="flex-1 py-3.5 flex items-center justify-center gap-2 bg-gray-100 text-gray-700 rounded-xl font-semibold hover:bg-gray-200 transition"
             >
               <ChevronLeft className="w-5 h-5" />
-              Quay lai
+              Quay lại
             </motion.button>
           )}
 
@@ -627,11 +627,11 @@ export default function CreateRequestClient() {
               className={cn(
                 'flex-1 py-3.5 flex items-center justify-center gap-2 rounded-xl font-semibold transition',
                 canGoNext
-                  ? 'bg-primary-500 text-white hover:bg-primary-600'
+                  ? 'bg-pink-500 text-white hover:bg-pink-600'
                   : 'bg-gray-100 text-gray-400 cursor-not-allowed'
               )}
             >
-              Tiep tuc
+              Tiếp tục
               <ArrowRight className="w-5 h-5" />
             </motion.button>
           ) : (
@@ -643,7 +643,7 @@ export default function CreateRequestClient() {
                 'flex-1 py-3.5 flex items-center justify-center gap-2 rounded-xl font-bold transition shadow-lg',
                 creating || !pricing
                   ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
-                  : 'bg-gradient-to-r from-primary-500 to-rose-500 text-white hover:opacity-90'
+                  : 'bg-gradient-to-r from-pink-500 to-pink-600 text-white hover:opacity-90'
               )}
             >
               {creating ? (
@@ -651,7 +651,7 @@ export default function CreateRequestClient() {
               ) : (
                 <CheckCircle className="w-5 h-5" />
               )}
-              {creating ? 'Dang tao...' : 'Tao Date Order'}
+              {creating ? 'Đang tạo...' : 'Tạo Date Order'}
             </motion.button>
           )}
         </div>

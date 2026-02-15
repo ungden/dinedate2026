@@ -162,12 +162,12 @@ export default function RestaurantDetailClient() {
   ];
 
   return (
-    <div className="min-h-screen pb-32">
+    <div className="max-w-6xl mx-auto min-h-screen pb-28 md:pb-8">
       {/* ============================================================ */}
       {/* Cover Image Hero */}
       {/* ============================================================ */}
-      <div className="relative -mx-4 overflow-hidden">
-        <div className="aspect-[16/9] max-h-[300px] w-full overflow-hidden bg-gray-100">
+      <div className="relative -mx-4 sm:-mx-6 lg:mx-0 overflow-hidden lg:rounded-2xl">
+        <div className="aspect-[16/9] md:aspect-[21/9] max-h-[400px] w-full overflow-hidden bg-gray-100">
           {restaurant.coverImageUrl ? (
             <img
               src={restaurant.coverImageUrl}
@@ -175,7 +175,7 @@ export default function RestaurantDetailClient() {
               className="w-full h-full object-cover"
             />
           ) : (
-            <div className="w-full h-full bg-gradient-to-br from-rose-100 via-pink-50 to-rose-200 flex items-center justify-center">
+            <div className="w-full h-full bg-gradient-to-br from-pink-100 via-pink-50 to-pink-200 flex items-center justify-center">
               <span className="text-6xl">
                 {restaurant.cuisineTypes[0]
                   ? getCuisineIcon(restaurant.cuisineTypes[0])
@@ -209,6 +209,14 @@ export default function RestaurantDetailClient() {
       </div>
 
       {/* ============================================================ */}
+      {/* Desktop 2-column layout */}
+      {/* ============================================================ */}
+      <div className="lg:grid lg:grid-cols-[1fr_380px] lg:gap-8">
+
+      {/* Left Column */}
+      <div>
+
+      {/* ============================================================ */}
       {/* Restaurant Info */}
       {/* ============================================================ */}
       <section className="mt-4 space-y-4">
@@ -238,7 +246,7 @@ export default function RestaurantDetailClient() {
           {restaurant.cuisineTypes.map((cuisine) => (
             <span
               key={cuisine}
-              className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-rose-50 text-rose-700 text-sm font-medium border border-rose-100"
+              className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-pink-50 text-pink-700 text-sm font-medium border border-pink-100"
             >
               <span>{getCuisineIcon(cuisine)}</span>
               {getCuisineLabel(cuisine)}
@@ -269,7 +277,7 @@ export default function RestaurantDetailClient() {
               <Phone className="w-4 h-4 text-gray-400 flex-shrink-0" />
               <a
                 href={`tel:${restaurant.phone}`}
-                className="text-rose-600 font-medium hover:underline"
+                className="text-pink-600 font-medium hover:underline"
               >
                 {restaurant.phone}
               </a>
@@ -281,7 +289,7 @@ export default function RestaurantDetailClient() {
               <Mail className="w-4 h-4 text-gray-400 flex-shrink-0" />
               <a
                 href={`mailto:${restaurant.email}`}
-                className="text-rose-600 font-medium hover:underline"
+                className="text-pink-600 font-medium hover:underline"
               >
                 {restaurant.email}
               </a>
@@ -301,7 +309,7 @@ export default function RestaurantDetailClient() {
       {/* Tabs */}
       {/* ============================================================ */}
       <div className="mt-6 border-b border-gray-200">
-        <div className="flex">
+        <div className="flex max-w-xs">
           {TABS.map((tab) => (
             <button
               key={tab.id}
@@ -309,7 +317,7 @@ export default function RestaurantDetailClient() {
               className={cn(
                 'flex-1 py-3 text-sm font-bold text-center border-b-2 transition-colors',
                 activeTab === tab.id
-                  ? 'border-rose-500 text-rose-600'
+                  ? 'border-pink-500 text-pink-600'
                   : 'border-transparent text-gray-400 hover:text-gray-600'
               )}
             >
@@ -319,7 +327,7 @@ export default function RestaurantDetailClient() {
                   className={cn(
                     'ml-1.5 inline-flex items-center justify-center w-5 h-5 rounded-full text-[10px] font-bold',
                     activeTab === tab.id
-                      ? 'bg-rose-100 text-rose-600'
+                      ? 'bg-pink-100 text-pink-600'
                       : 'bg-gray-100 text-gray-400'
                   )}
                 >
@@ -392,8 +400,8 @@ export default function RestaurantDetailClient() {
                             />
                           </div>
                         ) : (
-                          <div className="w-20 h-20 rounded-xl flex-shrink-0 bg-gradient-to-br from-rose-50 to-rose-100 flex items-center justify-center">
-                            <UtensilsCrossed className="w-8 h-8 text-rose-400" />
+                          <div className="w-20 h-20 rounded-xl flex-shrink-0 bg-gradient-to-br from-pink-50 to-pink-100 flex items-center justify-center">
+                            <UtensilsCrossed className="w-8 h-8 text-pink-400" />
                           </div>
                         )}
 
@@ -426,7 +434,7 @@ export default function RestaurantDetailClient() {
                           </div>
 
                           {/* Price */}
-                          <p className="text-sm font-bold text-rose-600">
+                          <p className="text-sm font-bold text-pink-600">
                             {formatCurrency(combo.price)}
                             <span className="text-xs font-normal text-gray-400 ml-1">
                               / 2 người
@@ -625,18 +633,63 @@ export default function RestaurantDetailClient() {
         </AnimatePresence>
       </div>
 
+      </div>{/* End Left Column */}
+
+      {/* Right Column — Sidebar (desktop only, shows CTA + quick info) */}
+      <aside className="hidden lg:block">
+        <div className="sticky top-[90px] space-y-4">
+          <div className="bg-white rounded-2xl shadow-card border border-gray-100/60 p-6">
+            <h3 className="font-bold text-gray-900 mb-3">Đặt lịch hẹn hò</h3>
+            <p className="text-sm text-gray-500 mb-4">
+              Chọn combo và tạo Date Order để tìm bạn ăn tối cùng tại {restaurant.name}.
+            </p>
+            <Link
+              href={`/create-request?restaurantId=${restaurantId}`}
+              className="block"
+            >
+              <motion.button
+                whileHover={{ scale: 1.01 }}
+                whileTap={{ scale: 0.98 }}
+                className="w-full inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-2xl bg-gradient-to-r from-pink-500 to-pink-600 text-white font-bold shadow-primary hover:shadow-primary-lg transition-all"
+              >
+                <Plus className="w-5 h-5" />
+                Tạo Date Order
+              </motion.button>
+            </Link>
+          </div>
+
+          {/* Quick stats */}
+          {avgRatings && (
+            <div className="bg-white rounded-2xl shadow-card border border-gray-100/60 p-6">
+              <div className="text-center mb-3">
+                <p className="text-3xl font-black text-gray-900">{avgRatings.overall.toFixed(1)}</p>
+                <RatingStars rating={avgRatings.overall} size="md" />
+                <p className="text-xs text-gray-400 mt-1">{reviews.length} đánh giá</p>
+              </div>
+              <div className="space-y-2">
+                <RatingBar label="Đồ ăn" rating={avgRatings.food} />
+                <RatingBar label="Không gian" rating={avgRatings.ambiance} />
+                <RatingBar label="Phục vụ" rating={avgRatings.service} />
+              </div>
+            </div>
+          )}
+        </div>
+      </aside>
+
+      </div>{/* End 2-column grid */}
+
       {/* ============================================================ */}
-      {/* Fixed CTA */}
+      {/* Fixed CTA (mobile only) */}
       {/* ============================================================ */}
-      <div className="fixed bottom-0 left-0 right-0 z-40 bg-white/90 backdrop-blur-xl border-t border-gray-200 px-4 py-3 safe-area-bottom">
+      <div className="fixed bottom-0 left-0 right-0 z-40 bg-white/90 backdrop-blur-xl border-t border-gray-200 px-4 py-3 safe-area-bottom lg:hidden">
         <Link
           href={`/create-request?restaurantId=${restaurantId}`}
-          className="block"
+          className="block max-w-lg mx-auto"
         >
           <motion.button
             whileHover={{ scale: 1.01 }}
             whileTap={{ scale: 0.98 }}
-            className="w-full inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-2xl bg-gradient-to-r from-rose-500 to-pink-500 text-white font-black shadow-lg shadow-rose-500/30 hover:shadow-xl transition-all text-base"
+            className="w-full inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-2xl bg-gradient-to-r from-pink-500 to-pink-600 text-white font-bold shadow-primary hover:shadow-primary-lg transition-all text-base"
           >
             <Plus className="w-5 h-5" />
             Tạo Date Order tại đây

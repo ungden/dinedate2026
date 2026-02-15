@@ -52,7 +52,7 @@ export default function LoginPage() {
             <Heart className="w-12 h-12 fill-white" />
           </motion.div>
           <h1 className="text-5xl font-black mb-6 tracking-tight">DineDate</h1>
-          <p className="text-xl text-primary-100 font-medium leading-relaxed">
+          <p className="text-xl text-pink-100 font-medium leading-relaxed">
             Nơi những cuộc gặp gỡ trở thành kỷ niệm. Kết nối với những đối tác thú vị nhất xung quanh bạn.
           </p>
         </div>
@@ -67,7 +67,7 @@ export default function LoginPage() {
         >
           {/* Logo Mobile */}
           <div className="lg:hidden text-center mb-8 mt-4">
-            <div className="w-16 h-16 bg-gradient-primary rounded-[20px] flex items-center justify-center mx-auto mb-4 shadow-primary shadow-rose-500/30">
+            <div className="w-16 h-16 bg-gradient-primary rounded-[20px] flex items-center justify-center mx-auto mb-4 shadow-primary shadow-pink-500/30">
               <Heart className="w-8 h-8 text-white fill-white" />
             </div>
             <h1 className="text-3xl font-black gradient-text">DineDate</h1>
@@ -117,7 +117,7 @@ export default function LoginPage() {
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-primary-500 transition-colors p-1"
+                    className="absolute right-5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-pink-500 transition-colors p-1"
                   >
                     {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                   </button>
@@ -126,10 +126,10 @@ export default function LoginPage() {
 
               <div className="flex items-center justify-between px-1">
                 <label className="flex items-center gap-2 cursor-pointer group">
-                  <input type="checkbox" className="w-4 h-4 rounded border-gray-300 text-primary-500 focus:ring-primary-500" />
+                  <input type="checkbox" className="w-4 h-4 rounded border-gray-300 text-pink-500 focus:ring-pink-500" />
                   <span className="text-[13px] text-gray-500 font-medium group-hover:text-gray-700 transition-colors">Ghi nhớ tôi</span>
                 </label>
-                <Link href="#" className="text-[13px] text-primary-600 font-bold hover:underline">Quên mật khẩu?</Link>
+                <Link href="#" className="text-[13px] text-pink-600 font-bold hover:underline">Quên mật khẩu?</Link>
               </div>
 
               <button
@@ -182,7 +182,7 @@ export default function LoginPage() {
             <div className="mt-8 text-center">
               <p className="text-gray-500 font-medium">
                 Chưa có tài khoản?{' '}
-                <Link href="/register" className="text-primary-600 font-black hover:underline">Đăng ký ngay</Link>
+                <Link href="/register" className="text-pink-600 font-black hover:underline">Đăng ký ngay</Link>
               </p>
             </div>
           </div>

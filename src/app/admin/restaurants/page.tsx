@@ -159,9 +159,9 @@ export default function AdminRestaurantsPage() {
       pending: 'bg-yellow-100 text-yellow-700',
     };
     const labels: Record<string, string> = {
-      active: 'Hoat dong',
-      inactive: 'Tam ngung',
-      pending: 'Cho duyet',
+      active: 'Hoạt động',
+      inactive: 'Tạm ngưng',
+      pending: 'Chờ duyệt',
     };
     return (
       <span className={cn('px-2.5 py-1 rounded-full text-xs font-bold', styles[status])}>
@@ -175,15 +175,15 @@ export default function AdminRestaurantsPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Quan ly Nha hang</h1>
-          <p className="text-gray-500 text-sm mt-1">{restaurants.length} nha hang</p>
+          <h1 className="text-2xl font-bold text-gray-900">Quản lý Nhà hàng</h1>
+          <p className="text-gray-500 text-sm mt-1">{restaurants.length} nhà hàng</p>
         </div>
         <button
           onClick={openAddModal}
           className="flex items-center gap-2 px-4 py-2.5 bg-gray-900 text-white rounded-xl font-bold text-sm hover:bg-gray-800 transition"
         >
           <Plus className="w-4 h-4" />
-          Them nha hang
+          Thêm nhà hàng
         </button>
       </div>
 
@@ -198,13 +198,13 @@ export default function AdminRestaurantsPage() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="bg-gray-50 border-b border-gray-100">
-                  <th className="text-left p-4 font-bold text-gray-600">Nha hang</th>
-                  <th className="text-left p-4 font-bold text-gray-600">Khu vuc</th>
-                  <th className="text-left p-4 font-bold text-gray-600">Loai mon</th>
-                  <th className="text-left p-4 font-bold text-gray-600">Hoa hong</th>
-                  <th className="text-left p-4 font-bold text-gray-600">Trang thai</th>
-                  <th className="text-left p-4 font-bold text-gray-600">Danh gia</th>
-                  <th className="text-right p-4 font-bold text-gray-600">Hanh dong</th>
+                  <th className="text-left p-4 font-bold text-gray-600">Nhà hàng</th>
+                  <th className="text-left p-4 font-bold text-gray-600">Khu vực</th>
+                  <th className="text-left p-4 font-bold text-gray-600">Loại món</th>
+                  <th className="text-left p-4 font-bold text-gray-600">Hoa hồng</th>
+                  <th className="text-left p-4 font-bold text-gray-600">Trạng thái</th>
+                  <th className="text-left p-4 font-bold text-gray-600">Đánh giá</th>
+                  <th className="text-right p-4 font-bold text-gray-600">Hành động</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
@@ -257,7 +257,7 @@ export default function AdminRestaurantsPage() {
                           <span className="text-gray-400 text-xs">({r.reviewCount || 0})</span>
                         </div>
                       ) : (
-                        <span className="text-gray-400 text-xs">Chua co</span>
+                        <span className="text-gray-400 text-xs">Chưa có</span>
                       )}
                     </td>
                     <td className="p-4 text-right">
@@ -265,14 +265,14 @@ export default function AdminRestaurantsPage() {
                         <Link
                           href={`/admin/restaurants/${r.id}/combos`}
                           className="p-2 hover:bg-blue-50 rounded-lg text-blue-600 transition"
-                          title="Quan ly combo"
+                          title="Quản lý combo"
                         >
                           <ExternalLink className="w-4 h-4" />
                         </Link>
                         <button
                           onClick={() => openEditModal(r)}
                           className="p-2 hover:bg-gray-100 rounded-lg text-gray-600 transition"
-                          title="Chinh sua"
+                          title="Chỉnh sửa"
                         >
                           <Pencil className="w-4 h-4" />
                         </button>
@@ -284,7 +284,7 @@ export default function AdminRestaurantsPage() {
                               ? 'hover:bg-green-50 text-green-600'
                               : 'hover:bg-gray-100 text-gray-400'
                           )}
-                          title={r.status === 'active' ? 'Tam ngung' : 'Kich hoat'}
+                          title={r.status === 'active' ? 'Tạm ngưng' : 'Kích hoạt'}
                         >
                           {r.status === 'active' ? (
                             <ToggleRight className="w-5 h-5" />
@@ -302,7 +302,7 @@ export default function AdminRestaurantsPage() {
 
           {restaurants.length === 0 && (
             <div className="text-center py-12 text-gray-500">
-              Chua co nha hang nao. Nhan "Them nha hang" de bat dau.
+              Chưa có nhà hàng nào. Nhấn "Thêm nhà hàng" để bắt đầu.
             </div>
           )}
         </div>
@@ -314,7 +314,7 @@ export default function AdminRestaurantsPage() {
           <div className="bg-white rounded-2xl w-full max-w-lg mx-4 max-h-[90vh] overflow-y-auto shadow-2xl">
             <div className="flex items-center justify-between p-6 border-b border-gray-100">
               <h2 className="text-lg font-bold text-gray-900">
-                {editingId ? 'Chinh sua nha hang' : 'Them nha hang moi'}
+                {editingId ? 'Chỉnh sửa nhà hàng' : 'Thêm nhà hàng mới'}
               </h2>
               <button onClick={() => setShowModal(false)} className="p-2 hover:bg-gray-100 rounded-lg">
                 <X className="w-5 h-5 text-gray-500" />
@@ -323,7 +323,7 @@ export default function AdminRestaurantsPage() {
 
             <div className="p-6 space-y-4">
               <div>
-                <label className="block text-sm font-bold text-gray-700 mb-1">Ten nha hang *</label>
+                <label className="block text-sm font-bold text-gray-700 mb-1">Tên nhà hàng *</label>
                 <input
                   type="text"
                   value={formData.name}
@@ -334,17 +334,17 @@ export default function AdminRestaurantsPage() {
               </div>
 
               <div>
-                <label className="block text-sm font-bold text-gray-700 mb-1">Mo ta</label>
+                <label className="block text-sm font-bold text-gray-700 mb-1">Mô tả</label>
                 <textarea
                   value={formData.description}
                   onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                   className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-primary-500 h-24 resize-none"
-                  placeholder="Mo ta ngan ve nha hang..."
+                  placeholder="Mô tả ngắn về nhà hàng..."
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-bold text-gray-700 mb-1">Dia chi</label>
+                <label className="block text-sm font-bold text-gray-700 mb-1">Địa chỉ</label>
                 <input
                   type="text"
                   value={formData.address}
@@ -356,7 +356,7 @@ export default function AdminRestaurantsPage() {
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-sm font-bold text-gray-700 mb-1">Khu vuc</label>
+                   <label className="block text-sm font-bold text-gray-700 mb-1">Khu vực</label>
                   <input
                     type="text"
                     value={formData.area}
@@ -366,7 +366,7 @@ export default function AdminRestaurantsPage() {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-bold text-gray-700 mb-1">Thanh pho</label>
+                   <label className="block text-sm font-bold text-gray-700 mb-1">Thành phố</label>
                   <input
                     type="text"
                     value={formData.city}
@@ -378,7 +378,7 @@ export default function AdminRestaurantsPage() {
               </div>
 
               <div>
-                <label className="block text-sm font-bold text-gray-700 mb-1">Loai am thuc</label>
+                <label className="block text-sm font-bold text-gray-700 mb-1">Loại ẩm thực</label>
                 <div className="flex flex-wrap gap-2">
                   {cuisineOptions.map((ct) => (
                     <button
@@ -400,7 +400,7 @@ export default function AdminRestaurantsPage() {
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-sm font-bold text-gray-700 mb-1">So dien thoai</label>
+                   <label className="block text-sm font-bold text-gray-700 mb-1">Số điện thoại</label>
                   <input
                     type="text"
                     value={formData.phone}
@@ -410,7 +410,7 @@ export default function AdminRestaurantsPage() {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-bold text-gray-700 mb-1">Ty le hoa hong (%)</label>
+                   <label className="block text-sm font-bold text-gray-700 mb-1">Tỷ lệ hoa hồng (%)</label>
                   <input
                     type="number"
                     step="0.01"
@@ -421,20 +421,20 @@ export default function AdminRestaurantsPage() {
                     className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-primary-500"
                     placeholder="0.15"
                   />
-                  <p className="text-xs text-gray-400 mt-1">Nhap dang thap phan: 0.15 = 15%</p>
+                   <p className="text-xs text-gray-400 mt-1">Nhập dạng thập phân: 0.15 = 15%</p>
                 </div>
               </div>
 
               <div>
-                <label className="block text-sm font-bold text-gray-700 mb-1">Trang thai</label>
+                <label className="block text-sm font-bold text-gray-700 mb-1">Trạng thái</label>
                 <select
                   value={formData.status}
                   onChange={(e) => setFormData({ ...formData, status: e.target.value as RestaurantStatus })}
                   className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-primary-500"
                 >
-                  <option value="active">Hoat dong</option>
-                  <option value="inactive">Tam ngung</option>
-                  <option value="pending">Cho duyet</option>
+                  <option value="active">Hoạt động</option>
+                  <option value="inactive">Tạm ngưng</option>
+                  <option value="pending">Chờ duyệt</option>
                 </select>
               </div>
             </div>
@@ -444,7 +444,7 @@ export default function AdminRestaurantsPage() {
                 onClick={() => setShowModal(false)}
                 className="px-4 py-2.5 bg-gray-100 text-gray-700 rounded-xl font-bold text-sm hover:bg-gray-200 transition"
               >
-                Huy
+                Hủy
               </button>
               <button
                 onClick={handleSave}
@@ -452,7 +452,7 @@ export default function AdminRestaurantsPage() {
                 className="px-6 py-2.5 bg-gray-900 text-white rounded-xl font-bold text-sm hover:bg-gray-800 transition disabled:opacity-50 flex items-center gap-2"
               >
                 {saving && <Loader2 className="w-4 h-4 animate-spin" />}
-                {editingId ? 'Cap nhat' : 'Them moi'}
+                {editingId ? 'Cập nhật' : 'Thêm mới'}
               </button>
             </div>
           </div>

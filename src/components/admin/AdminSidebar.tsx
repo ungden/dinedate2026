@@ -21,18 +21,18 @@ import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
 
 const NAV_ITEMS = [
-  { href: '/admin', label: 'Tong quan', icon: LayoutDashboard },
-  { href: '/admin/finance', label: 'Tai chinh', icon: BarChart3 },
-  { href: '/admin/users', label: 'Nguoi dung', icon: Users },
-  { href: '/admin/bookings', label: 'Don hen', icon: Calendar },
-  { href: '/admin/restaurants', label: 'Nha hang', icon: UtensilsCrossed },
-  { href: '/admin/promo-codes', label: 'Ma giam gia', icon: Tag },
-  { href: '/admin/support', label: 'Ho tro', icon: HelpCircle },
-  { href: '/admin/disputes', label: 'Khieu nai', icon: MessageSquareWarning },
-  { href: '/admin/reports', label: 'Bao cao', icon: AlertTriangle },
-  { href: '/admin/reviews', label: 'Danh gia', icon: Star },
-  { href: '/admin/errors', label: 'Loi he thong', icon: Bug },
-  { href: '/admin/payment', label: 'Cau hinh & Vi', icon: CreditCard },
+  { href: '/admin', label: 'Tổng quan', icon: LayoutDashboard },
+  { href: '/admin/finance', label: 'Tài chính', icon: BarChart3 },
+  { href: '/admin/users', label: 'Người dùng', icon: Users },
+  { href: '/admin/bookings', label: 'Đơn hẹn', icon: Calendar },
+  { href: '/admin/restaurants', label: 'Nhà hàng', icon: UtensilsCrossed },
+  { href: '/admin/promo-codes', label: 'Mã giảm giá', icon: Tag },
+  { href: '/admin/support', label: 'Hỗ trợ', icon: HelpCircle },
+  { href: '/admin/disputes', label: 'Khiếu nại', icon: MessageSquareWarning },
+  { href: '/admin/reports', label: 'Báo cáo', icon: AlertTriangle },
+  { href: '/admin/reviews', label: 'Đánh giá', icon: Star },
+  { href: '/admin/errors', label: 'Lỗi hệ thống', icon: Bug },
+  { href: '/admin/payment', label: 'Cấu hình & Ví', icon: CreditCard },
 ];
 
 export function AdminSidebar() {

@@ -101,6 +101,12 @@ export default function CreateDateScreen() {
         const comboPrice = selectedCombo?.price || 0;
         const commissionRate = selectedRestaurant?.commissionRate || 0.15;
         const restaurantCommission = Math.round(comboPrice * commissionRate);
+
+        // Calculate creator total
+        const calcCreatorTotal = selectedCombo
+          ? PLATFORM_FEE_PER_PERSON + (paymentSplit === 'applicant_pays' ? 0 : paymentSplit === 'split' ? Math.round(comboPrice / 2) : comboPrice)
+          : PLATFORM_FEE_PER_PERSON;
+
         const applicantTotal = selectedCombo
           ? PLATFORM_FEE_PER_PERSON + (paymentSplit === 'creator_pays' ? 0 : paymentSplit === 'split' ? Math.round(comboPrice / 2) : comboPrice)
           : PLATFORM_FEE_PER_PERSON;
@@ -118,7 +124,7 @@ export default function CreateDateScreen() {
           payment_split: paymentSplit,
           combo_price: comboPrice,
           platform_fee: PLATFORM_FEE_PER_PERSON,
-          creator_total: creatorTotal,
+          creator_total: calcCreatorTotal,
           applicant_total: applicantTotal,
           restaurant_commission: restaurantCommission,
           expires_at: expiresAt,

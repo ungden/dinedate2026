@@ -31,6 +31,19 @@ const CUISINE_FILTERS: Array<{ id: 'all' | CuisineType; label: string; icon: str
   { id: 'seafood', label: CUISINE_LABELS.seafood, icon: CUISINE_ICONS.seafood },
 ];
 
+function formatRelativeDate(iso: string): string {
+  const diffMs = Date.now() - new Date(iso).getTime();
+  const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+  const diffDays = Math.floor(diffHours / 24);
+  if (diffHours < 1) return 'Vừa xong';
+  if (diffHours < 24) return `${diffHours} giờ trước`;
+  return `${diffDays} ngày trước`;
+}
+
+function renderStars(rating: number): string {
+  return '★'.repeat(Math.max(Math.min(rating, 5), 0)) + '☆'.repeat(Math.max(5 - rating, 0));
+}
+
 export default function ExploreScreen() {
   const router = useRouter();
   const ctaScale = useRef(new Animated.Value(1)).current;
@@ -39,7 +52,7 @@ export default function ExploreScreen() {
   const [nowTs, setNowTs] = useState(Date.now());
   const { restaurants, loading: restaurantsLoading, reload: reloadRestaurants } = useRestaurants();
   const { orders: dateOrders, loading: ordersLoading, reload } = useDateOrders();
-  const { stats, comboDeals, loading: statsLoading, reload: reloadStats } = useHomeStats();
+  const { stats, comboDeals, highlightReviews, loading: statsLoading, reload: reloadStats } = useHomeStats();
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -200,6 +213,44 @@ export default function ExploreScreen() {
         )}
       </View>
 
+      {/* Positive Reviews */}
+      <View style={styles.section}>
+        <View style={styles.sectionHeader}>
+          <Text style={styles.sectionTitle}>Cảm nhận nổi bật sau buổi hẹn</Text>
+          <Pressable onPress={() => router.push('/my-reviews')} accessibilityLabel="Xem tất cả review" accessibilityRole="link">
+            <Text style={styles.seeAll}>Xem thêm</Text>
+          </Pressable>
+        </View>
+        <Text style={styles.sectionDesc}>Những chia sẻ chân thật từ các buổi hẹn được đánh giá tích cực</Text>
+        {statsLoading ? (
+          <View style={styles.orderSkeletonWrap}>
+            <View style={styles.reviewSkeletonCard} />
+            <View style={styles.reviewSkeletonCard} />
+          </View>
+        ) : highlightReviews.length === 0 ? (
+          <View style={styles.emptyStateBox}>
+            <Text style={styles.emptyStateIcon}>🌟</Text>
+            <Text style={styles.emptyStateTitle}>Chưa có cảm nhận nổi bật</Text>
+            <Text style={styles.emptyStateSub}>Sau các buổi hẹn thành công, chia sẻ từ người dùng sẽ xuất hiện tại đây.</Text>
+          </View>
+        ) : (
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.horizontalCardsRow}>
+            {highlightReviews.map((review) => (
+              <View key={review.id} style={styles.reviewCard}>
+                <Text style={styles.reviewStars}>{renderStars(review.rating)}</Text>
+                <Text style={styles.reviewComment} numberOfLines={4}>“{review.comment}”</Text>
+                <View style={styles.reviewFooter}>
+                  <Text style={styles.reviewAuthor} numberOfLines={1}>— {review.reviewerName}</Text>
+                  <Text style={styles.reviewMeta} numberOfLines={1}>
+                    tại {review.restaurantName} • {formatRelativeDate(review.createdAt)}
+                  </Text>
+                </View>
+              </View>
+            ))}
+          </ScrollView>
+        )}
+      </View>
+
       {/* Combo Deals */}
       <View style={styles.section}>
         <View style={styles.sectionHeader}>
@@ -241,28 +292,6 @@ export default function ExploreScreen() {
             {restaurants.map((item) => <RestaurantCard key={item.id} restaurant={item} />)}
           </ScrollView>
         )}
-      </View>
-
-      {/* Community Stats */}
-      <View style={styles.communityCard}>
-        <Text style={styles.communityTitle}>Cộng đồng DineDate tuần này</Text>
-        <View style={styles.communityStatsRow}>
-          <View style={styles.communityStatItem}>
-            <Text style={styles.communityValue}>{stats.completedDatesCount}</Text>
-            <Text style={styles.communityLabel}>buổi hẹn thành công</Text>
-          </View>
-          <View style={styles.communityStatItem}>
-            <Text style={styles.communityValue}>{stats.wantToMeetAgainRate}%</Text>
-            <Text style={styles.communityLabel}>muốn gặp lại</Text>
-          </View>
-          <View style={styles.communityStatItem}>
-            <Text style={styles.communityValue}>{stats.newConnectionsCount}</Text>
-            <Text style={styles.communityLabel}>kết nối mới</Text>
-          </View>
-        </View>
-        <Pressable style={styles.communityCta} onPress={() => router.push('/(tabs)/create')}>
-          <Text style={styles.communityCtaText}>Tham gia ngay</Text>
-        </Pressable>
       </View>
 
       {/* Bottom spacing */}
@@ -467,54 +496,44 @@ const styles = StyleSheet.create({
     fontSize: FontSize.sm,
     color: Colors.textTertiary,
   },
-  communityCard: {
-    marginTop: Spacing.xxl,
-    marginHorizontal: Spacing.lg,
-    backgroundColor: Colors.primary,
-    borderRadius: BorderRadius.xl,
-    padding: Spacing.xl,
-    gap: Spacing.md,
+  reviewSkeletonCard: {
+    height: 170,
+    borderRadius: BorderRadius.lg,
+    backgroundColor: Colors.borderLight,
   },
-  communityTitle: {
-    fontSize: FontSize.lg,
-    color: Colors.white,
-    fontWeight: '800',
-  },
-  communityStatsRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+  reviewCard: {
+    width: 280,
+    borderRadius: BorderRadius.lg,
+    backgroundColor: Colors.white,
+    padding: Spacing.lg,
+    marginRight: Spacing.md,
     gap: Spacing.sm,
   },
-  communityStatItem: {
-    flex: 1,
-    backgroundColor: Colors.overlayLight,
-    borderRadius: BorderRadius.md,
-    paddingVertical: Spacing.md,
-    paddingHorizontal: Spacing.xs,
-    alignItems: 'center',
-    gap: 4,
-  },
-  communityValue: {
-    fontSize: FontSize.lg,
-    fontWeight: '800',
-    color: Colors.white,
-  },
-  communityLabel: {
-    fontSize: FontSize.xs,
-    color: Colors.white,
-    textAlign: 'center',
-    opacity: 0.95,
-  },
-  communityCta: {
-    marginTop: Spacing.xs,
-    backgroundColor: Colors.white,
-    borderRadius: BorderRadius.full,
-    paddingVertical: Spacing.md,
-    alignItems: 'center',
-  },
-  communityCtaText: {
-    color: Colors.primary,
+  reviewStars: {
+    color: Colors.warning,
     fontSize: FontSize.md,
-    fontWeight: '800',
+    letterSpacing: 1,
+    fontWeight: '700',
+  },
+  reviewComment: {
+    color: Colors.text,
+    fontSize: FontSize.md,
+    lineHeight: 21,
+    minHeight: 84,
+  },
+  reviewFooter: {
+    borderTopWidth: 1,
+    borderTopColor: Colors.borderLight,
+    paddingTop: Spacing.sm,
+    gap: 2,
+  },
+  reviewAuthor: {
+    color: Colors.primary,
+    fontSize: FontSize.sm,
+    fontWeight: '700',
+  },
+  reviewMeta: {
+    color: Colors.textSecondary,
+    fontSize: FontSize.xs,
   },
 });

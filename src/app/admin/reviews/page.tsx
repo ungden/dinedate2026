@@ -142,22 +142,22 @@ export default function AdminReviewsPage() {
       .eq('id', review.id);
 
     if (error) {
-      toast.error('Loi cap nhat');
+      toast.error('Lỗi cập nhật');
     } else {
-      toast.success(review.is_hidden ? 'Da hien review' : 'Da an review');
+      toast.success(review.is_hidden ? 'Đã hiện review' : 'Đã ẩn review');
       fetchReviews();
     }
   };
 
   const deleteReview = async (review: AdminReview) => {
-    if (!confirm('Chac chan xoa review nay?')) return;
+    if (!confirm('Chắc chắn xóa review này?')) return;
     
     const table = review.type === 'person' ? 'person_reviews' : 'restaurant_reviews';
     const { error } = await supabase.from(table).delete().eq('id', review.id);
     if (error) {
-      toast.error('Loi xoa review');
+      toast.error('Lỗi xóa review');
     } else {
-      toast.success('Da xoa review');
+      toast.success('Đã xóa review');
       fetchReviews();
     }
   };
@@ -188,9 +188,9 @@ export default function AdminReviewsPage() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-gray-900">Quan ly Danh gia</h1>
+        <h1 className="text-2xl font-bold text-gray-900">Quản lý Đánh giá</h1>
         <span className="px-3 py-1 bg-gray-100 rounded-full text-sm font-medium text-gray-600">
-          Tong: {reviews.length}
+          Tổng: {reviews.length}
         </span>
       </div>
 
@@ -199,7 +199,7 @@ export default function AdminReviewsPage() {
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
           <input
             type="text"
-            placeholder="Tim noi dung, nguoi gui/nhan..."
+            placeholder="Tìm nội dung, người gửi/nhận..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="w-full pl-10 pr-4 py-2.5 bg-white border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary-500 outline-none"
@@ -211,11 +211,11 @@ export default function AdminReviewsPage() {
           onChange={(e) => setFilterType(e.target.value as any)}
           className="px-4 py-2.5 bg-white border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-primary-500"
         >
-          <option value="all">Tat ca</option>
-          <option value="person">Danh gia nguoi</option>
-          <option value="restaurant">Danh gia nha hang</option>
-          <option value="visible">Dang hien</option>
-          <option value="hidden">Da an</option>
+          <option value="all">Tất cả</option>
+          <option value="person">Đánh giá người</option>
+          <option value="restaurant">Đánh giá nhà hàng</option>
+          <option value="visible">Đang hiện</option>
+          <option value="hidden">Đã ẩn</option>
         </select>
       </div>
 
@@ -224,13 +224,13 @@ export default function AdminReviewsPage() {
           <table className="w-full text-sm text-left">
             <thead className="bg-gray-50 text-gray-500 font-medium border-b border-gray-100">
               <tr>
-                <th className="px-6 py-4">Loai</th>
-                <th className="px-6 py-4">Nguoi danh gia</th>
-                <th className="px-6 py-4">Doi tuong</th>
-                <th className="px-6 py-4">Noi dung</th>
-                <th className="px-6 py-4">Diem</th>
-                <th className="px-6 py-4">Thoi gian</th>
-                <th className="px-6 py-4 text-right">Thao tac</th>
+                <th className="px-6 py-4">Loại</th>
+                <th className="px-6 py-4">Người đánh giá</th>
+                <th className="px-6 py-4">Đối tượng</th>
+                <th className="px-6 py-4">Nội dung</th>
+                <th className="px-6 py-4">Điểm</th>
+                <th className="px-6 py-4">Thời gian</th>
+                <th className="px-6 py-4 text-right">Thao tác</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
@@ -243,7 +243,7 @@ export default function AdminReviewsPage() {
               ) : filtered.length === 0 ? (
                 <tr>
                   <td colSpan={7} className="px-6 py-12 text-center text-gray-500">
-                    Khong co du lieu
+                    Không có dữ liệu
                   </td>
                 </tr>
               ) : (
@@ -253,12 +253,12 @@ export default function AdminReviewsPage() {
                       {r.type === 'person' ? (
                         <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-blue-50 text-blue-700 rounded-lg text-xs font-bold">
                           <Users className="w-3 h-3" />
-                          Nguoi
+                          Người
                         </span>
                       ) : (
                         <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-orange-50 text-orange-700 rounded-lg text-xs font-bold">
                           <UtensilsCrossed className="w-3 h-3" />
-                          Nha hang
+                          Nhà hàng
                         </span>
                       )}
                     </td>
@@ -272,7 +272,7 @@ export default function AdminReviewsPage() {
                       {r.comment}
                       {r.is_hidden && (
                         <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-600">
-                          <EyeOff className="w-3 h-3 mr-1" /> An
+                          <EyeOff className="w-3 h-3 mr-1" /> Ẩn
                         </span>
                       )}
                     </td>
@@ -289,14 +289,14 @@ export default function AdminReviewsPage() {
                         <button
                           onClick={() => toggleHidden(r)}
                           className="p-2 hover:bg-gray-100 rounded-lg text-gray-500 transition"
-                          title={r.is_hidden ? "Hien review" : "An review"}
+                          title={r.is_hidden ? "Hiện review" : "Ẩn review"}
                         >
                           {r.is_hidden ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
                         </button>
                         <button
                           onClick={() => deleteReview(r)}
                           className="p-2 hover:bg-red-50 text-red-500 rounded-lg transition"
-                          title="Xoa vinh vien"
+                          title="Xóa vĩnh viễn"
                         >
                           <Trash2 className="w-4 h-4" />
                         </button>

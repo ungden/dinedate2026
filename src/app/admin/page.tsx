@@ -20,29 +20,22 @@ export default function AdminDashboard() {
       // 1. Users
       const { count: usersCount } = await supabase.from('users').select('*', { count: 'exact', head: true });
       
-      // 2. Date Orders (bookings)
-      const { count: dateOrdersCount } = await supabase.from('bookings').select('*', { count: 'exact', head: true });
+      // 2. Date Orders
+      const { count: dateOrdersCount } = await supabase.from('date_orders').select('*', { count: 'exact', head: true });
 
       // 3. Restaurants
       const { count: restaurantsCount } = await supabase.from('restaurants').select('*', { count: 'exact', head: true });
 
-      // 4. Platform Fee Revenue (from transactions)
-      const { data: feeTxs } = await supabase
-        .from('transactions')
-        .select('amount')
-        .eq('type', 'platform_fee')
-        .eq('status', 'completed');
-      
-      const platformFees = feeTxs?.reduce((acc, curr) => acc + Number(curr.amount), 0) || 0;
+      // 4. Platform Fee Revenue (sum platform_fee from completed date orders)
+      const { data: completedOrders } = await supabase
+        .from('date_orders')
+        .select('platform_fee, restaurant_commission')
+        .in('status', ['completed', 'confirmed', 'matched']);
 
-      // 5. Restaurant Commissions
-      const { data: commTxs } = await supabase
-        .from('transactions')
-        .select('amount')
-        .eq('type', 'restaurant_commission')
-        .eq('status', 'completed');
+      const platformFees = completedOrders?.reduce((acc, curr) => acc + (Number(curr.platform_fee) * 2), 0) || 0;
 
-      const commissions = commTxs?.reduce((acc, curr) => acc + Number(curr.amount), 0) || 0;
+      // 5. Restaurant Commissions (from date_orders.restaurant_commission)
+      const commissions = completedOrders?.reduce((acc, curr) => acc + Number(curr.restaurant_commission), 0) || 0;
 
       setStats({
         totalUsers: usersCount || 0,

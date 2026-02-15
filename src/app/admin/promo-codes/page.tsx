@@ -108,7 +108,7 @@ export default function AdminPromoCodesPage() {
       setPromoCodes(data || []);
     } catch (err) {
       console.error('Error fetching promo codes:', err);
-      toast.error('Khong the tai danh sach ma giam gia');
+      toast.error('Không thể tải danh sách mã giảm giá');
     } finally {
       setLoading(false);
     }
@@ -145,7 +145,7 @@ export default function AdminPromoCodesPage() {
       }
     } catch (err) {
       console.error('Error fetching usages:', err);
-      toast.error('Khong the tai lich su su dung');
+      toast.error('Không thể tải lịch sử sử dụng');
     } finally {
       setLoadingUsages(false);
     }
@@ -186,17 +186,17 @@ export default function AdminPromoCodesPage() {
 
   const handleSave = async () => {
     if (!formData.code.trim()) {
-      toast.error('Vui long nhap ma giam gia');
+      toast.error('Vui lòng nhập mã giảm giá');
       return;
     }
 
     if (formData.discount_value <= 0) {
-      toast.error('Gia tri giam gia phai lon hon 0');
+      toast.error('Giá trị giảm giá phải lớn hơn 0');
       return;
     }
 
     if (formData.discount_type === 'percentage' && formData.discount_value > 100) {
-      toast.error('Phan tram giam gia khong the vuot qua 100%');
+      toast.error('Phần trăm giảm giá không thể vượt quá 100%');
       return;
     }
 
@@ -226,7 +226,7 @@ export default function AdminPromoCodesPage() {
           .eq('id', editingPromo.id);
 
         if (error) throw error;
-        toast.success('Da cap nhat ma giam gia');
+        toast.success('Đã cập nhật mã giảm giá');
       } else {
         // Create
         const { error } = await supabase
@@ -235,19 +235,19 @@ export default function AdminPromoCodesPage() {
 
         if (error) {
           if (error.code === '23505') {
-            toast.error('Ma giam gia da ton tai');
+            toast.error('Mã giảm giá đã tồn tại');
             return;
           }
           throw error;
         }
-        toast.success('Da tao ma giam gia moi');
+        toast.success('Đã tạo mã giảm giá mới');
       }
 
       setShowCreateModal(false);
       fetchPromoCodes();
     } catch (err: any) {
       console.error('Save error:', err);
-      toast.error(err?.message || 'Khong the luu ma giam gia');
+      toast.error(err?.message || 'Không thể lưu mã giảm giá');
     } finally {
       setSaving(false);
     }
@@ -262,11 +262,11 @@ export default function AdminPromoCodesPage() {
         .eq('id', promo.id);
 
       if (error) throw error;
-      toast.success(promo.is_active ? 'Da vo hieu hoa ma giam gia' : 'Da kich hoat ma giam gia');
+      toast.success(promo.is_active ? 'Đã vô hiệu hóa mã giảm giá' : 'Đã kích hoạt mã giảm giá');
       fetchPromoCodes();
     } catch (err) {
       console.error('Toggle error:', err);
-      toast.error('Khong the cap nhat trang thai');
+      toast.error('Không thể cập nhật trạng thái');
     } finally {
       setProcessing(null);
       setActionMenuId(null);
@@ -274,7 +274,7 @@ export default function AdminPromoCodesPage() {
   };
 
   const handleDelete = async (promoId: string) => {
-    if (!confirm('Ban co chac muon xoa ma giam gia nay? Hanh dong nay khong the hoan tac.')) {
+    if (!confirm('Bạn có chắc muốn xóa mã giảm giá này? Hành động này không thể hoàn tác.')) {
       return;
     }
 
@@ -286,11 +286,11 @@ export default function AdminPromoCodesPage() {
         .eq('id', promoId);
 
       if (error) throw error;
-      toast.success('Da xoa ma giam gia');
+      toast.success('Đã xóa mã giảm giá');
       fetchPromoCodes();
     } catch (err) {
       console.error('Delete error:', err);
-      toast.error('Khong the xoa ma giam gia');
+      toast.error('Không thể xóa mã giảm giá');
     } finally {
       setProcessing(null);
       setActionMenuId(null);
@@ -322,16 +322,16 @@ export default function AdminPromoCodesPage() {
         <div>
           <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
             <Sparkles className="w-7 h-7 text-primary-500" />
-            Quan ly Ma giam gia
+            Quản lý Mã giảm giá
           </h1>
-          <p className="text-sm text-gray-500 mt-1">Tao va quan ly cac ma khuyen mai, coupon</p>
+          <p className="text-sm text-gray-500 mt-1">Tạo và quản lý các mã khuyến mãi, coupon</p>
         </div>
         <button
           onClick={openCreateModal}
           className="px-4 py-2.5 bg-primary-500 text-white rounded-xl font-bold flex items-center gap-2 hover:bg-primary-600 transition shadow-lg shadow-primary-500/20"
         >
           <Plus className="w-5 h-5" />
-          Tao ma moi
+          Tạo mã mới
         </button>
       </div>
 
@@ -344,7 +344,7 @@ export default function AdminPromoCodesPage() {
             </div>
             <div>
               <p className="text-2xl font-black text-gray-900">{promoCodes.length}</p>
-              <p className="text-sm text-gray-500">Tong so ma</p>
+              <p className="text-sm text-gray-500">Tổng số mã</p>
             </div>
           </div>
         </div>
@@ -355,7 +355,7 @@ export default function AdminPromoCodesPage() {
             </div>
             <div>
               <p className="text-2xl font-black text-gray-900">{activeCount}</p>
-              <p className="text-sm text-gray-500">Dang hoat dong</p>
+              <p className="text-sm text-gray-500">Đang hoạt động</p>
             </div>
           </div>
         </div>
@@ -366,7 +366,7 @@ export default function AdminPromoCodesPage() {
             </div>
             <div>
               <p className="text-2xl font-black text-gray-900">{totalUsages}</p>
-              <p className="text-sm text-gray-500">Tong luot dung</p>
+              <p className="text-sm text-gray-500">Tổng lượt dùng</p>
             </div>
           </div>
         </div>
@@ -378,7 +378,7 @@ export default function AdminPromoCodesPage() {
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
           <input
             type="text"
-            placeholder="Tim kiem ma giam gia..."
+            placeholder="Tìm kiếm mã giảm giá..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="w-full pl-10 pr-4 py-2.5 bg-white border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary-500 outline-none"
@@ -392,9 +392,9 @@ export default function AdminPromoCodesPage() {
             onChange={(e) => setFilterActive(e.target.value as any)}
             className="px-4 py-2.5 bg-white border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-primary-500"
           >
-            <option value="all">Tat ca trang thai</option>
-            <option value="active">Dang hoat dong</option>
-            <option value="inactive">Da vo hieu hoa</option>
+            <option value="all">Tất cả trạng thái</option>
+            <option value="active">Đang hoạt động</option>
+            <option value="inactive">Đã vô hiệu hóa</option>
           </select>
         </div>
 
@@ -403,7 +403,7 @@ export default function AdminPromoCodesPage() {
           className="px-4 py-2.5 bg-white border border-gray-200 rounded-xl hover:bg-gray-50 flex items-center gap-2"
         >
           <RefreshCw className="w-4 h-4" />
-          Lam moi
+          Làm mới
         </button>
       </div>
 
@@ -413,18 +413,18 @@ export default function AdminPromoCodesPage() {
           <div className="px-6 py-12 text-center text-gray-500">
             <div className="flex items-center justify-center gap-2">
               <Loader2 className="w-5 h-5 animate-spin" />
-              Dang tai du lieu...
+              Đang tải dữ liệu...
             </div>
           </div>
         ) : filteredPromoCodes.length === 0 ? (
           <div className="px-6 py-12 text-center">
             <Tag className="w-12 h-12 text-gray-300 mx-auto mb-4" />
-            <p className="text-gray-500">Chua co ma giam gia nao</p>
+            <p className="text-gray-500">Chưa có mã giảm giá nào</p>
             <button
               onClick={openCreateModal}
               className="mt-4 px-4 py-2 bg-primary-500 text-white rounded-xl font-bold text-sm hover:bg-primary-600 transition"
             >
-              Tao ma dau tien
+              Tạo mã đầu tiên
             </button>
           </div>
         ) : (
@@ -432,13 +432,13 @@ export default function AdminPromoCodesPage() {
             <table className="w-full">
               <thead>
                 <tr className="bg-gray-50 border-b border-gray-100">
-                  <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Ma</th>
-                  <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Giam gia</th>
-                  <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Gioi han</th>
-                  <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Su dung</th>
-                  <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Thoi han</th>
-                  <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Trang thai</th>
-                  <th className="px-6 py-4 text-right text-xs font-bold text-gray-500 uppercase tracking-wider">Thao tac</th>
+                  <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Mã</th>
+                  <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Giảm giá</th>
+                  <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Giới hạn</th>
+                  <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Sử dụng</th>
+                  <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Thời hạn</th>
+                  <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Trạng thái</th>
+                  <th className="px-6 py-4 text-right text-xs font-bold text-gray-500 uppercase tracking-wider">Thao tác</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
@@ -456,7 +456,7 @@ export default function AdminPromoCodesPage() {
                           <button
                             onClick={() => copyCode(promo.code)}
                             className="p-1.5 hover:bg-gray-100 rounded-lg transition text-gray-400 hover:text-gray-600"
-                            title="Copy ma"
+                            title="Copy mã"
                           >
                             <Copy className="w-4 h-4" />
                           </button>
@@ -466,7 +466,7 @@ export default function AdminPromoCodesPage() {
                         )}
                         {promo.first_booking_only && (
                           <span className="inline-block mt-1 text-[10px] font-bold text-purple-600 bg-purple-50 px-2 py-0.5 rounded-full">
-                            Booking dau tien
+                            Booking đầu tiên
                           </span>
                         )}
                       </td>
@@ -485,17 +485,17 @@ export default function AdminPromoCodesPage() {
                           )}
                         </div>
                         {promo.max_discount_amount > 0 && promo.discount_type === 'percentage' && (
-                          <p className="text-xs text-gray-500 mt-0.5">Toi da: {formatCurrency(promo.max_discount_amount)}</p>
+                          <p className="text-xs text-gray-500 mt-0.5">Tối đa: {formatCurrency(promo.max_discount_amount)}</p>
                         )}
                         {promo.min_order_amount > 0 && (
-                          <p className="text-xs text-gray-500">Don toi thieu: {formatCurrency(promo.min_order_amount)}</p>
+                          <p className="text-xs text-gray-500">Đơn tối thiểu: {formatCurrency(promo.min_order_amount)}</p>
                         )}
                       </td>
                       <td className="px-6 py-4">
                         <div className="text-sm">
                           <div className="flex items-center gap-1 text-gray-600">
                             <Users className="w-3.5 h-3.5" />
-                            <span>{promo.user_limit > 0 ? `${promo.user_limit}/user` : 'Khong gioi han'}</span>
+                            <span>{promo.user_limit > 0 ? `${promo.user_limit}/user` : 'Không giới hạn'}</span>
                           </div>
                           {promo.usage_limit > 0 && (
                             <div className="flex items-center gap-1 text-gray-600 mt-0.5">
@@ -532,7 +532,7 @@ export default function AdminPromoCodesPage() {
                           </div>
                           {promo.valid_until && (
                             <div className={cn("text-xs mt-0.5", isExpired ? "text-red-500" : "text-gray-500")}>
-                              {isExpired ? 'Da het han' : `Den ${formatDate(promo.valid_until)}`}
+                               {isExpired ? 'Đã hết hạn' : `Đến ${formatDate(promo.valid_until)}`}
                             </div>
                           )}
                         </div>
@@ -549,12 +549,12 @@ export default function AdminPromoCodesPage() {
                           {promo.is_active && !isExpired ? (
                             <>
                               <CheckCircle className="w-3 h-3" />
-                              Hoat dong
+                              Hoạt động
                             </>
                           ) : (
                             <>
                               <XCircle className="w-3 h-3" />
-                              {isExpired ? 'Het han' : 'Vo hieu'}
+                               {isExpired ? 'Hết hạn' : 'Vô hiệu'}
                             </>
                           )}
                         </span>
@@ -583,14 +583,14 @@ export default function AdminPromoCodesPage() {
                                 className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
                               >
                                 <Edit2 className="w-4 h-4 text-blue-500" />
-                                Chinh sua
+                                Chỉnh sửa
                               </button>
                               <button
                                 onClick={() => openUsageModal(promo)}
                                 className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
                               >
                                 <Eye className="w-4 h-4 text-purple-500" />
-                                Xem lich su dung
+                                Xem lịch sử dùng
                               </button>
                               <button
                                 onClick={() => handleToggleActive(promo)}
@@ -599,12 +599,12 @@ export default function AdminPromoCodesPage() {
                                 {promo.is_active ? (
                                   <>
                                     <XCircle className="w-4 h-4 text-amber-500" />
-                                    Vo hieu hoa
+                                    Vô hiệu hóa
                                   </>
                                 ) : (
                                   <>
                                     <CheckCircle className="w-4 h-4 text-green-500" />
-                                    Kich hoat
+                                    Kích hoạt
                                   </>
                                 )}
                               </button>
@@ -614,7 +614,7 @@ export default function AdminPromoCodesPage() {
                                 className="w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"
                               >
                                 <Trash2 className="w-4 h-4" />
-                                Xoa ma
+                                Xóa mã
                               </button>
                             </div>
                           )}
@@ -635,7 +635,7 @@ export default function AdminPromoCodesPage() {
           <div className="bg-white rounded-2xl w-full max-w-lg max-h-[90vh] overflow-hidden shadow-2xl flex flex-col">
             <div className="p-5 border-b border-gray-100 flex items-center justify-between flex-shrink-0">
               <h3 className="font-bold text-gray-900 text-lg">
-                {editingPromo ? 'Chinh sua ma giam gia' : 'Tao ma giam gia moi'}
+                {editingPromo ? 'Chỉnh sửa mã giảm giá' : 'Tạo mã giảm giá mới'}
               </h3>
               <button
                 onClick={() => setShowCreateModal(false)}
@@ -649,7 +649,7 @@ export default function AdminPromoCodesPage() {
               {/* Code */}
               <div>
                 <label className="block text-sm font-bold text-gray-700 mb-2">
-                  Ma giam gia <span className="text-red-500">*</span>
+                  Mã giảm giá <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="text"
@@ -662,12 +662,12 @@ export default function AdminPromoCodesPage() {
 
               {/* Description */}
               <div>
-                <label className="block text-sm font-bold text-gray-700 mb-2">Mo ta</label>
+                <label className="block text-sm font-bold text-gray-700 mb-2">Mô tả</label>
                 <input
                   type="text"
                   value={formData.description}
                   onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                  placeholder="VD: Giam 20% cho nguoi dung moi"
+                   placeholder="VD: Giảm 20% cho người dùng mới"
                   className="w-full px-4 py-3 bg-gray-50 border rounded-xl outline-none focus:ring-2 focus:ring-primary-500"
                 />
               </div>
@@ -675,19 +675,19 @@ export default function AdminPromoCodesPage() {
               {/* Discount Type & Value */}
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-bold text-gray-700 mb-2">Loai giam gia</label>
+                  <label className="block text-sm font-bold text-gray-700 mb-2">Loại giảm giá</label>
                   <select
                     value={formData.discount_type}
                     onChange={(e) => setFormData({ ...formData, discount_type: e.target.value as any })}
                     className="w-full px-4 py-3 bg-gray-50 border rounded-xl outline-none focus:ring-2 focus:ring-primary-500"
                   >
-                    <option value="percentage">Phan tram (%)</option>
-                    <option value="fixed">So tien co dinh (VND)</option>
+                    <option value="percentage">Phần trăm (%)</option>
+                    <option value="fixed">Số tiền cố định (VND)</option>
                   </select>
                 </div>
                 <div>
                   <label className="block text-sm font-bold text-gray-700 mb-2">
-                    Gia tri giam <span className="text-red-500">*</span>
+                    Giá trị giảm <span className="text-red-500">*</span>
                   </label>
                   <input
                     type="number"
@@ -702,32 +702,32 @@ export default function AdminPromoCodesPage() {
               {/* Min/Max amounts */}
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-bold text-gray-700 mb-2">Don toi thieu (VND)</label>
+                  <label className="block text-sm font-bold text-gray-700 mb-2">Đơn tối thiểu (VND)</label>
                   <input
                     type="number"
                     value={formData.min_order_amount}
                     onChange={(e) => setFormData({ ...formData, min_order_amount: Number(e.target.value) })}
-                    placeholder="0 = Khong gioi han"
+                    placeholder="0 = Không giới hạn"
                     className="w-full px-4 py-3 bg-gray-50 border rounded-xl outline-none focus:ring-2 focus:ring-primary-500"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-bold text-gray-700 mb-2">Giam toi da (VND)</label>
+                  <label className="block text-sm font-bold text-gray-700 mb-2">Giảm tối đa (VND)</label>
                   <input
                     type="number"
                     value={formData.max_discount_amount}
                     onChange={(e) => setFormData({ ...formData, max_discount_amount: Number(e.target.value) })}
-                    placeholder="0 = Khong gioi han"
+                    placeholder="0 = Không giới hạn"
                     className="w-full px-4 py-3 bg-gray-50 border rounded-xl outline-none focus:ring-2 focus:ring-primary-500"
                   />
-                  <p className="text-xs text-gray-500 mt-1">Chi ap dung cho loai phan tram</p>
+                  <p className="text-xs text-gray-500 mt-1">Chỉ áp dụng cho loại phần trăm</p>
                 </div>
               </div>
 
               {/* Usage limits */}
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-bold text-gray-700 mb-2">Gioi han/nguoi dung</label>
+                  <label className="block text-sm font-bold text-gray-700 mb-2">Giới hạn/người dùng</label>
                   <input
                     type="number"
                     value={formData.user_limit}
@@ -735,15 +735,15 @@ export default function AdminPromoCodesPage() {
                     placeholder="1"
                     className="w-full px-4 py-3 bg-gray-50 border rounded-xl outline-none focus:ring-2 focus:ring-primary-500"
                   />
-                  <p className="text-xs text-gray-500 mt-1">0 = Khong gioi han</p>
+                  <p className="text-xs text-gray-500 mt-1">0 = Không giới hạn</p>
                 </div>
                 <div>
-                  <label className="block text-sm font-bold text-gray-700 mb-2">Tong luot dung</label>
+                  <label className="block text-sm font-bold text-gray-700 mb-2">Tổng lượt dùng</label>
                   <input
                     type="number"
                     value={formData.usage_limit}
                     onChange={(e) => setFormData({ ...formData, usage_limit: Number(e.target.value) })}
-                    placeholder="0 = Khong gioi han"
+                    placeholder="0 = Không giới hạn"
                     className="w-full px-4 py-3 bg-gray-50 border rounded-xl outline-none focus:ring-2 focus:ring-primary-500"
                   />
                 </div>

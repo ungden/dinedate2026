@@ -21,6 +21,16 @@ export interface HomeStats {
   wantToMeetAgainRate: number;
 }
 
+export interface HomeHighlightReview {
+  id: string;
+  reviewerName: string;
+  restaurantName: string;
+  rating: number;
+  comment: string;
+  createdAt: string;
+  wantToMeetAgain: boolean;
+}
+
 const DEFAULT_STATS: HomeStats = {
   onlineCount: 0,
   activeOrdersCount: 0,
@@ -33,6 +43,7 @@ const DEFAULT_STATS: HomeStats = {
 export function useHomeStats() {
   const [stats, setStats] = useState<HomeStats>(DEFAULT_STATS);
   const [comboDeals, setComboDeals] = useState<HomeComboDeal[]>([]);
+  const [highlightReviews, setHighlightReviews] = useState<HomeHighlightReview[]>([]);
   const [loading, setLoading] = useState(true);
 
   const fetch = useCallback(async () => {
@@ -51,6 +62,7 @@ export function useHomeStats() {
         weeklyConnectionsRes,
         allConnectionsRes,
         personReviewsRes,
+        highlightReviewsRes,
         comboDealsRes,
       ] = await Promise.all([
         supabase.from('users').select('id', { count: 'exact', head: true }).eq('is_online', true),
@@ -71,6 +83,24 @@ export function useHomeStats() {
           .from('person_reviews')
           .select('id, want_to_meet_again')
           .limit(500),
+        supabase
+          .from('person_reviews')
+          .select(`
+            id,
+            rating,
+            comment,
+            want_to_meet_again,
+            created_at,
+            reviewer:users!person_reviews_reviewer_id_fkey(name),
+            date_order:date_orders!person_reviews_date_order_id_fkey(
+              restaurant:restaurants!date_orders_restaurant_id_fkey(name)
+            )
+          `)
+          .gte('rating', 4)
+          .eq('want_to_meet_again', true)
+          .not('comment', 'is', null)
+          .order('created_at', { ascending: false })
+          .limit(6),
         supabase
           .from('combos')
           .select(`
@@ -126,6 +156,24 @@ export function useHomeStats() {
         setComboDeals([]);
       }
 
+      if (!highlightReviewsRes.error && highlightReviewsRes.data) {
+        const mappedReviews = (highlightReviewsRes.data as any[])
+          .filter((row) => row.comment && String(row.comment).trim().length > 0)
+          .map((row) => ({
+            id: row.id,
+            reviewerName: row.reviewer?.name || 'Người dùng ẩn danh',
+            restaurantName: row.date_order?.restaurant?.name || 'Nhà hàng đối tác',
+            rating: Number(row.rating || 0),
+            comment: String(row.comment || '').trim(),
+            createdAt: row.created_at,
+            wantToMeetAgain: Boolean(row.want_to_meet_again),
+          }));
+
+        setHighlightReviews(mappedReviews);
+      } else {
+        setHighlightReviews([]);
+      }
+
       if (allConnectionsRes.error) {
         console.warn('[useHomeStats] Lỗi tải tổng kết nối:', allConnectionsRes.error.message);
       }
@@ -133,6 +181,7 @@ export function useHomeStats() {
       console.warn('[useHomeStats] Lỗi:', err);
       setStats(DEFAULT_STATS);
       setComboDeals([]);
+      setHighlightReviews([]);
     } finally {
       setLoading(false);
     }
@@ -142,5 +191,5 @@ export function useHomeStats() {
     fetch();
   }, [fetch]);
 
-  return { stats, comboDeals, loading, reload: fetch };
+  return { stats, comboDeals, highlightReviews, loading, reload: fetch };
 }

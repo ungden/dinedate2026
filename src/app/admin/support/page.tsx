@@ -38,27 +38,27 @@ import { useAuth } from '@/contexts/AuthContext';
 
 const STATUS_CONFIG: Record<TicketStatus, { label: string; color: string; icon: React.ElementType }> = {
   open: {
-    label: 'Mo',
+    label: 'Mở',
     color: 'bg-blue-50 text-blue-700 border-blue-100',
     icon: AlertCircle,
   },
   in_progress: {
-    label: 'Dang xu ly',
+    label: 'Đang xử lý',
     color: 'bg-amber-50 text-amber-700 border-amber-100',
     icon: Clock,
   },
   waiting_user: {
-    label: 'Cho User',
+    label: 'Chờ User',
     color: 'bg-purple-50 text-purple-700 border-purple-100',
     icon: MessageSquare,
   },
   resolved: {
-    label: 'Da giai quyet',
+    label: 'Đã giải quyết',
     color: 'bg-green-50 text-green-700 border-green-100',
     icon: CheckCircle,
   },
   closed: {
-    label: 'Da dong',
+    label: 'Đã đóng',
     color: 'bg-gray-50 text-gray-700 border-gray-100',
     icon: CheckCircle,
   },
@@ -66,18 +66,18 @@ const STATUS_CONFIG: Record<TicketStatus, { label: string; color: string; icon: 
 
 const CATEGORY_LABELS: Record<TicketCategory, string> = {
   booking: 'Booking',
-  payment: 'Thanh toan',
-  account: 'Tai khoan',
+  payment: 'Thanh toán',
+  account: 'Tài khoản',
   partner: 'Partner',
-  technical: 'Ky thuat',
-  other: 'Khac',
+  technical: 'Kỹ thuật',
+  other: 'Khác',
 };
 
 const PRIORITY_CONFIG: Record<TicketPriority, { label: string; color: string; bgColor: string }> = {
-  low: { label: 'Thap', color: 'text-gray-500', bgColor: 'bg-gray-50' },
-  medium: { label: 'Trung binh', color: 'text-blue-600', bgColor: 'bg-blue-50' },
+  low: { label: 'Thấp', color: 'text-gray-500', bgColor: 'bg-gray-50' },
+  medium: { label: 'Trung bình', color: 'text-blue-600', bgColor: 'bg-blue-50' },
   high: { label: 'Cao', color: 'text-orange-600', bgColor: 'bg-orange-50' },
-  urgent: { label: 'Khan cap', color: 'text-red-600', bgColor: 'bg-red-50' },
+  urgent: { label: 'Khẩn cấp', color: 'text-red-600', bgColor: 'bg-red-50' },
 };
 
 export default function AdminSupportPage() {
@@ -103,7 +103,7 @@ export default function AdminSupportPage() {
     try {
       const success = await updateTicket(ticketId, { status: newStatus });
       if (success) {
-        toast.success(`Da cap nhat trang thai: ${STATUS_CONFIG[newStatus].label}`);
+        toast.success(`Đã cập nhật trạng thái: ${STATUS_CONFIG[newStatus].label}`);
       }
     } finally {
       setProcessing(null);
@@ -116,7 +116,7 @@ export default function AdminSupportPage() {
     try {
       const success = await updateTicket(ticketId, { priority: newPriority });
       if (success) {
-        toast.success(`Da cap nhat muc do: ${PRIORITY_CONFIG[newPriority].label}`);
+        toast.success(`Đã cập nhật mức độ: ${PRIORITY_CONFIG[newPriority].label}`);
       }
     } finally {
       setProcessing(null);
@@ -130,7 +130,7 @@ export default function AdminSupportPage() {
     try {
       const success = await updateTicket(ticketId, { assigned_to: user.id, status: 'in_progress' });
       if (success) {
-        toast.success('Da nhan xu ly ticket nay');
+        toast.success('Đã nhận xử lý ticket này');
       }
     } finally {
       setProcessing(null);
@@ -152,7 +152,7 @@ export default function AdminSupportPage() {
     try {
       const success = await sendAdminMessage(selectedTicket.id, replyMessage.trim(), user.id);
       if (success) {
-        toast.success('Da gui phan hoi');
+        toast.success('Đã gửi phản hồi');
         // Update status to waiting_user after reply
         await updateTicket(selectedTicket.id, { status: 'waiting_user' });
         setReplyModalOpen(false);
@@ -185,19 +185,19 @@ export default function AdminSupportPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Ho tro khach hang</h1>
-          <p className="text-sm text-gray-500 mt-1">Quan ly va xu ly cac yeu cau ho tro tu nguoi dung</p>
+          <h1 className="text-2xl font-bold text-gray-900">Hỗ trợ khách hàng</h1>
+          <p className="text-sm text-gray-500 mt-1">Quản lý và xử lý các yêu cầu hỗ trợ từ người dùng</p>
         </div>
         <div className="flex items-center gap-3">
           {urgentCount > 0 && (
             <span className="px-4 py-2 bg-red-50 text-red-700 rounded-full text-sm font-bold border border-red-100 flex items-center gap-2">
               <AlertTriangle className="w-4 h-4" />
-              {urgentCount} khan cap
+              {urgentCount} khẩn cấp
             </span>
           )}
           {openCount > 0 && (
             <span className="px-4 py-2 bg-blue-50 text-blue-700 rounded-full text-sm font-bold border border-blue-100">
-              {openCount} chua xu ly
+              {openCount} chưa xử lý
             </span>
           )}
         </div>
@@ -210,7 +210,7 @@ export default function AdminSupportPage() {
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
           <input
             type="text"
-            placeholder="Tim kiem theo ten, email, tieu de..."
+            placeholder="Tìm kiếm theo tên, email, tiêu đề..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="w-full pl-10 pr-4 py-2.5 bg-white border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary-500 outline-none"
@@ -226,12 +226,12 @@ export default function AdminSupportPage() {
             onChange={(e) => setFilterStatus(e.target.value as any)}
             className="px-3 py-2.5 bg-white border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-primary-500 text-sm"
           >
-            <option value="all">Tat ca trang thai</option>
-            <option value="open">Mo</option>
-            <option value="in_progress">Dang xu ly</option>
-            <option value="waiting_user">Cho User</option>
-            <option value="resolved">Da giai quyet</option>
-            <option value="closed">Da dong</option>
+            <option value="all">Tất cả trạng thái</option>
+            <option value="open">Mở</option>
+            <option value="in_progress">Đang xử lý</option>
+            <option value="waiting_user">Chờ User</option>
+            <option value="resolved">Đã giải quyết</option>
+            <option value="closed">Đã đóng</option>
           </select>
 
           <select
@@ -239,11 +239,11 @@ export default function AdminSupportPage() {
             onChange={(e) => setFilterPriority(e.target.value as any)}
             className="px-3 py-2.5 bg-white border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-primary-500 text-sm"
           >
-            <option value="all">Tat ca muc do</option>
-            <option value="urgent">Khan cap</option>
+            <option value="all">Tất cả mức độ</option>
+            <option value="urgent">Khẩn cấp</option>
             <option value="high">Cao</option>
-            <option value="medium">Trung binh</option>
-            <option value="low">Thap</option>
+            <option value="medium">Trung bình</option>
+            <option value="low">Thấp</option>
           </select>
 
           <select
@@ -251,13 +251,13 @@ export default function AdminSupportPage() {
             onChange={(e) => setFilterCategory(e.target.value as any)}
             className="px-3 py-2.5 bg-white border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-primary-500 text-sm"
           >
-            <option value="all">Tat ca loai</option>
+            <option value="all">Tất cả loại</option>
             <option value="booking">Booking</option>
-            <option value="payment">Thanh toan</option>
-            <option value="account">Tai khoan</option>
+            <option value="payment">Thanh toán</option>
+            <option value="account">Tài khoản</option>
             <option value="partner">Partner</option>
-            <option value="technical">Ky thuat</option>
-            <option value="other">Khac</option>
+            <option value="technical">Kỹ thuật</option>
+            <option value="other">Khác</option>
           </select>
         </div>
 
@@ -267,7 +267,7 @@ export default function AdminSupportPage() {
           className="px-4 py-2.5 bg-white border border-gray-200 rounded-xl hover:bg-gray-50 flex items-center gap-2"
         >
           <RefreshCw className={cn('w-4 h-4', loading && 'animate-spin')} />
-          Lam moi
+          Làm mới
         </button>
       </div>
 
@@ -277,13 +277,13 @@ export default function AdminSupportPage() {
           <div className="px-6 py-12 text-center text-gray-500">
             <div className="flex items-center justify-center gap-2">
               <Loader2 className="w-5 h-5 animate-spin" />
-              Dang tai du lieu...
+              Đang tải dữ liệu...
             </div>
           </div>
         ) : filteredTickets.length === 0 ? (
           <div className="px-6 py-12 text-center">
             <HelpCircle className="w-12 h-12 text-gray-300 mx-auto mb-4" />
-            <p className="text-gray-500">Khong tim thay ticket nao</p>
+            <p className="text-gray-500">Không tìm thấy ticket nào</p>
           </div>
         ) : (
           <div className="divide-y divide-gray-100">
@@ -320,7 +320,7 @@ export default function AdminSupportPage() {
                               target="_blank"
                               className="font-medium text-gray-900 hover:text-primary-600 flex items-center gap-1"
                             >
-                              {ticket.user?.name || 'Nguoi dung'}
+                              {ticket.user?.name || 'Người dùng'}
                               <ExternalLink className="w-3 h-3" />
                             </Link>
                             <p className="text-xs text-gray-500">{ticket.user?.email}</p>
@@ -359,7 +359,7 @@ export default function AdminSupportPage() {
                           <span>{formatRelativeTime(ticket.created_at)}</span>
                           <span className="flex items-center gap-1">
                             <MessageSquare className="w-3 h-3" />
-                            {ticket.messages_count || 0} tin nhan
+                            {ticket.messages_count || 0} tin nhắn
                           </span>
                           {ticket.assigned_admin && (
                             <span className="flex items-center gap-1 text-green-600">
@@ -383,12 +383,12 @@ export default function AdminSupportPage() {
                           {isExpanded ? (
                             <>
                               <ChevronUp className="w-3 h-3" />
-                              Thu gon
+                               Thu gọn
                             </>
                           ) : (
                             <>
                               <ChevronDown className="w-3 h-3" />
-                              Xem chi tiet
+                               Xem chi tiết
                             </>
                           )}
                         </button>
@@ -419,7 +419,7 @@ export default function AdminSupportPage() {
                               className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
                             >
                               <Send className="w-4 h-4 text-primary-500" />
-                              Phan hoi
+                              Phản hồi
                             </button>
 
                             {/* Assign */}
@@ -429,21 +429,21 @@ export default function AdminSupportPage() {
                                 className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
                               >
                                 <UserCheck className="w-4 h-4 text-green-500" />
-                                Nhan xu ly
+                                Nhận xử lý
                               </button>
                             )}
 
                             <div className="my-2 border-t border-gray-100" />
 
                             {/* Status Changes */}
-                            <div className="px-4 py-1 text-xs text-gray-400 font-bold">Trang thai</div>
+                            <div className="px-4 py-1 text-xs text-gray-400 font-bold">Trạng thái</div>
                             {ticket.status !== 'in_progress' && (
                               <button
                                 onClick={() => handleUpdateStatus(ticket.id, 'in_progress')}
                                 className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
                               >
                                 <Clock className="w-4 h-4 text-amber-500" />
-                                Dang xu ly
+                                Đang xử lý
                               </button>
                             )}
                             {ticket.status !== 'resolved' && (
@@ -452,7 +452,7 @@ export default function AdminSupportPage() {
                                 className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
                               >
                                 <CheckCircle className="w-4 h-4 text-green-500" />
-                                Da giai quyet
+                                Đã giải quyết
                               </button>
                             )}
                             {ticket.status !== 'closed' && (
@@ -461,14 +461,14 @@ export default function AdminSupportPage() {
                                 className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
                               >
                                 <X className="w-4 h-4 text-gray-500" />
-                                Dong ticket
+                                Đóng ticket
                               </button>
                             )}
 
                             <div className="my-2 border-t border-gray-100" />
 
                             {/* Priority Changes */}
-                            <div className="px-4 py-1 text-xs text-gray-400 font-bold">Muc do</div>
+                            <div className="px-4 py-1 text-xs text-gray-400 font-bold">Mức độ</div>
                             {(['low', 'medium', 'high', 'urgent'] as TicketPriority[]).map((priority) => (
                               ticket.priority !== priority && (
                                 <button
@@ -504,7 +504,7 @@ export default function AdminSupportPage() {
           <div className="bg-white rounded-2xl w-full max-w-lg overflow-hidden shadow-2xl">
             <div className="p-5 border-b border-gray-100 flex items-center justify-between">
               <div>
-                <h3 className="font-bold text-gray-900">Phan hoi ticket</h3>
+                <h3 className="font-bold text-gray-900">Phản hồi ticket</h3>
                 <p className="text-xs text-gray-500">{selectedTicket.subject}</p>
               </div>
               <button
@@ -541,12 +541,12 @@ export default function AdminSupportPage() {
               {/* Reply Input */}
               <div>
                 <label className="block text-sm font-bold text-gray-700 mb-2">
-                  Noi dung phan hoi
+                  Nội dung phản hồi
                 </label>
                 <textarea
                   value={replyMessage}
                   onChange={(e) => setReplyMessage(e.target.value)}
-                  placeholder="Nhap noi dung phan hoi cho nguoi dung..."
+                  placeholder="Nhập nội dung phản hồi cho người dùng..."
                   rows={5}
                   className="w-full px-4 py-3 bg-gray-50 border rounded-xl outline-none focus:ring-2 focus:ring-primary-500 resize-none"
                 />
@@ -554,12 +554,12 @@ export default function AdminSupportPage() {
 
               {/* Quick Replies */}
               <div>
-                <p className="text-xs text-gray-500 mb-2">Phan hoi nhanh:</p>
+                <p className="text-xs text-gray-500 mb-2">Phản hồi nhanh:</p>
                 <div className="flex flex-wrap gap-2">
                   {[
-                    'Cam on ban da lien he. Chung toi dang xem xet yeu cau cua ban.',
-                    'Van de cua ban da duoc giai quyet. Vui long kiem tra lai.',
-                    'Vui long cung cap them thong tin de chung toi ho tro tot hon.',
+                    'Cảm ơn bạn đã liên hệ. Chúng tôi đang xem xét yêu cầu của bạn.',
+                    'Vấn đề của bạn đã được giải quyết. Vui lòng kiểm tra lại.',
+                    'Vui lòng cung cấp thêm thông tin để chúng tôi hỗ trợ tốt hơn.',
                   ].map((msg, idx) => (
                     <button
                       key={idx}
@@ -578,7 +578,7 @@ export default function AdminSupportPage() {
                   onClick={() => setReplyModalOpen(false)}
                   className="flex-1 py-3 bg-gray-100 text-gray-700 rounded-xl font-bold hover:bg-gray-200 transition"
                 >
-                  Huy
+                  Hủy
                 </button>
                 <button
                   onClick={handleSendReply}
@@ -593,12 +593,12 @@ export default function AdminSupportPage() {
                   {sendingReply ? (
                     <>
                       <Loader2 className="w-4 h-4 animate-spin" />
-                      Dang gui...
+                      Đang gửi...
                     </>
                   ) : (
                     <>
                       <Send className="w-4 h-4" />
-                      Gui phan hoi
+                      Gửi phản hồi
                     </>
                   )}
                 </button>
@@ -641,7 +641,7 @@ function ExpandedTicketDetail({ ticketId, adminId }: { ticketId: string; adminId
       <div className="px-6 pb-6 border-t border-gray-100 pt-4 bg-gray-50">
         <div className="flex items-center justify-center py-8 text-gray-400">
           <Loader2 className="w-5 h-5 animate-spin mr-2" />
-          Dang tai...
+          Đang tải...
         </div>
       </div>
     );
@@ -652,7 +652,7 @@ function ExpandedTicketDetail({ ticketId, adminId }: { ticketId: string; adminId
       <div className="grid md:grid-cols-2 gap-4">
         {/* Full Description */}
         <div>
-          <h4 className="text-sm font-bold text-gray-700 mb-2">Mo ta chi tiet</h4>
+          <h4 className="text-sm font-bold text-gray-700 mb-2">Mô tả chi tiết</h4>
           <p className="text-sm text-gray-600 bg-white p-3 rounded-lg border whitespace-pre-wrap">
             {ticket?.description}
           </p>
@@ -661,11 +661,11 @@ function ExpandedTicketDetail({ ticketId, adminId }: { ticketId: string; adminId
         {/* Messages */}
         <div>
           <h4 className="text-sm font-bold text-gray-700 mb-2">
-            Trao doi ({messages.length})
+            Trao đổi ({messages.length})
           </h4>
           <div className="bg-white rounded-lg border max-h-60 overflow-y-auto">
             {messages.length === 0 ? (
-              <p className="text-sm text-gray-400 italic p-3 text-center">Chua co tin nhan</p>
+              <p className="text-sm text-gray-400 italic p-3 text-center">Chưa có tin nhắn</p>
             ) : (
               <div className="p-3 space-y-3">
                 {messages.map((msg) => (
@@ -705,7 +705,7 @@ function ExpandedTicketDetail({ ticketId, adminId }: { ticketId: string; adminId
                 value={newMessage}
                 onChange={(e) => setNewMessage(e.target.value)}
                 onKeyPress={(e) => e.key === 'Enter' && handleSend()}
-                placeholder="Phan hoi nhanh..."
+                placeholder="Phản hồi nhanh..."
                 className="flex-1 px-3 py-2 text-sm bg-white border rounded-lg outline-none focus:ring-2 focus:ring-primary-500"
               />
               <button

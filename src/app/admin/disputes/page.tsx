@@ -53,32 +53,32 @@ interface DisputeRow {
 }
 
 const REASON_LABELS: Record<string, string> = {
-  'no_show': 'Doi phuong khong den',
-  'bad_behavior': 'Hanh vi khong phu hop',
-  'wrong_restaurant': 'Nha hang khong dung',
-  'food_quality': 'Chat luong mon an kem',
-  'other': 'Khac',
+  'no_show': 'Đối phương không đến',
+  'bad_behavior': 'Hành vi không phù hợp',
+  'wrong_restaurant': 'Nhà hàng không đúng',
+  'food_quality': 'Chất lượng món ăn kém',
+  'other': 'Khác',
 };
 
 const RESOLUTION_LABELS: Record<string, string> = {
-  'refund_full': 'Hoan tien 100%',
-  'refund_partial': 'Hoan mot phan',
-  'no_action': 'Khong hanh dong',
+  'refund_full': 'Hoàn tiền 100%',
+  'refund_partial': 'Hoàn một phần',
+  'no_action': 'Không hành động',
 };
 
 const STATUS_CONFIG = {
   pending: {
-    label: 'Cho xu ly',
+    label: 'Chờ xử lý',
     color: 'bg-amber-50 text-amber-700 border-amber-100',
     icon: Clock,
   },
   investigating: {
-    label: 'Dang dieu tra',
+    label: 'Đang điều tra',
     color: 'bg-blue-50 text-blue-700 border-blue-100',
     icon: Eye,
   },
   resolved: {
-    label: 'Da xu ly',
+    label: 'Đã xử lý',
     color: 'bg-green-50 text-green-700 border-green-100',
     icon: CheckCircle,
   },
@@ -199,14 +199,14 @@ export default function AdminDisputesPage() {
         .eq('id', disputeId);
 
       if (error) {
-        toast.error('Khong the cap nhat trang thai');
+        toast.error('Không thể cập nhật trạng thái');
         console.error(error);
       } else {
-        toast.success(`Da danh dau la "${STATUS_CONFIG[newStatus].label}"`);
+        toast.success(`Đã đánh dấu là "${STATUS_CONFIG[newStatus].label}"`);
         await fetchDisputes();
       }
     } catch (err) {
-      toast.error('Loi xu ly');
+      toast.error('Lỗi xử lý');
     } finally {
       setProcessing(null);
       setActionMenuId(null);
@@ -224,12 +224,12 @@ export default function AdminDisputesPage() {
 
   const handleResolveDispute = async () => {
     if (!selectedDispute || !selectedResolution) {
-      toast.error('Vui long chon phuong an xu ly');
+      toast.error('Vui lòng chọn phương án xử lý');
       return;
     }
 
     if (selectedResolution === 'refund_partial' && partialAmount <= 0) {
-      toast.error('Vui long nhap so tien hoan');
+      toast.error('Vui lòng nhập số tiền hoàn');
       return;
     }
 
@@ -253,12 +253,12 @@ export default function AdminDisputesPage() {
         throw new Error(data.error);
       }
 
-      toast.success('Da xu ly khieu nai thanh cong');
+      toast.success('Đã xử lý khiếu nại thành công');
       setResolutionModalOpen(false);
       await fetchDisputes();
     } catch (err: any) {
       console.error('Resolve error:', err);
-      toast.error(err?.message || 'Khong the xu ly khieu nai');
+      toast.error(err?.message || 'Không thể xử lý khiếu nại');
     } finally {
       setProcessing(null);
     }
@@ -279,12 +279,12 @@ export default function AdminDisputesPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Quan ly Khieu nai</h1>
-          <p className="text-sm text-gray-500 mt-1">Xem xet va xu ly cac khieu nai tu nguoi dung</p>
+          <h1 className="text-2xl font-bold text-gray-900">Quản lý Khiếu nại</h1>
+          <p className="text-sm text-gray-500 mt-1">Xem xét và xử lý các khiếu nại từ người dùng</p>
         </div>
         {pendingCount > 0 && (
           <span className="px-4 py-2 bg-amber-50 text-amber-700 rounded-full text-sm font-bold border border-amber-100">
-            {pendingCount} khieu nai cho xu ly
+            {pendingCount} khiếu nại chờ xử lý
           </span>
         )}
       </div>
@@ -295,7 +295,7 @@ export default function AdminDisputesPage() {
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
           <input
             type="text"
-            placeholder="Tim kiem theo ten nguoi dung..."
+            placeholder="Tìm kiếm theo tên người dùng..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="w-full pl-10 pr-4 py-2.5 bg-white border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary-500 outline-none"
@@ -309,10 +309,10 @@ export default function AdminDisputesPage() {
             onChange={(e) => setFilterStatus(e.target.value as any)}
             className="px-4 py-2.5 bg-white border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-primary-500"
           >
-            <option value="all">Tat ca trang thai</option>
-            <option value="pending">Cho xu ly</option>
-            <option value="investigating">Dang dieu tra</option>
-            <option value="resolved">Da xu ly</option>
+            <option value="all">Tất cả trạng thái</option>
+            <option value="pending">Chờ xử lý</option>
+            <option value="investigating">Đang điều tra</option>
+            <option value="resolved">Đã xử lý</option>
           </select>
         </div>
 
@@ -321,7 +321,7 @@ export default function AdminDisputesPage() {
           className="px-4 py-2.5 bg-white border border-gray-200 rounded-xl hover:bg-gray-50 flex items-center gap-2"
         >
           <RefreshCw className="w-4 h-4" />
-          Lam moi
+          Làm mới
         </button>
       </div>
 
@@ -331,13 +331,13 @@ export default function AdminDisputesPage() {
           <div className="px-6 py-12 text-center text-gray-500">
             <div className="flex items-center justify-center gap-2">
               <Loader2 className="w-5 h-5 animate-spin" />
-              Dang tai du lieu...
+              Đang tải dữ liệu...
             </div>
           </div>
         ) : filteredDisputes.length === 0 ? (
           <div className="px-6 py-12 text-center">
             <AlertTriangle className="w-12 h-12 text-gray-300 mx-auto mb-4" />
-            <p className="text-gray-500">Khong tim thay khieu nai nao</p>
+            <p className="text-gray-500">Không tìm thấy khiếu nại nào</p>
           </div>
         ) : (
           <div className="divide-y divide-gray-100">
@@ -373,12 +373,12 @@ export default function AdminDisputesPage() {
                               target="_blank"
                               className="font-medium text-gray-900 text-sm hover:text-primary-600 flex items-center gap-1"
                             >
-                              {dispute.reporter?.name || 'Nguoi dung'}
+                              {dispute.reporter?.name || 'Người dùng'}
                               <ExternalLink className="w-3 h-3" />
                             </Link>
                           </div>
 
-                          <span className="text-gray-400 text-sm">khieu nai don hen</span>
+                          <span className="text-gray-400 text-sm">khiếu nại đơn hẹn</span>
                         </div>
 
                         {/* Reason & Status */}
@@ -401,7 +401,7 @@ export default function AdminDisputesPage() {
                         {dispute.dateOrder && (
                           <div className="flex items-center gap-4 mb-2 text-xs text-gray-500">
                             {dispute.dateOrder.restaurant_name && (
-                              <span>Nha hang: <b>{dispute.dateOrder.restaurant_name}</b></span>
+                              <span>Nhà hàng: <b>{dispute.dateOrder.restaurant_name}</b></span>
                             )}
                             <span>Combo: <b>{formatCurrency(dispute.dateOrder.combo_price)}</b></span>
                           </div>
@@ -425,12 +425,12 @@ export default function AdminDisputesPage() {
                           {isExpanded ? (
                             <>
                               <ChevronUp className="w-3 h-3" />
-                              Thu gon
+                               Thu gọn
                             </>
                           ) : (
                             <>
                               <ChevronDown className="w-3 h-3" />
-                              Xem chi tiet
+                               Xem chi tiết
                             </>
                           )}
                         </button>
@@ -461,7 +461,7 @@ export default function AdminDisputesPage() {
                                 className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
                               >
                                 <Eye className="w-4 h-4 text-blue-500" />
-                                Danh dau dang dieu tra
+                                Đánh dấu đang điều tra
                               </button>
                             )}
 
@@ -471,7 +471,7 @@ export default function AdminDisputesPage() {
                                 className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
                               >
                                 <CheckCircle className="w-4 h-4 text-green-500" />
-                                Xu ly khieu nai
+                                Xử lý khiếu nại
                               </button>
                             )}
 
@@ -480,7 +480,7 @@ export default function AdminDisputesPage() {
                               className="w-full px-4 py-2 text-left text-sm text-gray-500 hover:bg-gray-50 flex items-center gap-2"
                             >
                               <X className="w-4 h-4" />
-                              Dong
+                              Đóng
                             </button>
                           </div>
                         )}
@@ -496,7 +496,7 @@ export default function AdminDisputesPage() {
                         <div>
                           <h4 className="text-sm font-bold text-gray-700 mb-2 flex items-center gap-2">
                             <FileText className="w-4 h-4" />
-                            Mo ta chi tiet
+                            Mô tả chi tiết
                           </h4>
                           <p className="text-sm text-gray-600 bg-white p-3 rounded-lg border">
                             {dispute.description}
@@ -507,7 +507,7 @@ export default function AdminDisputesPage() {
                         <div>
                           <h4 className="text-sm font-bold text-gray-700 mb-2 flex items-center gap-2">
                             <ImageIcon className="w-4 h-4" />
-                            Bang chung ({dispute.evidence_urls?.length || 0})
+                            Bằng chứng ({dispute.evidence_urls?.length || 0})
                           </h4>
                           {dispute.evidence_urls && dispute.evidence_urls.length > 0 ? (
                             <div className="grid grid-cols-4 gap-2">
@@ -524,7 +524,7 @@ export default function AdminDisputesPage() {
                               ))}
                             </div>
                           ) : (
-                            <p className="text-sm text-gray-400 italic">Khong co bang chung</p>
+                            <p className="text-sm text-gray-400 italic">Không có bằng chứng</p>
                           )}
                         </div>
                       </div>
@@ -532,7 +532,7 @@ export default function AdminDisputesPage() {
                       {/* Resolution Notes */}
                       {dispute.resolution_notes && (
                         <div className="mt-4">
-                          <h4 className="text-sm font-bold text-gray-700 mb-2">Ghi chu xu ly</h4>
+                          <h4 className="text-sm font-bold text-gray-700 mb-2">Ghi chú xử lý</h4>
                           <p className="text-sm text-gray-600 bg-white p-3 rounded-lg border">
                             {dispute.resolution_notes}
                           </p>
@@ -553,7 +553,7 @@ export default function AdminDisputesPage() {
           <div className="bg-white rounded-2xl w-full max-w-lg overflow-hidden shadow-2xl">
             <div className="p-5 border-b border-gray-100 flex items-center justify-between">
               <div>
-                <h3 className="font-bold text-gray-900">Xu ly khieu nai</h3>
+                <h3 className="font-bold text-gray-900">Xử lý khiếu nại</h3>
                 <p className="text-xs text-gray-500">
                   {selectedDispute.dateOrder?.restaurant_name || `Don hen #${selectedDispute.date_order_id.slice(0, 8)}`}
                 </p>
@@ -571,13 +571,13 @@ export default function AdminDisputesPage() {
               <div className="bg-gray-50 p-4 rounded-xl">
                 <div className="grid grid-cols-2 gap-4 text-sm">
                   <div>
-                    <span className="text-gray-500">Gia combo:</span>
+                    <span className="text-gray-500">Giá combo:</span>
                     <p className="font-bold text-gray-900">
                       {formatCurrency(selectedDispute.dateOrder?.combo_price || 0)}
                     </p>
                   </div>
                   <div>
-                    <span className="text-gray-500">Phi nen tang:</span>
+                    <span className="text-gray-500">Phí nền tảng:</span>
                     <p className="font-bold text-gray-900">
                       {formatCurrency(selectedDispute.dateOrder?.platform_fee || 0)}
                     </p>
@@ -588,13 +588,13 @@ export default function AdminDisputesPage() {
               {/* Resolution Options */}
               <div>
                 <label className="block text-sm font-bold text-gray-700 mb-2">
-                  Phuong an xu ly <span className="text-red-500">*</span>
+                  Phương án xử lý <span className="text-red-500">*</span>
                 </label>
                 <div className="space-y-2">
                   {[
-                    { value: 'refund_full', label: 'Hoan tien 100% cho User', desc: 'Hoan lai toan bo phi' },
-                    { value: 'refund_partial', label: 'Hoan mot phan cho User', desc: 'Chi hoan mot phan phi' },
-                    { value: 'no_action', label: 'Khong hanh dong', desc: 'Dong khieu nai, khong hoan tien' },
+                    { value: 'refund_full', label: 'Hoàn tiền 100% cho User', desc: 'Hoàn lại toàn bộ phí' },
+                    { value: 'refund_partial', label: 'Hoàn một phần cho User', desc: 'Chỉ hoàn một phần phí' },
+                    { value: 'no_action', label: 'Không hành động', desc: 'Đóng khiếu nại, không hoàn tiền' },
                   ].map((option) => (
                     <label
                       key={option.value}
@@ -626,7 +626,7 @@ export default function AdminDisputesPage() {
               {selectedResolution === 'refund_partial' && (
                 <div>
                   <label className="block text-sm font-bold text-gray-700 mb-2">
-                    So tien hoan cho User <span className="text-red-500">*</span>
+                    Số tiền hoàn cho User <span className="text-red-500">*</span>
                   </label>
                   <div className="relative">
                     <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
@@ -634,13 +634,13 @@ export default function AdminDisputesPage() {
                       type="number"
                       value={partialAmount}
                       onChange={(e) => setPartialAmount(Number(e.target.value))}
-                      placeholder="Nhap so tien"
+                      placeholder="Nhập số tiền"
                       max={(selectedDispute.dateOrder?.combo_price || 0) + (selectedDispute.dateOrder?.platform_fee || 0)}
                       className="w-full pl-10 pr-4 py-3 bg-gray-50 border rounded-xl outline-none focus:ring-2 focus:ring-primary-500"
                     />
                   </div>
                   <p className="text-xs text-gray-500 mt-1">
-                    Toi da: {formatCurrency((selectedDispute.dateOrder?.combo_price || 0) + (selectedDispute.dateOrder?.platform_fee || 0))}
+                    Tối đa: {formatCurrency((selectedDispute.dateOrder?.combo_price || 0) + (selectedDispute.dateOrder?.platform_fee || 0))}
                   </p>
                 </div>
               )}
@@ -648,12 +648,12 @@ export default function AdminDisputesPage() {
               {/* Notes */}
               <div>
                 <label className="block text-sm font-bold text-gray-700 mb-2">
-                  Ghi chu xu ly
+                  Ghi chú xử lý
                 </label>
                 <textarea
                   value={resolutionNotes}
                   onChange={(e) => setResolutionNotes(e.target.value)}
-                  placeholder="Ghi chu noi bo ve quyet dinh xu ly..."
+                  placeholder="Ghi chú nội bộ về quyết định xử lý..."
                   rows={3}
                   className="w-full px-4 py-3 bg-gray-50 border rounded-xl outline-none focus:ring-2 focus:ring-primary-500 resize-none"
                 />
@@ -665,7 +665,7 @@ export default function AdminDisputesPage() {
                   onClick={() => setResolutionModalOpen(false)}
                   className="flex-1 py-3 bg-gray-100 text-gray-700 rounded-xl font-bold hover:bg-gray-200 transition"
                 >
-                  Huy
+                  Hủy
                 </button>
                 <button
                   onClick={handleResolveDispute}
@@ -680,10 +680,10 @@ export default function AdminDisputesPage() {
                   {processing === selectedDispute.id ? (
                     <>
                       <Loader2 className="w-4 h-4 animate-spin" />
-                      Dang xu ly...
+                      Đang xử lý...
                     </>
                   ) : (
-                    'Xac nhan xu ly'
+                    'Xác nhận xử lý'
                   )}
                 </button>
               </div>

@@ -43,26 +43,26 @@ interface ReportRow {
 }
 
 const REASON_LABELS: Record<string, string> = {
-  'inappropriate_behavior': 'Hanh vi khong phu hop',
-  'fake_photos': 'Anh gia mao',
-  'scam': 'Lua dao/Scam',
-  'harassment': 'Quay roi',
-  'other': 'Khac',
+  'inappropriate_behavior': 'Hành vi không phù hợp',
+  'fake_photos': 'Ảnh giả mạo',
+  'scam': 'Lừa đảo/Scam',
+  'harassment': 'Quấy rối',
+  'other': 'Khác',
 };
 
 const STATUS_CONFIG = {
   pending: {
-    label: 'Cho xu ly',
+    label: 'Chờ xử lý',
     color: 'bg-amber-50 text-amber-700 border-amber-100',
     icon: Clock,
   },
   reviewed: {
-    label: 'Da xem xet',
+    label: 'Đã xem xét',
     color: 'bg-blue-50 text-blue-700 border-blue-100',
     icon: Eye,
   },
   resolved: {
-    label: 'Da xu ly',
+    label: 'Đã xử lý',
     color: 'bg-green-50 text-green-700 border-green-100',
     icon: CheckCircle,
   },
@@ -140,14 +140,14 @@ export default function AdminReportsPage() {
         .eq('id', reportId);
 
       if (error) {
-        toast.error('Khong the cap nhat trang thai');
+        toast.error('Không thể cập nhật trạng thái');
         console.error(error);
       } else {
-        toast.success(`Da danh dau la "${STATUS_CONFIG[newStatus].label}"`);
+        toast.success(`Đã đánh dấu là "${STATUS_CONFIG[newStatus].label}"`);
         await fetchReports();
       }
     } catch (err) {
-      toast.error('Loi xu ly');
+      toast.error('Lỗi xử lý');
     } finally {
       setProcessing(null);
       setActionMenuId(null);
@@ -165,7 +165,7 @@ export default function AdminReportsPage() {
         .eq('id', userId);
 
       if (banError) {
-        toast.error('Khong the khoa nguoi dung');
+        toast.error('Không thể khóa người dùng');
         console.error(banError);
         return;
       }
@@ -180,10 +180,10 @@ export default function AdminReportsPage() {
         console.error('Report update error:', reportError);
       }
 
-      toast.success('Da khoa nguoi dung va xu ly bao cao');
+      toast.success('Đã khóa người dùng và xử lý báo cáo');
       await fetchReports();
     } catch (err) {
-      toast.error('Loi xu ly');
+      toast.error('Lỗi xử lý');
     } finally {
       setProcessing(null);
       setActionMenuId(null);
@@ -206,12 +206,12 @@ export default function AdminReportsPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Quan ly Bao cao</h1>
-          <p className="text-sm text-gray-500 mt-1">Xem xet va xu ly cac bao cao tu nguoi dung</p>
+          <h1 className="text-2xl font-bold text-gray-900">Quản lý Báo cáo</h1>
+          <p className="text-sm text-gray-500 mt-1">Xem xét và xử lý các báo cáo từ người dùng</p>
         </div>
         {pendingCount > 0 && (
           <span className="px-4 py-2 bg-amber-50 text-amber-700 rounded-full text-sm font-bold border border-amber-100">
-            {pendingCount} bao cao cho xu ly
+            {pendingCount} báo cáo chờ xử lý
           </span>
         )}
       </div>
@@ -222,7 +222,7 @@ export default function AdminReportsPage() {
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
           <input
             type="text"
-            placeholder="Tim kiem theo ten nguoi dung..."
+            placeholder="Tìm kiếm theo tên người dùng..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="w-full pl-10 pr-4 py-2.5 bg-white border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary-500 outline-none"
@@ -236,10 +236,10 @@ export default function AdminReportsPage() {
             onChange={(e) => setFilterStatus(e.target.value as any)}
             className="px-4 py-2.5 bg-white border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-primary-500"
           >
-            <option value="all">Tat ca trang thai</option>
-            <option value="pending">Cho xu ly</option>
-            <option value="reviewed">Da xem xet</option>
-            <option value="resolved">Da xu ly</option>
+            <option value="all">Tất cả trạng thái</option>
+            <option value="pending">Chờ xử lý</option>
+            <option value="reviewed">Đã xem xét</option>
+            <option value="resolved">Đã xử lý</option>
           </select>
         </div>
       </div>
@@ -250,13 +250,13 @@ export default function AdminReportsPage() {
           <div className="px-6 py-12 text-center text-gray-500">
             <div className="flex items-center justify-center gap-2">
               <Loader2 className="w-5 h-5 animate-spin" />
-              Dang tai du lieu...
+              Đang tải dữ liệu...
             </div>
           </div>
         ) : filteredReports.length === 0 ? (
           <div className="px-6 py-12 text-center">
             <AlertTriangle className="w-12 h-12 text-gray-300 mx-auto mb-4" />
-            <p className="text-gray-500">Khong tim thay bao cao nao</p>
+            <p className="text-gray-500">Không tìm thấy báo cáo nào</p>
           </div>
         ) : (
           <div className="divide-y divide-gray-100">
@@ -286,11 +286,11 @@ export default function AdminReportsPage() {
                             )}
                           </div>
                           <span className="font-medium text-gray-900 text-sm">
-                            {report.reporter?.name || 'Nguoi dung'}
+                            {report.reporter?.name || 'Người dùng'}
                           </span>
                         </div>
 
-                        <span className="text-gray-400 text-sm">bao cao</span>
+                        <span className="text-gray-400 text-sm">báo cáo</span>
 
                         <div className="flex items-center gap-2">
                           <div className="w-8 h-8 rounded-full overflow-hidden bg-gray-100 relative flex-shrink-0">
@@ -312,12 +312,12 @@ export default function AdminReportsPage() {
                             target="_blank"
                             className="font-medium text-gray-900 text-sm hover:text-primary-600 flex items-center gap-1"
                           >
-                            {report.reported_user?.name || 'Nguoi dung'}
+                            {report.reported_user?.name || 'Người dùng'}
                             <ExternalLink className="w-3 h-3" />
                           </Link>
                           {report.reported_user?.is_banned && (
                             <span className="px-2 py-0.5 bg-red-50 text-red-600 rounded-full text-xs font-bold">
-                              Da bi khoa
+                              Đã bị khóa
                             </span>
                           )}
                         </div>
@@ -372,7 +372,7 @@ export default function AdminReportsPage() {
                               className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
                             >
                               <Eye className="w-4 h-4 text-blue-500" />
-                              Danh dau da xem
+                               Đánh dấu đã xem
                             </button>
                           )}
 
@@ -382,7 +382,7 @@ export default function AdminReportsPage() {
                               className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
                             >
                               <Check className="w-4 h-4 text-green-500" />
-                              Danh dau da xu ly
+                               Đánh dấu đã xử lý
                             </button>
                           )}
 
@@ -392,7 +392,7 @@ export default function AdminReportsPage() {
                               className="w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"
                             >
                               <Ban className="w-4 h-4" />
-                              Khoa nguoi dung
+                               Khóa người dùng
                             </button>
                           )}
 
@@ -401,7 +401,7 @@ export default function AdminReportsPage() {
                             className="w-full px-4 py-2 text-left text-sm text-gray-500 hover:bg-gray-50 flex items-center gap-2"
                           >
                             <X className="w-4 h-4" />
-                            Dong
+                             Đóng
                           </button>
                         </div>
                       )}

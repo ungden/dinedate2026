@@ -13,7 +13,7 @@ export default function Header() {
   const { user } = useAuth();
 
   const navLinks = [
-    { href: '/', label: 'Date Orders', icon: UtensilsCrossed },
+    { href: '/', label: 'Đơn hẹn', icon: UtensilsCrossed },
     { href: '/restaurants', label: 'Nhà hàng', icon: Compass },
     { href: '/manage-bookings', label: 'Lịch hẹn', icon: CalendarHeart },
     { href: '/connections', label: 'Kết nối', icon: Heart },

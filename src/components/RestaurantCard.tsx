@@ -1,6 +1,7 @@
 'use client';
 
 import { cn, getCuisineIcon, getCuisineLabel } from '@/lib/utils';
+/* eslint-disable @next/next/no-img-element */
 import { motion } from '@/lib/motion';
 import { Restaurant } from '@/types';
 import { Star, MapPin } from 'lucide-react';

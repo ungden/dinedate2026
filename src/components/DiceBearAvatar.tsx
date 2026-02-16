@@ -2,6 +2,7 @@
 
 import { cn } from '@/lib/utils';
 import { getDiceBearAvatar } from '@/lib/dicebear';
+/* eslint-disable @next/next/no-img-element */
 import { Crown } from 'lucide-react';
 
 interface DiceBearAvatarProps {

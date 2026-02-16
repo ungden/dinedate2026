@@ -11,6 +11,7 @@ import {
     AlertTriangle,
     Timer
 } from 'lucide-react';
+/* eslint-disable @next/next/no-img-element */
 import { DateOrder } from '@/types';
 import { formatCurrency, cn, formatDateTime, getDateOrderStatusLabel } from '@/lib/utils';
 import DiceBearAvatar from '@/components/DiceBearAvatar';

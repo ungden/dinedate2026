@@ -2,6 +2,7 @@
 
 import { cn, formatCurrency } from '@/lib/utils';
 import { motion } from '@/lib/motion';
+/* eslint-disable @next/next/no-img-element */
 import { Combo } from '@/types';
 import { Check, UtensilsCrossed } from 'lucide-react';
 

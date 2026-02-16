@@ -336,7 +336,7 @@ export default function EditProfilePage() {
               </button>
             </div>
             <p className="text-[11px] text-blue-600/70 mt-2">
-              Cập nhật GPS giúp bạn xuất hiện chính xác trong tính năng "Tìm quanh đây".
+              Cập nhật GPS giúp bạn xuất hiện chính xác trong tính năng &quot;Tìm quanh đây&quot;.
             </p>
           </div>
 

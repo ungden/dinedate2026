@@ -310,7 +310,7 @@ export default function AdminRestaurantsPage() {
 
           {restaurants.length === 0 && (
             <div className="text-center py-12 text-gray-500">
-              Chưa có nhà hàng nào. Nhấn "Thêm nhà hàng" để bắt đầu.
+              Chưa có nhà hàng nào. Nhấn &quot;Thêm nhà hàng&quot; để bắt đầu.
             </div>
           )}
         </div>

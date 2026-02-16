@@ -242,7 +242,7 @@ export default function SupportClient() {
             <strong>Bao lau thi duoc hoan tien?</strong> Hoan tien tu dong trong 1-3 ngay lam viec sau khi yeu cau duoc duyet.
           </p>
           <p className="text-gray-600">
-            <strong>Lien he khan cap?</strong> Gui yeu cau voi muc do "Khan cap" de duoc uu tien xu ly.
+            <strong>Lien he khan cap?</strong> Gui yeu cau voi muc do &quot;Khan cap&quot; de duoc uu tien xu ly.
           </p>
         </div>
       </div>

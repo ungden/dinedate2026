@@ -122,13 +122,13 @@ export default function ExploreScreen() {
         <View style={styles.liveStatItem}>
           <Text style={styles.liveStatIcon}>💕</Text>
           <Text style={styles.liveStatValue}>{stats.activeOrdersCount}</Text>
-          <Text style={styles.liveStatLabel}>chờ match</Text>
+          <Text style={styles.liveStatLabel}>chờ ghép đôi</Text>
         </View>
       </View>
 
       <View style={styles.liveTickerWrap}>
         <Text style={styles.liveTickerText}>
-          🔥 {stats.activeOrdersCount} đơn đang chờ match • 💘 {stats.newConnectionsCount} kết nối mới tuần này
+          🔥 {stats.activeOrdersCount} đơn đang chờ ghép đôi • 💘 {stats.newConnectionsCount} kết nối mới tuần này
         </Text>
       </View>
 
@@ -176,7 +176,7 @@ export default function ExploreScreen() {
       {hotOrders.length > 0 && (
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Đơn hẹn HOT - sắp chốt</Text>
+            <Text style={styles.sectionTitle}>Đơn hẹn nổi bật - sắp chốt</Text>
           </View>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.horizontalCardsRow}>
             {hotOrders.map((order) => (
@@ -189,7 +189,7 @@ export default function ExploreScreen() {
       {/* Active Match Feed */}
       <View style={styles.section}>
         <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Đơn hẹn đang chờ match</Text>
+          <Text style={styles.sectionTitle}>Đơn hẹn đang chờ ghép đôi</Text>
           <Pressable onPress={() => router.push('/all-date-orders')} accessibilityLabel="Xem tất cả đơn hẹn" accessibilityRole="link">
             <Text style={styles.seeAll}>Xem tất cả</Text>
           </Pressable>
@@ -217,7 +217,7 @@ export default function ExploreScreen() {
       <View style={styles.section}>
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>Cảm nhận nổi bật sau buổi hẹn</Text>
-          <Pressable onPress={() => router.push('/my-reviews')} accessibilityLabel="Xem tất cả review" accessibilityRole="link">
+          <Pressable onPress={() => router.push('/my-reviews')} accessibilityLabel="Xem tất cả đánh giá" accessibilityRole="link">
             <Text style={styles.seeAll}>Xem thêm</Text>
           </Pressable>
         </View>
@@ -254,7 +254,7 @@ export default function ExploreScreen() {
       {/* Combo Deals */}
       <View style={styles.section}>
         <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Combo deals nổi bật</Text>
+          <Text style={styles.sectionTitle}>Combo nổi bật</Text>
         </View>
         {statsLoading ? (
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.horizontalCardsRow}>

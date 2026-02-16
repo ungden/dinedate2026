@@ -41,7 +41,7 @@ export function useDbWallet() {
     }
 
     const { data: txRows, error: txErr } = await supabase
-      .from('transactions')
+      .from('wallet_transactions')
       .select('*')
       .eq('user_id', userId)
       .order('created_at', { ascending: false })
@@ -90,8 +90,8 @@ export function useDbWallet() {
         {
           event: 'INSERT',
           schema: 'public',
-          table: 'transactions',
-          filter: `user_id=eq.${userId}`,
+           table: 'wallet_transactions',
+           filter: `user_id=eq.${userId}`,
         },
         (payload) => {
           const newTx = payload.new as DbTxRow;

@@ -154,6 +154,62 @@ export function useMyApplications(userId: string) {
   return { applications, loading, error, refetch: fetchMyApplications };
 }
 
+export function useMyApplicationForOrder(orderId: string, userId: string) {
+  const [applicationId, setApplicationId] = useState<string | null>(null);
+  const [status, setStatus] = useState<'pending' | 'accepted' | 'rejected' | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const fetchMyApplication = useCallback(async () => {
+    if (!orderId || !userId) {
+      setApplicationId(null);
+      setStatus(null);
+      setLoading(false);
+      return;
+    }
+
+    setLoading(true);
+    setError(null);
+    try {
+      const { data, error: dbError } = await supabase
+        .from('date_order_applications')
+        .select('id, status')
+        .eq('order_id', orderId)
+        .eq('applicant_id', userId)
+        .maybeSingle();
+
+      if (dbError) {
+        console.error('Error fetching my application for order:', JSON.stringify(dbError, null, 2));
+        setError(dbError.message);
+        setApplicationId(null);
+        setStatus(null);
+        return;
+      }
+
+      setApplicationId(data?.id || null);
+      setStatus((data?.status as 'pending' | 'accepted' | 'rejected' | undefined) || null);
+    } catch (err: any) {
+      console.error('Exception fetching my application for order:', err);
+      setError(err.message || 'Unknown error');
+    } finally {
+      setLoading(false);
+    }
+  }, [orderId, userId]);
+
+  useEffect(() => {
+    fetchMyApplication();
+  }, [fetchMyApplication]);
+
+  return {
+    applicationId,
+    status,
+    hasApplied: !!applicationId,
+    loading,
+    error,
+    refetch: fetchMyApplication,
+  };
+}
+
 export function useApplyToOrder() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);

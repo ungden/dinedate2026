@@ -7,7 +7,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 function TabIcon({ name, focused }: { name: string; focused: boolean }) {
   const icons: Record<string, string> = {
     'Khám phá': '🏠',
-    'Tạo Date': '➕',
+    'Tạo hẹn': '➕',
     'Lịch hẹn': '📅',
     'Cá nhân': '👤',
   };
@@ -53,8 +53,8 @@ export default function TabLayout() {
       <Tabs.Screen
         name="create"
         options={{
-          title: 'Tạo Date',
-          tabBarIcon: ({ focused }) => <TabIcon name="Tạo Date" focused={focused} />,
+          title: 'Tạo hẹn',
+          tabBarIcon: ({ focused }) => <TabIcon name="Tạo hẹn" focused={focused} />,
         }}
       />
       <Tabs.Screen

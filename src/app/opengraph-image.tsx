@@ -19,7 +19,7 @@ export default function OpenGraphImage() {
           alignItems: 'center',
           justifyContent: 'center',
           background:
-            'linear-gradient(135deg, #FF7A91 0%, #F0516C 50%, #8B5CF6 100%)',
+            'linear-gradient(135deg, #F9A8D4 0%, #EC4899 50%, #DB2777 100%)',
           fontFamily: 'system-ui, -apple-system, Segoe UI, Roboto, Inter, sans-serif',
         }}
       >
@@ -80,7 +80,7 @@ export default function OpenGraphImage() {
                   color: 'rgba(255,255,255,0.9)',
                 }}
               >
-                Hen Ho Mu x Kham Pha Am Thuc
+                Hẹn hò ẩn danh x Khám phá ẩm thực
               </div>
             </div>
           </div>
@@ -93,7 +93,7 @@ export default function OpenGraphImage() {
               lineHeight: 1.25,
             }}
           >
-            Chon nha hang, tao date order, gap mat blind - trai nghiem doc dao!
+            Chọn nhà hàng, tạo Date Order, gặp mặt ẩn danh - trải nghiệm độc đáo!
           </div>
 
           <div
@@ -104,7 +104,7 @@ export default function OpenGraphImage() {
               flexWrap: 'wrap',
             }}
           >
-            {['Blind Date', 'Nha hang chat luong', 'Combo cho 2', 'An toan'].map((t) => (
+            {['Hẹn hò ẩn danh', 'Nhà hàng chất lượng', 'Combo cho 2', 'An toàn'].map((t) => (
               <div
                 key={t}
                 style={{

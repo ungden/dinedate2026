@@ -40,7 +40,7 @@ export default function DateOrderCard({ order }: { order: DateOrder }) {
         <View style={styles.topLeftBadges}>
           {isHot && (
             <View style={[styles.flagBadge, styles.hotFlag]}>
-              <Text style={styles.flagText}>🔥 HOT</Text>
+              <Text style={styles.flagText}>🔥 NÓNG</Text>
             </View>
           )}
           {isNew && (

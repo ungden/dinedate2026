@@ -129,11 +129,11 @@ export default function DateOrdersFeedClient() {
           >
             <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-white/20 backdrop-blur-sm text-white/90 text-xs font-semibold mb-4">
               <Heart className="w-3.5 h-3.5" />
-              Blind Date x Ẩm Thực
+              Hẹn hò ẩn danh x Ẩm thực
             </div>
 
             <h1 className="text-3xl md:text-5xl font-black text-white leading-tight mb-3">
-              Hẹn hò mù
+              Hẹn hò ẩn danh
               <br />
               <span className="text-yellow-200">Khám phá ẩm thực</span>
             </h1>

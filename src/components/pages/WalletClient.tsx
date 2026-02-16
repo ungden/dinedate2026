@@ -38,36 +38,28 @@ export default function WalletClient() {
 
   const totalTopUp = useMemo(() => {
     return transactions
-      .filter((t: any) => t.type === 'top_up' && t.status === 'completed')
+      .filter((t: any) => t.type === 'topup' && t.status === 'completed' && Number(t.amount || 0) > 0)
       .reduce((sum: number, t: any) => sum + Number(t.amount || 0), 0);
   }, [transactions]);
 
   const totalSpend = useMemo(() => {
     return transactions
-      .filter((t: any) => ['date_order_payment', 'vip_payment'].includes(t.type))
-      .reduce((sum: number, t: any) => sum + Number(t.amount || 0), 0);
+      .filter((t: any) => ['payment', 'withdraw'].includes(t.type))
+      .reduce((sum: number, t: any) => sum + Math.abs(Number(t.amount || 0)), 0);
   }, [transactions]);
 
   const getTransactionMeta = (type: string) => {
     switch (type) {
-      case 'top_up':
+      case 'topup':
         return { label: 'Nạp tiền', color: 'bg-green-100 text-green-700' };
-      case 'date_order_payment':
-        return { label: 'Thanh toán date', color: 'bg-pink-100 text-pink-700' };
-      case 'date_order_refund':
-        return { label: 'Hoàn tiền', color: 'bg-emerald-100 text-emerald-700' };
-      case 'vip_payment':
-        return { label: 'VIP', color: 'bg-amber-100 text-amber-800' };
-      case 'referral_bonus':
-        return { label: 'Giới thiệu', color: 'bg-blue-100 text-blue-700' };
-      case 'booking_payment':
+      case 'payment':
         return { label: 'Thanh toán', color: 'bg-pink-100 text-pink-700' };
-      case 'escrow_hold':
+      case 'refund':
+        return { label: 'Hoàn tiền', color: 'bg-emerald-100 text-emerald-700' };
+      case 'escrow':
         return { label: 'Escrow', color: 'bg-amber-100 text-amber-800' };
-      case 'escrow_release':
-        return { label: 'Giải phóng', color: 'bg-emerald-100 text-emerald-700' };
-      case 'booking_earning':
-        return { label: 'Thu nhập', color: 'bg-green-100 text-green-700' };
+      case 'withdraw':
+        return { label: 'Rút tiền', color: 'bg-gray-100 text-gray-700' };
       default:
         return { label: type, color: 'bg-gray-100 text-gray-700' };
     }
@@ -172,8 +164,8 @@ export default function WalletClient() {
           <motion.div className="space-y-3" variants={containerVariants} initial="hidden" animate="visible">
             {transactions.map((tx: any) => {
               const meta = getTransactionMeta(tx.type);
-              const isIncome = ['top_up', 'date_order_refund', 'referral_bonus', 'booking_earning', 'escrow_release'].includes(tx.type);
               const amount = Number(tx.amount || 0);
+              const isIncome = amount >= 0;
 
               return (
                 <motion.div
@@ -192,7 +184,7 @@ export default function WalletClient() {
 
                   <p className={cn('text-lg font-black', isIncome ? 'text-green-600' : 'text-pink-600')}>
                     {isIncome ? '+' : '-'}
-                    {formatCurrency(amount)}
+                    {formatCurrency(Math.abs(amount))}
                   </p>
                 </motion.div>
               );

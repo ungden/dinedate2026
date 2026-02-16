@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import {
@@ -15,7 +15,7 @@ import {
 import { motion, AnimatePresence } from '@/lib/motion';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
-import { useMyDateOrders } from '@/hooks/useDateOrders';
+import { useMyDateOrders, fetchDateOrdersByIds } from '@/hooks/useDateOrders';
 import { useMyApplications } from '@/hooks/useDateOrderApplications';
 import DateOrderCard from '@/components/DateOrderCard';
 
@@ -34,6 +34,8 @@ export default function ManageBookingsClient() {
 
   const { dateOrders: allOrders, loading: ordersLoading } = useMyDateOrders(user?.id || '');
   const { applications: myApplications, loading: appsLoading } = useMyApplications(user?.id || '');
+  const [appliedOrders, setAppliedOrders] = useState<typeof allOrders>([]);
+  const [appliedLoading, setAppliedLoading] = useState(false);
 
   // Derived lists
   const createdOrders = useMemo(
@@ -46,10 +48,28 @@ export default function ManageBookingsClient() {
     [myApplications]
   );
 
-  const appliedOrders = useMemo(
-    () => allOrders.filter((o) => appliedOrderIds.has(o.id) && o.creatorId !== user?.id),
-    [allOrders, appliedOrderIds, user]
-  );
+  useEffect(() => {
+    const loadAppliedOrders = async () => {
+      const ids = Array.from(appliedOrderIds);
+      if (!ids.length) {
+        setAppliedOrders([]);
+        return;
+      }
+
+      setAppliedLoading(true);
+      try {
+        const orders = await fetchDateOrdersByIds(ids);
+        setAppliedOrders(orders.filter((o) => o.creatorId !== user?.id));
+      } catch (error) {
+        console.warn('Không thể tải danh sách đơn đã ứng tuyển:', error);
+        setAppliedOrders([]);
+      } finally {
+        setAppliedLoading(false);
+      }
+    };
+
+    loadAppliedOrders();
+  }, [appliedOrderIds, user?.id]);
 
   const completedOrders = useMemo(
     () => allOrders.filter((o) => o.status === 'completed'),
@@ -69,7 +89,7 @@ export default function ManageBookingsClient() {
     }
   }, [activeTab, createdOrders, appliedOrders, completedOrders]);
 
-  const isLoading = ordersLoading || appsLoading;
+  const isLoading = ordersLoading || appsLoading || appliedLoading;
 
   const counts: Record<TabType, number> = {
     created: createdOrders.length,

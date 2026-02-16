@@ -5,14 +5,14 @@ import ClientLayout from '@/components/ClientLayout';
 
 export const metadata: Metadata = {
   metadataBase: new URL('https://www.dinedate.vn'),
-  title: 'DineDate - Hen Ho Mu x Kham Pha Am Thuc',
-  description: 'Kham pha am thuc cung nguoi la. Dat ban, chon combo, gap mat - hoan toan blind. Trai nghiem hen ho doc dao nhat Viet Nam.',
-  keywords: ['hen ho', 'blind date', 'nha hang', 'am thuc', 'dinedate', 'gap mat', 'combo'],
+  title: 'DineDate - Hẹn hò ẩn danh x Khám phá ẩm thực',
+  description: 'Khám phá ẩm thực cùng người lạ thú vị. Đặt bàn, chọn combo, gặp mặt ẩn danh tại nhà hàng an toàn.',
+  keywords: ['hẹn hò ẩn danh', 'nhà hàng', 'ẩm thực', 'dinedate', 'gặp mặt', 'combo'],
   openGraph: {
     type: 'website',
     locale: 'vi_VN',
-    title: 'DineDate - Hen Ho Mu x Kham Pha Am Thuc',
-    description: 'Kham pha am thuc cung nguoi la. Dat ban, chon combo, gap mat - hoan toan blind. Trai nghiem hen ho doc dao nhat Viet Nam.',
+    title: 'DineDate - Hẹn hò ẩn danh x Khám phá ẩm thực',
+    description: 'Khám phá ẩm thực cùng người lạ thú vị. Đặt bàn, chọn combo, gặp mặt ẩn danh tại nhà hàng an toàn.',
     siteName: 'DineDate',
     url: 'https://www.dinedate.vn',
     images: [
@@ -26,8 +26,8 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'DineDate - Hen Ho Mu x Kham Pha Am Thuc',
-    description: 'Kham pha am thuc cung nguoi la. Dat ban, chon combo, gap mat - hoan toan blind. Trai nghiem hen ho doc dao nhat Viet Nam.',
+    title: 'DineDate - Hẹn hò ẩn danh x Khám phá ẩm thực',
+    description: 'Khám phá ẩm thực cùng người lạ thú vị. Đặt bàn, chọn combo, gặp mặt ẩn danh tại nhà hàng an toàn.',
     images: ['/twitter-image.png'],
   },
 };

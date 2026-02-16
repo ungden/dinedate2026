@@ -41,54 +41,20 @@ export default function VIPSubscriptionClient() {
 
     setIsSubscribing(true);
     try {
-      // Calculate end date
-      const startDate = new Date();
-      const endDate = new Date();
-      if (selectedPlan === 'monthly') endDate.setMonth(endDate.getMonth() + 1);
-      else if (selectedPlan === 'quarterly') endDate.setMonth(endDate.getMonth() + 3);
-      else endDate.setFullYear(endDate.getFullYear() + 1);
-
-      // Deduct from wallet
-      const { error: walletError } = await supabase.rpc('deduct_wallet_balance', {
-        p_user_id: user.id,
-        p_amount: price,
+      const { data, error: upgradeError } = await supabase.rpc('upgrade_vip', {
+        target_tier: 'vip',
+        plan_type: selectedPlan,
       });
 
-      if (walletError) {
-        if (walletError.message.includes('insufficient')) {
-          toast.error('Số dư không đủ');
-        } else {
-          toast.error('Lỗi trừ tiền: ' + walletError.message);
-        }
+      if (upgradeError) {
+        toast.error('Lỗi nâng cấp VIP: ' + upgradeError.message);
         return;
       }
 
-      // Create transaction record
-      await supabase.from('transactions').insert({
-        user_id: user.id,
-        type: 'vip_payment',
-        amount: price,
-        status: 'completed',
-        description: `Đăng ký VIP gói ${selectedPlan}`,
-      });
-
-      // Update user VIP status
-      await supabase.from('users').update({
-        vip_tier: 'vip',
-        vip_subscribed_at: startDate.toISOString(),
-        vip_expires_at: endDate.toISOString(),
-      }).eq('id', user.id);
-
-      // Create subscription record
-      await supabase.from('vip_subscriptions').insert({
-        user_id: user.id,
-        plan: selectedPlan,
-        price,
-        start_date: startDate.toISOString(),
-        end_date: endDate.toISOString(),
-        is_active: true,
-        auto_renew: false,
-      });
+      if (!data?.success) {
+        toast.error(data?.error || 'Không thể nâng cấp VIP');
+        return;
+      }
 
       toast.success('Đăng ký VIP thành công!');
       await refreshProfile();
@@ -165,7 +131,7 @@ export default function VIPSubscriptionClient() {
                 className={cn(
                   'w-full text-left p-5 rounded-2xl border-2 transition-all relative overflow-hidden',
                   isSelected
-                    ? 'bg-primary-50 border-primary-500 ring-1 ring-primary-500 shadow-md'
+                    ? 'bg-pink-50 border-pink-500 ring-1 ring-pink-500 shadow-md'
                     : 'bg-white border-gray-100 hover:border-gray-300'
                 )}
               >
@@ -180,13 +146,13 @@ export default function VIPSubscriptionClient() {
                     <p className="text-sm text-gray-500">{p.period} • {p.perMonth}</p>
                   </div>
                   <div className="text-right">
-                    <p className="text-2xl font-black text-primary-600">{formatCurrency(price)}</p>
+                    <p className="text-2xl font-black text-pink-600">{formatCurrency(price)}</p>
                   </div>
                 </div>
 
                 {isSelected && (
                   <div className="absolute top-4 left-4">
-                    <div className="w-6 h-6 bg-primary-500 rounded-full flex items-center justify-center">
+                    <div className="w-6 h-6 bg-pink-500 rounded-full flex items-center justify-center">
                       <Check className="w-4 h-4 text-white" />
                     </div>
                   </div>

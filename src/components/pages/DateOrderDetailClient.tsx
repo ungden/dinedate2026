@@ -35,6 +35,7 @@ import {
   useApplicationsForOrder,
   useApplyToOrder,
   useAcceptApplication,
+  useMyApplicationForOrder,
 } from '@/hooks/useDateOrderApplications';
 import DiceBearAvatar from '@/components/DiceBearAvatar';
 import MutualMatchBanner from '@/components/MutualMatchBanner';
@@ -52,6 +53,12 @@ export default function DateOrderDetailClient() {
   const { applications, loading: appsLoading } = useApplicationsForOrder(
     isCreator ? orderId : ''
   );
+  const {
+    hasApplied: hasAppliedByMe,
+    status: myApplicationStatus,
+    loading: myApplicationLoading,
+    refetch: refetchMyApplication,
+  } = useMyApplicationForOrder(!isCreator ? orderId : '', user?.id || '');
   const { applyToOrder, loading: applying } = useApplyToOrder();
   const { acceptApplication, loading: accepting } = useAcceptApplication();
   const { cancelDateOrder, loading: cancelling } = useCancelDateOrder();
@@ -89,6 +96,7 @@ export default function DateOrderDetailClient() {
       setApplyMessage('');
       setShowApplyForm(false);
       refetch();
+      refetchMyApplication();
     } else {
       toast.error('Có lỗi xảy ra khi ứng tuyển');
     }
@@ -131,9 +139,9 @@ export default function DateOrderDetailClient() {
 
   // Check if current user already applied
   const hasApplied = useMemo(() => {
-    if (!user || !applications.length) return false;
-    return applications.some((a) => a.applicantId === user.id);
-  }, [applications, user]);
+    if (!user || isCreator) return false;
+    return hasAppliedByMe;
+  }, [hasAppliedByMe, isCreator, user]);
 
   // Loading state
   if (orderLoading) {
@@ -407,7 +415,7 @@ export default function DateOrderDetailClient() {
               </div>
             </div>
             <p className="text-xs text-gray-400 mt-2 text-center italic">
-              Đây là buổi blind date - không có chat trước khi gặp mặt!
+              Đây là buổi hẹn hò ẩn danh - không có chat trước khi gặp mặt!
             </p>
           </div>
         )}
@@ -529,7 +537,7 @@ export default function DateOrderDetailClient() {
         )}
 
         {/* Non-creator View: Apply Form */}
-        {!isCreator && isActive && !hasApplied && user && (
+        {!isCreator && isActive && !myApplicationLoading && !hasApplied && user && (
           <div className="p-6">
             <AnimatePresence mode="wait">
               {showApplyForm ? (
@@ -600,7 +608,11 @@ export default function DateOrderDetailClient() {
           <div className="p-6 bg-green-50">
             <p className="text-center text-green-600 font-medium flex items-center justify-center gap-2 text-sm">
               <CheckCircle className="w-5 h-5" />
-              Bạn đã ứng tuyển Date Order này
+              {myApplicationStatus === 'accepted'
+                ? 'Bạn đã được chấp nhận cho buổi hẹn này'
+                : myApplicationStatus === 'rejected'
+                  ? 'Đơn ứng tuyển của bạn chưa được chọn'
+                  : 'Bạn đã ứng tuyển Date Order này'}
             </p>
           </div>
         )}

@@ -109,11 +109,60 @@ function mapUser(u: any) {
 
 const DATE_ORDER_SELECT = `
   *,
-  creator:users!date_orders_creator_id_fkey(*),
   restaurant:restaurants(*),
-  combo:combos(*),
-  matched_user:users!date_orders_matched_user_id_fkey(*)
+  combo:combos(*)
 `;
+
+async function attachUsersToDateOrders(rows: any[]) {
+  if (!rows.length) return rows;
+
+  const userIds = Array.from(
+    new Set(
+      rows
+        .flatMap((row) => [row.creator_id, row.matched_user_id])
+        .filter(Boolean)
+    )
+  );
+
+  if (!userIds.length) return rows;
+
+  const { data: users, error } = await supabase
+    .from('users')
+    .select('*')
+    .in('id', userIds);
+
+  if (error) {
+    console.warn('Could not fetch users for date orders:', error.message);
+    return rows;
+  }
+
+  const userMap = new Map((users || []).map((u) => [u.id, u]));
+
+  return rows.map((row) => ({
+    ...row,
+    creator: row.creator_id ? userMap.get(row.creator_id) ?? null : null,
+    matched_user: row.matched_user_id
+      ? userMap.get(row.matched_user_id) ?? null
+      : null,
+  }));
+}
+
+export async function fetchDateOrdersByIds(orderIds: string[]) {
+  if (!orderIds.length) return [] as DateOrder[];
+
+  const { data, error } = await supabase
+    .from('date_orders')
+    .select(DATE_ORDER_SELECT)
+    .in('id', orderIds)
+    .order('created_at', { ascending: false });
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  const rows = await attachUsersToDateOrders(data || []);
+  return rows.map(mapDbRowToDateOrder);
+}
 
 // ----------------------------------------------------------------
 // Hooks
@@ -163,7 +212,8 @@ export function useDateOrders(filters?: DateOrderFilters) {
         return;
       }
 
-      setDateOrders((data || []).map(mapDbRowToDateOrder));
+      const rows = await attachUsersToDateOrders(data || []);
+      setDateOrders(rows.map(mapDbRowToDateOrder));
     } catch (err: any) {
       console.error('Exception fetching date orders:', err);
       setError(err.message || 'Unknown error');
@@ -222,7 +272,8 @@ export function useDateOrderById(id: string) {
         return;
       }
 
-      setDateOrder(data ? mapDbRowToDateOrder(data) : null);
+      const rows = data ? await attachUsersToDateOrders([data]) : [];
+      setDateOrder(rows[0] ? mapDbRowToDateOrder(rows[0]) : null);
     } catch (err: any) {
       console.error('Exception fetching date order:', err);
       setError(err.message || 'Unknown error');
@@ -266,7 +317,8 @@ export function useMyDateOrders(userId: string) {
         return;
       }
 
-      setDateOrders((data || []).map(mapDbRowToDateOrder));
+      const rows = await attachUsersToDateOrders(data || []);
+      setDateOrders(rows.map(mapDbRowToDateOrder));
     } catch (err: any) {
       console.error('Exception fetching my date orders:', err);
       setError(err.message || 'Unknown error');

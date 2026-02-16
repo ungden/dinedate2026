@@ -232,7 +232,7 @@ export default function SupportClient() {
       </div>
 
       {/* FAQ Section */}
-      <div className="bg-gradient-to-br from-primary-50 to-rose-50 rounded-2xl p-6 border border-primary-100">
+      <div className="bg-gradient-to-br from-primary-50 to-pink-50 rounded-2xl p-6 border border-primary-100">
         <h3 className="font-bold text-gray-900 mb-3">Cau hoi thuong gap</h3>
         <div className="space-y-2 text-sm">
           <p className="text-gray-600">

@@ -31,9 +31,9 @@ interface OnboardingSlide {
 const slides: OnboardingSlide[] = [
   {
     id: 'welcome',
-    title: 'Chao mung den DineDate!',
-    subtitle: 'Hen ho mu x Kham pha am thuc',
-    description: 'DineDate la nen tang hen ho mu (blind date) qua am thuc. Ban khong biet doi phuong la ai cho den khi gap mat tai nha hang. Hoan toan bat ngo va thu vi!',
+    title: 'Chào mừng đến DineDate!',
+    subtitle: 'Hẹn hò ẩn danh x Khám phá ẩm thực',
+    description: 'DineDate là nền tảng hẹn hò ẩn danh qua ẩm thực. Bạn không biết đối phương là ai cho đến khi gặp mặt tại nhà hàng. Hoàn toàn bất ngờ và thú vị!',
     icon: (
       <div className="relative">
         <Heart className="w-20 h-20 text-white" strokeWidth={1.5} />
@@ -48,16 +48,16 @@ const slides: OnboardingSlide[] = [
     ),
     gradient: 'from-pink-500 via-rose-500 to-red-500',
     features: [
-      'Hen ho mu - khong lo mat nhau truoc',
-      'Gap mat tai nha hang chat luong',
-      'An toan va bao mat tuyet doi',
+      'Hẹn hò ẩn danh - không lộ mặt trước',
+      'Gặp mặt tại nhà hàng chất lượng',
+      'An toàn và bảo mật tuyệt đối',
     ],
   },
   {
     id: 'restaurant',
-    title: 'Chon nha hang & combo',
-    subtitle: 'Am thuc tuyet voi cho buoi hen',
-    description: 'Duyet qua cac nha hang doi tac cua DineDate. Chon combo bua an cho 2 nguoi voi gia da bao gom. Khong can lo ve gia hay thuc don!',
+    title: 'Chọn nhà hàng & combo',
+    subtitle: 'Ẩm thực tuyệt vời cho buổi hẹn',
+    description: 'Duyệt qua các nhà hàng đối tác của DineDate. Chọn combo bữa ăn cho 2 người với giá đã bao gồm. Không cần lo về giá hay thực đơn!',
     icon: (
       <div className="relative">
         <UtensilsCrossed className="w-20 h-20 text-white" strokeWidth={1.5} />
@@ -72,16 +72,16 @@ const slides: OnboardingSlide[] = [
     ),
     gradient: 'from-orange-500 via-amber-500 to-yellow-500',
     features: [
-      'Nha hang doi tac da xac minh',
-      'Combo set menu cho 2 nguoi',
-      'Gia minh bach, khong phu thu',
+      'Nhà hàng đối tác đã xác minh',
+      'Combo set menu cho 2 người',
+      'Giá minh bạch, không phụ thu',
     ],
   },
   {
     id: 'dateorder',
-    title: 'Tao hoac ung tuyen Date Order',
-    subtitle: 'Tim nguoi an cung chi trong vai phut',
-    description: 'Tao Date Order de moi ai do di an, hoac ung tuyen vao Date Order cua nguoi khac. Khi duoc chon, ban se gap mat tai nha hang ma khong biet truoc doi phuong.',
+    title: 'Tạo hoặc ứng tuyển Date Order',
+    subtitle: 'Tìm người ăn cùng chỉ trong vài phút',
+    description: 'Tạo Date Order để mời ai đó đi ăn, hoặc ứng tuyển vào Date Order của người khác. Khi được chọn, bạn sẽ gặp mặt tại nhà hàng mà không biết trước đối phương.',
     icon: (
       <div className="relative">
         <Users className="w-20 h-20 text-white" strokeWidth={1.5} />
@@ -96,16 +96,16 @@ const slides: OnboardingSlide[] = [
     ),
     gradient: 'from-blue-500 via-indigo-500 to-purple-500',
     features: [
-      'Tao Date Order trong 1 phut',
-      'Chon chia doi hoac moi doi phuong',
-      'He thong thanh toan an toan escrow',
+      'Tạo Date Order trong 1 phút',
+      'Chọn chia đôi hoặc mời đối phương',
+      'Hệ thống thanh toán escrow an toàn',
     ],
   },
   {
     id: 'meet',
-    title: 'Gap mat & danh gia',
-    subtitle: 'Trai nghiem blind date doc dao',
-    description: 'Den nha hang, gap doi phuong va tan huong bua an. Sau buoi hen, hai ben danh gia lan nhau. Neu ca hai deu thich, ban se ket noi va xem duoc anh that!',
+    title: 'Gặp mặt & đánh giá',
+    subtitle: 'Trải nghiệm hẹn hò ẩn danh độc đáo',
+    description: 'Đến nhà hàng, gặp đối phương và tận hưởng bữa ăn. Sau buổi hẹn, hai bên đánh giá lẫn nhau. Nếu cả hai đều thích, bạn sẽ kết nối và xem được ảnh thật!',
     icon: (
       <div className="relative">
         <Rocket className="w-20 h-20 text-white" strokeWidth={1.5} />
@@ -124,9 +124,9 @@ const slides: OnboardingSlide[] = [
     ),
     gradient: 'from-emerald-500 via-teal-500 to-cyan-500',
     features: [
-      'Gap mat tai nha hang an toan',
-      'Danh gia sau buoi hen',
-      'Ket noi neu ca hai thich nhau',
+      'Gặp mặt tại nhà hàng an toàn',
+      'Đánh giá sau buổi hẹn',
+      'Kết nối nếu cả hai thích nhau',
     ],
   },
 ];
@@ -385,11 +385,11 @@ export default function OnboardingTutorial({
                 {isLastSlide ? (
                   <span className="flex items-center gap-2">
                     <Sparkles className="w-5 h-5" />
-                    Bat dau kham pha
+                    Bắt đầu khám phá
                   </span>
                 ) : (
                   <span className="flex items-center gap-2">
-                    Tiep tuc
+                    Tiếp tục
                     <ChevronRight className="w-5 h-5" />
                   </span>
                 )}
@@ -411,7 +411,7 @@ export default function OnboardingTutorial({
               animate={{ opacity: 1 }}
               transition={{ delay: 1 }}
             >
-              Vuot trai/phai de chuyen trang
+              Vuốt trái/phải để chuyển trang
             </motion.p>
           </div>
         </div>

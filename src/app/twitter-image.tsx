@@ -19,7 +19,7 @@ export default function TwitterImage() {
           alignItems: 'center',
           justifyContent: 'center',
           background:
-            'linear-gradient(135deg, #FF7A91 0%, #F0516C 50%, #8B5CF6 100%)',
+            'linear-gradient(135deg, #F9A8D4 0%, #EC4899 50%, #DB2777 100%)',
           fontFamily: 'system-ui, -apple-system, Segoe UI, Roboto, Inter, sans-serif',
         }}
       >
@@ -80,7 +80,7 @@ export default function TwitterImage() {
                   color: 'rgba(255,255,255,0.9)',
                 }}
               >
-                Hen Ho Mu x Kham Pha Am Thuc
+                Hẹn hò ẩn danh x Khám phá ẩm thực
               </div>
             </div>
           </div>
@@ -93,7 +93,7 @@ export default function TwitterImage() {
               lineHeight: 1.25,
             }}
           >
-            Dat ban, chon combo, gap mat blind. Trai nghiem hen ho doc dao nhat Viet Nam.
+            Đặt bàn, chọn combo, gặp mặt ẩn danh. Trải nghiệm hẹn hò độc đáo tại Việt Nam.
           </div>
 
           <div
@@ -104,7 +104,7 @@ export default function TwitterImage() {
               flexWrap: 'wrap',
             }}
           >
-            {['Blind Date', 'Nha hang', 'Combo', 'Viet Nam'].map((t) => (
+            {['Hẹn hò ẩn danh', 'Nhà hàng', 'Combo', 'Việt Nam'].map((t) => (
               <div
                 key={t}
                 style={{

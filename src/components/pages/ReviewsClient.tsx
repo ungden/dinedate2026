@@ -1,27 +1,121 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { Star, ThumbsUp } from 'lucide-react';
-import { useDateStore } from '@/hooks/useDateStore';
 import { useAuth } from '@/contexts/AuthContext';
 import { EmptyState } from '@/components/ErrorBoundary';
+import { supabase } from '@/integrations/supabase/client';
+import { PersonReview, User } from '@/types';
 
 type ReviewFilter = 'all' | 'received' | 'given';
 
 export default function ReviewsClient() {
   const { user } = useAuth();
-  const { reviews, users } = useDateStore();
+  const [reviews, setReviews] = useState<PersonReview[]>([]);
+  const [usersById, setUsersById] = useState<Record<string, User>>({});
+  const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<ReviewFilter>('all');
 
-  const myReviews = reviews.filter((review) => {
-    if (filter === 'received') return review.reviewedId === user?.id;
-    if (filter === 'given') return review.reviewerId === user?.id;
-    return review.reviewedId === user?.id || review.reviewerId === user?.id;
-  });
+  useEffect(() => {
+    const fetchReviews = async () => {
+      if (!user?.id) {
+        setReviews([]);
+        setUsersById({});
+        setLoading(false);
+        return;
+      }
 
-  const getUserById = (id: string) => users.find((u) => u.id === id);
+      setLoading(true);
+      const { data, error } = await supabase
+        .from('person_reviews')
+        .select('id, date_order_id, reviewer_id, reviewed_id, rating, comment, want_to_meet_again, created_at')
+        .or(`reviewed_id.eq.${user.id},reviewer_id.eq.${user.id}`)
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        console.error('Error loading reviews:', error);
+        setReviews([]);
+        setUsersById({});
+        setLoading(false);
+        return;
+      }
+
+      const mapped: PersonReview[] = (data || []).map((row: any) => ({
+        id: row.id,
+        dateOrderId: row.date_order_id,
+        reviewerId: row.reviewer_id,
+        reviewedId: row.reviewed_id,
+        rating: Number(row.rating || 0),
+        comment: row.comment || '',
+        wantToMeetAgain: !!row.want_to_meet_again,
+        createdAt: row.created_at,
+      }));
+
+      setReviews(mapped);
+
+      const ids = Array.from(
+        new Set(mapped.flatMap((r) => [r.reviewerId, r.reviewedId]).filter(Boolean))
+      );
+
+      if (ids.length > 0) {
+        const { data: usersData, error: usersError } = await supabase
+          .from('users')
+          .select('*')
+          .in('id', ids);
+
+        if (usersError) {
+          console.warn('Error loading review users:', usersError.message);
+          setUsersById({});
+        } else {
+          const userMap = (usersData || []).reduce((acc: Record<string, User>, u: any) => {
+            acc[u.id] = {
+              id: u.id,
+              name: u.name || u.username || '',
+              username: u.username,
+              age: u.age || 0,
+              avatar: u.avatar || '',
+              bio: u.bio || '',
+              location: u.location || '',
+              wallet: u.wallet || { balance: 0, escrowBalance: 0, currency: 'VND' },
+              vipStatus: u.vip_status || { tier: 'free', benefits: [] },
+              rating: u.rating != null ? Number(u.rating) : undefined,
+              reviewCount: u.review_count != null ? Number(u.review_count) : undefined,
+            } as User;
+            return acc;
+          }, {});
+          setUsersById(userMap);
+        }
+      } else {
+        setUsersById({});
+      }
+
+      setLoading(false);
+    };
+
+    fetchReviews();
+  }, [user?.id]);
+
+  const myReviews = useMemo(
+    () =>
+      reviews.filter((review) => {
+        if (filter === 'received') return review.reviewedId === user?.id;
+        if (filter === 'given') return review.reviewerId === user?.id;
+        return review.reviewedId === user?.id || review.reviewerId === user?.id;
+      }),
+    [filter, reviews, user?.id]
+  );
+
+  const getUserById = (id: string) => usersById[id];
+
+  if (loading) {
+    return (
+      <div className="max-w-4xl mx-auto px-4 py-6">
+        <div className="py-12 text-center text-gray-500">Đang tải đánh giá...</div>
+      </div>
+    );
+  }
 
   const renderStars = (rating: number) => {
     return (
@@ -48,7 +142,7 @@ export default function ReviewsClient() {
             onClick={() => setFilter('all')}
             className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
               filter === 'all'
-                ? 'bg-primary-100 text-primary-600'
+                ? 'bg-pink-100 text-pink-600'
                 : 'text-gray-600 hover:bg-gray-100'
             }`}
           >
@@ -58,7 +152,7 @@ export default function ReviewsClient() {
             onClick={() => setFilter('received')}
             className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
               filter === 'received'
-                ? 'bg-primary-100 text-primary-600'
+                ? 'bg-pink-100 text-pink-600'
                 : 'text-gray-600 hover:bg-gray-100'
             }`}
           >
@@ -68,7 +162,7 @@ export default function ReviewsClient() {
             onClick={() => setFilter('given')}
             className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
               filter === 'given'
-                ? 'bg-primary-100 text-primary-600'
+                ? 'bg-pink-100 text-pink-600'
                 : 'text-gray-600 hover:bg-gray-100'
             }`}
           >
@@ -80,7 +174,7 @@ export default function ReviewsClient() {
       {/* Stats */}
       <div className="grid grid-cols-3 gap-4 mb-6">
         <div className="bg-white rounded-xl p-4 border border-gray-100 text-center">
-          <div className="text-2xl font-bold text-primary-600">
+          <div className="text-2xl font-bold text-pink-600">
             {reviews.filter((r) => r.reviewedId === user?.id).length}
           </div>
           <div className="text-sm text-gray-500">Đánh giá nhận được</div>
@@ -134,7 +228,7 @@ export default function ReviewsClient() {
                       <div>
                         <Link
                           href={`/user/${isReceived ? reviewer?.id : reviewee?.id}`}
-                          className="font-medium text-gray-900 hover:text-primary-600"
+                          className="font-medium text-gray-900 hover:text-pink-600"
                         >
                           {isReceived ? reviewer?.name : reviewee?.name}
                         </Link>
@@ -148,7 +242,7 @@ export default function ReviewsClient() {
                     <p className="text-gray-700 mt-2">{review.comment}</p>
                     <div className="flex items-center gap-4 mt-3 text-sm text-gray-500">
                       <span>{new Date(review.createdAt).toLocaleDateString('vi-VN')}</span>
-                      <button className="flex items-center gap-1 hover:text-primary-600 transition-colors">
+                      <button className="flex items-center gap-1 hover:text-pink-600 transition-colors">
                         <ThumbsUp className="w-4 h-4" />
                         Hữu ích
                       </button>

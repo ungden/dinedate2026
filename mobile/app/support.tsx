@@ -24,7 +24,7 @@ const FAQ_ITEMS: FAQItem[] = [
   },
   {
     question: 'Tôi có thể hủy đơn hẹn không?',
-    answer: 'Có, bạn có thể hủy đơn hẹn trước giờ hẹn 2 tiếng mà không mất phí. Hủy trong vòng 2 tiếng trước giờ hẹn sẽ bị trừ 50% phí nền tảng. Không đến (no-show) sẽ bị trừ 100% và ảnh hưởng đến đánh giá.',
+    answer: 'Có, bạn có thể hủy đơn hẹn trước giờ hẹn 2 tiếng mà không mất phí. Hủy trong vòng 2 tiếng trước giờ hẹn sẽ bị trừ 50% phí nền tảng. Không đến hẹn sẽ bị trừ 100% và ảnh hưởng đến đánh giá.',
   },
 ];
 

@@ -18,39 +18,26 @@ import toast from 'react-hot-toast';
 import { cn, formatCurrency, formatRelativeTime } from '@/lib/utils';
 import { useDbWallet } from '@/hooks/useDbWallet';
 
-type TxType =
-  | 'top_up'
-  | 'booking_payment'
-  | 'booking_earning'
-  | 'vip_payment'
-  | 'refund'
-  | 'withdrawal'
-  | 'escrow_hold'
-  | 'escrow_release'
-  | string;
+// Must match wallet_transactions CHECK constraint: topup, payment, escrow, refund, withdraw
+type TxType = 'topup' | 'payment' | 'escrow' | 'refund' | 'withdraw' | string;
 
-type TxStatus = 'pending' | 'completed' | 'failed' | 'refunded' | string;
+// Must match wallet_transactions CHECK constraint: pending, completed, failed, cancelled
+type TxStatus = 'pending' | 'completed' | 'failed' | 'cancelled' | string;
 
 type DbTxRow = Record<string, any>;
 
 function getTypeLabel(type: TxType) {
   switch (type) {
-    case 'top_up':
+    case 'topup':
       return 'Nạp tiền';
-    case 'withdrawal':
-      return 'Rút tiền';
-    case 'booking_payment':
-      return 'Thanh toán booking';
-    case 'booking_earning':
-      return 'Thu nhập booking';
-    case 'vip_payment':
-      return 'Thanh toán VIP';
+    case 'payment':
+      return 'Thanh toán';
+    case 'escrow':
+      return 'Tạm giữ (escrow)';
     case 'refund':
       return 'Hoàn tiền';
-    case 'escrow_hold':
-      return 'Giữ escrow';
-    case 'escrow_release':
-      return 'Giải phóng escrow';
+    case 'withdraw':
+      return 'Rút tiền';
     default:
       return type;
   }
@@ -68,7 +55,7 @@ function getStatusBadge(status: TxStatus) {
     pending: 'Đang xử lý',
     completed: 'Thành công',
     failed: 'Thất bại',
-    refunded: 'Hoàn tiền',
+    cancelled: 'Đã hủy',
   };
 
   return {
@@ -78,7 +65,7 @@ function getStatusBadge(status: TxStatus) {
 }
 
 function isIncome(type: TxType) {
-  return ['top_up', 'booking_earning', 'escrow_release', 'refund'].includes(type);
+  return ['topup', 'refund'].includes(type);
 }
 
 function parseDateInputToIsoStart(date: string) {
@@ -113,9 +100,9 @@ export default function BillingClient() {
       txs.filter(pred).reduce((acc: number, t: any) => acc + Number(t.amount || 0), 0);
 
     return {
-      topup: sum((t) => t.type === 'top_up' && t.status === 'completed'),
-      spend: sum((t) => ['booking_payment', 'vip_payment', 'escrow_hold', 'withdrawal'].includes(t.type)),
-      earning: sum((t) => ['booking_earning', 'escrow_release'].includes(t.type)),
+      topup: sum((t) => t.type === 'topup' && t.status === 'completed'),
+      spend: sum((t) => ['payment', 'escrow', 'withdraw'].includes(t.type) && t.status === 'completed'),
+      earning: sum((t) => t.type === 'refund' && t.status === 'completed'),
     };
   }, [transactions]);
 
@@ -160,14 +147,11 @@ export default function BillingClient() {
 
   const typeOptions: { value: TxType | 'all'; label: string }[] = [
     { value: 'all', label: 'Tất cả' },
-    { value: 'top_up', label: 'Nạp tiền' },
-    { value: 'withdrawal', label: 'Rút tiền' },
-    { value: 'escrow_hold', label: 'Giữ escrow' },
-    { value: 'escrow_release', label: 'Giải phóng escrow' },
-    { value: 'booking_payment', label: 'Thanh toán booking' },
-    { value: 'booking_earning', label: 'Thu nhập booking' },
-    { value: 'vip_payment', label: 'Thanh toán VIP' },
+    { value: 'topup', label: 'Nạp tiền' },
+    { value: 'payment', label: 'Thanh toán' },
+    { value: 'escrow', label: 'Tạm giữ (escrow)' },
     { value: 'refund', label: 'Hoàn tiền' },
+    { value: 'withdraw', label: 'Rút tiền' },
   ];
 
   const statusOptions: { value: TxStatus | 'all'; label: string }[] = [
@@ -175,7 +159,7 @@ export default function BillingClient() {
     { value: 'pending', label: 'Đang xử lý' },
     { value: 'completed', label: 'Thành công' },
     { value: 'failed', label: 'Thất bại' },
-    { value: 'refunded', label: 'Hoàn tiền' },
+    { value: 'cancelled', label: 'Đã hủy' },
   ];
 
   const copy = (text: string, label: string) => {

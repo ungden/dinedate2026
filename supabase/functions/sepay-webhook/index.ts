@@ -170,16 +170,13 @@ serve(async (req: Request) => {
 
     if (updateWalletErr) throw updateWalletErr;
 
-    // 4) Log transaction
-    const { error: txErr } = await admin.from("transactions").insert({
+    // 4) Log transaction in wallet_transactions
+    const { error: txErr } = await admin.from("wallet_transactions").insert({
       user_id: matchedRequest.user_id,
-      type: "top_up",
+      type: "topup",
       amount: matchedRequest.amount,
       status: "completed",
-      description: `Nạp tiền tự động qua Sepay (${matchedRequest.transfer_code})`,
-      payment_method: "banking",
-      related_id: matchedRequestId,
-      completed_at: new Date().toISOString(),
+      description: `Nạp tiền tự động qua SePay (${matchedRequest.transfer_code})`,
     });
 
     if (txErr) console.error("Transaction log error:", txErr);

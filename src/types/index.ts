@@ -32,18 +32,11 @@ export interface UserOnlineStatus {
 
 // --- Transactions ---
 
-export type TransactionType =
-  | 'top_up'
-  | 'date_order_payment'    // User pays platform fee + combo share
-  | 'date_order_refund'     // Refund when no match or cancellation
-  | 'vip_payment'
-  | 'refund'
-  | 'escrow_hold'
-  | 'escrow_release'
-  | 'referral_bonus'
-  | 'restaurant_commission'; // Platform receives commission from restaurant
+// Must match wallet_transactions CHECK constraint
+export type TransactionType = 'topup' | 'payment' | 'escrow' | 'refund' | 'withdraw';
 
-export type TransactionStatus = 'pending' | 'completed' | 'failed' | 'refunded';
+// Must match wallet_transactions CHECK constraint
+export type TransactionStatus = 'pending' | 'completed' | 'failed' | 'cancelled';
 
 export interface Transaction {
   id: string;

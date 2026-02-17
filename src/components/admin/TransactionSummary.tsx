@@ -20,18 +20,18 @@ export function TransactionSummary({ data, loading }: TransactionSummaryProps) {
 
   const handleExport = () => {
     exportToCSV(data, 'transaction_breakdown', [
-      { key: 'label', label: 'Loai giao dich' },
-      { key: 'count', label: 'So luong' },
-      { key: 'amount', label: 'Tong so tien' },
-      { key: 'percentage', label: 'Phan tram' },
+      { key: 'label', label: 'Loại giao dịch' },
+      { key: 'count', label: 'Số lượng' },
+      { key: 'amount', label: 'Tổng số tiền' },
+      { key: 'percentage', label: 'Phần trăm' },
     ]);
   };
 
   const getIcon = (type: string) => {
-    if (['top_up', 'booking_earning'].includes(type)) {
+    if (['topup', 'refund'].includes(type)) {
       return <ArrowUpCircle className="w-4 h-4" />;
     }
-    if (['withdrawal', 'booking_payment', 'vip_payment'].includes(type)) {
+    if (['payment', 'escrow', 'withdraw'].includes(type)) {
       return <ArrowDownCircle className="w-4 h-4" />;
     }
     return <RefreshCw className="w-4 h-4" />;
@@ -45,12 +45,12 @@ export function TransactionSummary({ data, loading }: TransactionSummaryProps) {
             <PieChart className="w-6 h-6 text-purple-600" />
           </div>
           <div>
-            <h3 className="text-lg font-bold text-gray-900">Phan bo giao dich</h3>
-            <p className="text-sm text-gray-500">Theo loai giao dich</p>
+            <h3 className="text-lg font-bold text-gray-900">Phân bổ giao dịch</h3>
+            <p className="text-sm text-gray-500">Theo loại giao dịch</p>
           </div>
         </div>
         <div className="h-64 flex items-center justify-center">
-          <div className="animate-pulse text-gray-400">Dang tai du lieu...</div>
+          <div className="animate-pulse text-gray-400">Đang tải dữ liệu...</div>
         </div>
       </div>
     );
@@ -65,8 +65,8 @@ export function TransactionSummary({ data, loading }: TransactionSummaryProps) {
             <PieChart className="w-6 h-6 text-purple-600" />
           </div>
           <div>
-            <h3 className="text-lg font-bold text-gray-900">Phan bo giao dich</h3>
-            <p className="text-sm text-gray-500">Theo loai giao dich</p>
+            <h3 className="text-lg font-bold text-gray-900">Phân bổ giao dịch</h3>
+            <p className="text-sm text-gray-500">Theo loại giao dịch</p>
           </div>
         </div>
         <button
@@ -81,18 +81,18 @@ export function TransactionSummary({ data, loading }: TransactionSummaryProps) {
       {/* Summary */}
       <div className="grid grid-cols-2 gap-4 mb-6">
         <div className="bg-purple-50 rounded-xl p-3">
-          <p className="text-xs text-purple-600 font-medium uppercase tracking-wider">Tong gia tri</p>
+          <p className="text-xs text-purple-600 font-medium uppercase tracking-wider">Tổng giá trị</p>
           <p className="text-lg font-bold text-gray-900">{formatCurrency(totalAmount)}</p>
         </div>
         <div className="bg-purple-50 rounded-xl p-3">
-          <p className="text-xs text-purple-600 font-medium uppercase tracking-wider">Tong so giao dich</p>
+          <p className="text-xs text-purple-600 font-medium uppercase tracking-wider">Tổng số giao dịch</p>
           <p className="text-lg font-bold text-gray-900">{totalCount.toLocaleString()}</p>
         </div>
       </div>
 
       {data.length === 0 ? (
         <div className="h-32 flex items-center justify-center text-gray-400">
-          Chua co du lieu giao dich
+          Chưa có dữ liệu giao dịch
         </div>
       ) : (
         <>
@@ -101,7 +101,7 @@ export function TransactionSummary({ data, loading }: TransactionSummaryProps) {
             <div className="absolute inset-0 flex items-center justify-center">
               {/* Center circle with total */}
               <div className="absolute w-24 h-24 bg-white rounded-full flex flex-col items-center justify-center shadow-inner z-10">
-                <p className="text-xs text-gray-500">Tong</p>
+                <p className="text-xs text-gray-500">Tổng</p>
                 <p className="text-sm font-bold text-gray-900">{totalCount}</p>
               </div>
 
@@ -147,7 +147,7 @@ export function TransactionSummary({ data, loading }: TransactionSummaryProps) {
                     />
                   </div>
                   <div className="flex items-center justify-between mt-1">
-                    <p className="text-xs text-gray-500">{item.count} giao dich</p>
+                    <p className="text-xs text-gray-500">{item.count} giao dịch</p>
                     <p className="text-xs font-medium" style={{ color: item.color }}>
                       {item.percentage}%
                     </p>

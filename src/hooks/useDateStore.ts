@@ -455,7 +455,7 @@ export const useDateStore = create<DateStore>()(
         const transaction: Transaction = {
           id: Date.now().toString(),
           userId: currentUser.id,
-          type: 'top_up',
+          type: 'topup',
           amount,
           status: 'completed',
           description: `Nap tien vao vi qua ${method}`,
@@ -498,7 +498,7 @@ export const useDateStore = create<DateStore>()(
         const transaction: Transaction = {
           id: Date.now().toString(),
           userId: currentUser.id,
-          type: 'date_order_payment',
+          type: 'payment',
           amount,
           status: 'completed',
           description: `Thanh toan date order: ${order.restaurant?.name || 'Nha hang'} - ${order.combo?.name || 'Combo'}`,

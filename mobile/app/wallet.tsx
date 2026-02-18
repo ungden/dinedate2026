@@ -1,11 +1,11 @@
 import React, { useState } from 'react';
-import { View, Text, ScrollView, Pressable, StyleSheet, Alert, ActivityIndicator } from 'react-native';
+import { View, Text, ScrollView, Pressable, StyleSheet, ActivityIndicator } from 'react-native';
 import { Stack } from 'expo-router';
 import { useAuth } from '@/contexts/auth-context';
 import { useWallet, WalletTransaction } from '@/hooks/use-wallet';
 import { Colors, Spacing, FontSize, BorderRadius } from '@/constants/theme';
-import { supabase } from '@/lib/supabase';
 import AuthGuard from '@/components/auth-guard';
+import TopupModal from '@/components/topup-modal';
 
 function formatCurrency(amount: number): string {
   return amount.toLocaleString('vi-VN');
@@ -49,69 +49,10 @@ function TransactionItem({ tx }: { tx: WalletTransaction }) {
   );
 }
 
-const TOPUP_AMOUNTS = [50000, 100000, 200000, 500000, 1000000];
-
 export default function WalletScreen() {
-  const { user, refreshProfile } = useAuth();
+  const { user } = useAuth();
   const { balance, escrowBalance, transactions, loading, reload } = useWallet(user?.id);
-  const [topUpLoading, setTopUpLoading] = useState(false);
-
-  const handleTopUp = () => {
-    Alert.alert(
-      'Nạp tiền',
-      'Chọn số tiền muốn nạp:',
-      [
-        ...TOPUP_AMOUNTS.map((amount) => ({
-          text: `${amount.toLocaleString('vi-VN')}đ`,
-          onPress: () => selectPaymentMethod(amount),
-        })),
-        { text: 'Hủy', style: 'cancel' as const },
-      ],
-    );
-  };
-
-  const selectPaymentMethod = (amount: number) => {
-    Alert.alert(
-      'Phương thức thanh toán',
-      `Nạp ${amount.toLocaleString('vi-VN')}đ qua:`,
-      [
-        { text: 'MoMo', onPress: () => processTopUp(amount, 'momo') },
-        { text: 'Ngân hàng', onPress: () => processTopUp(amount, 'bank_transfer') },
-        { text: 'Hủy', style: 'cancel' },
-      ],
-    );
-  };
-
-  const processTopUp = async (amount: number, method: string) => {
-    setTopUpLoading(true);
-    try {
-      const { data, error } = await supabase.rpc('request_topup', {
-        topup_amount: amount,
-        payment_method: method,
-      });
-
-      if (error) throw error;
-
-      const result = typeof data === 'string' ? JSON.parse(data) : data;
-      if (result.success) {
-        Alert.alert(
-          'Yêu cầu nạp tiền đã gửi',
-          `Mã giao dịch: ${result.transaction_id?.slice(0, 8)}...\n` +
-          `Số tiền: ${amount.toLocaleString('vi-VN')}đ\n` +
-          `Phương thức: ${method === 'momo' ? 'MoMo' : 'Chuyển khoản ngân hàng'}\n\n` +
-          'Số dư sẽ được cập nhật sau khi xác nhận thanh toán.',
-        );
-        reload();
-      } else {
-        Alert.alert('Lỗi', result.error || 'Không thể tạo yêu cầu nạp tiền');
-      }
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Không thể nạp tiền';
-      Alert.alert('Lỗi', msg);
-    } finally {
-      setTopUpLoading(false);
-    }
-  };
+  const [topupVisible, setTopupVisible] = useState(false);
 
   return (
     <AuthGuard>
@@ -126,12 +67,8 @@ export default function WalletScreen() {
               <Text style={styles.escrowLabel}>Đang tạm giữ (escrow)</Text>
               <Text style={styles.escrowAmount}>{formatCurrency(escrowBalance)} đ</Text>
             </View>
-            <Pressable style={[styles.topUpBtn, topUpLoading && { opacity: 0.6 }]} onPress={handleTopUp} disabled={topUpLoading}>
-              {topUpLoading ? (
-                <ActivityIndicator color={Colors.primary} />
-              ) : (
-                <Text style={styles.topUpText}>Nạp tiền</Text>
-              )}
+            <Pressable style={styles.topUpBtn} onPress={() => setTopupVisible(true)}>
+              <Text style={styles.topUpText}>Nạp tiền</Text>
             </Pressable>
           </View>
         </View>
@@ -157,6 +94,15 @@ export default function WalletScreen() {
 
         <View style={{ height: 40 }} />
       </ScrollView>
+
+      {user?.id && (
+        <TopupModal
+          visible={topupVisible}
+          onClose={() => setTopupVisible(false)}
+          onSuccess={() => reload()}
+          userId={user.id}
+        />
+      )}
     </AuthGuard>
   );
 }

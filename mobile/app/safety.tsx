@@ -1,8 +1,11 @@
 import React from 'react';
-import { View, Text, ScrollView, Pressable, StyleSheet, Alert } from 'react-native';
+import { View, Text, ScrollView, Pressable, StyleSheet, Alert, Linking } from 'react-native';
 import { Stack } from 'expo-router';
 import { Colors, Spacing, FontSize, BorderRadius, Shadows } from '@/constants/theme';
 import { supabase } from '@/lib/supabase';
+
+const PRIVACY_POLICY_URL = 'https://www.dinedate.vn/privacy';
+const SUPPORT_URL = 'https://www.dinedate.vn/support';
 
 interface SafetyItem {
   icon: string;
@@ -133,6 +136,16 @@ export default function SafetyScreen() {
           {PRIVACY_FEATURES.map((item, i) => (
             <FeatureCard key={i} item={item} />
           ))}
+
+          <Pressable style={styles.linkBtn} onPress={() => Linking.openURL(PRIVACY_POLICY_URL)}>
+            <Text style={styles.linkBtnIcon}>📄</Text>
+            <Text style={styles.linkBtnText}>Chính sách quyền riêng tư</Text>
+          </Pressable>
+
+          <Pressable style={styles.linkBtn} onPress={() => Linking.openURL(SUPPORT_URL)}>
+            <Text style={styles.linkBtnIcon}>💬</Text>
+            <Text style={styles.linkBtnText}>Trung tâm hỗ trợ</Text>
+          </Pressable>
         </View>
 
         <View style={{ height: 40 }} />
@@ -211,6 +224,23 @@ const styles = StyleSheet.create({
   reportBtnIcon: { fontSize: 18 },
   reportBtnText: {
     color: Colors.error,
+    fontWeight: '700',
+    fontSize: FontSize.md,
+  },
+  linkBtn: {
+    flexDirection: 'row',
+    backgroundColor: Colors.white,
+    paddingVertical: Spacing.lg,
+    paddingHorizontal: Spacing.xl,
+    borderRadius: BorderRadius.lg,
+    alignItems: 'center',
+    gap: Spacing.sm,
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  linkBtnIcon: { fontSize: 18 },
+  linkBtnText: {
+    color: Colors.primary,
     fontWeight: '700',
     fontSize: FontSize.md,
   },

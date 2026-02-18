@@ -14,9 +14,7 @@
         "buildType": "apk"
       },
       "env": {
-        "EXPO_PUBLIC_ENV": "development",
-        "EXPO_PUBLIC_SUPABASE_URL": "__SET_IN_EAS_SECRETS__",
-        "EXPO_PUBLIC_SUPABASE_ANON_KEY": "__SET_IN_EAS_SECRETS__"
+        "EXPO_PUBLIC_ENV": "development"
       }
     },
     "preview": {
@@ -28,9 +26,7 @@
         "buildType": "apk"
       },
       "env": {
-        "EXPO_PUBLIC_ENV": "preview",
-        "EXPO_PUBLIC_SUPABASE_URL": "__SET_IN_EAS_SECRETS__",
-        "EXPO_PUBLIC_SUPABASE_ANON_KEY": "__SET_IN_EAS_SECRETS__"
+        "EXPO_PUBLIC_ENV": "preview"
       }
     },
     "production": {
@@ -42,9 +38,7 @@
         "autoIncrement": true
       },
       "env": {
-        "EXPO_PUBLIC_ENV": "production",
-        "EXPO_PUBLIC_SUPABASE_URL": "__SET_IN_EAS_SECRETS__",
-        "EXPO_PUBLIC_SUPABASE_ANON_KEY": "__SET_IN_EAS_SECRETS__"
+        "EXPO_PUBLIC_ENV": "production"
       }
     }
   },

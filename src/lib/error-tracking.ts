@@ -271,38 +271,57 @@ export function initializeErrorTracking(): void {
   // Track page navigation
   addBreadcrumb('navigation', `Page loaded: ${window.location.pathname}`);
 
-  // Track fetch errors
+  // Track fetch errors (with recursion guard)
   const originalFetch = window.fetch;
+  let isLoggingError = false; // Prevent infinite recursion
   window.fetch = async (...args: Parameters<typeof fetch>) => {
     const url = typeof args[0] === 'string' ? args[0] : (args[0] as any)?.url || 'unknown';
+
+    // Skip error tracking for our own error_logs requests to prevent infinite recursion
+    const isErrorLogRequest = url.includes('/error_logs');
+    if (isErrorLogRequest) {
+      return originalFetch(...args);
+    }
 
     try {
       const response = await originalFetch(...args);
 
-      // Track failed HTTP responses
-      if (!response.ok) {
+      // Track failed HTTP responses (skip if already logging an error)
+      if (!response.ok && !isLoggingError) {
         addBreadcrumb('http', `HTTP ${response.status}: ${url}`, {
           status: response.status,
           statusText: response.statusText,
         });
 
-        // Log 5xx errors as exceptions
+        // Log 5xx errors as exceptions (with recursion guard)
         if (response.status >= 500) {
-          await captureMessage(
-            `Server error ${response.status} on ${url}`,
-            'error'
-          );
+          isLoggingError = true;
+          try {
+            await captureMessage(
+              `Server error ${response.status} on ${url}`,
+              'error'
+            );
+          } finally {
+            isLoggingError = false;
+          }
         }
       }
 
       return response;
     } catch (error) {
-      addBreadcrumb('http', `Network error: ${url}`, { error: String(error) });
+      if (!isLoggingError) {
+        addBreadcrumb('http', `Network error: ${url}`, { error: String(error) });
 
-      await captureException(error, {
-        component: 'fetch',
-        action: url.substring(0, 200),
-      });
+        isLoggingError = true;
+        try {
+          await captureException(error, {
+            component: 'fetch',
+            action: url.substring(0, 200),
+          });
+        } finally {
+          isLoggingError = false;
+        }
+      }
 
       throw error;
     }

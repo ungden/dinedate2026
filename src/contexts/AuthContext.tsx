@@ -41,7 +41,7 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-const publicRoutes = ['/login', '/register', '/', '/discover', '/search', '/about', '/safety', '/referral'];
+const publicRoutes = ['/login', '/register', '/', '/discover', '/restaurants', '/search', '/about', '/safety', '/support', '/referral'];
 const authRoutes = ['/login', '/register'];
 
 // Helper: Tạo User tạm từ Session trong khi chờ DB
@@ -305,13 +305,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const isPublicReview = pathname.startsWith('/reviews/');
     const isPublicRequest = pathname.startsWith('/request/');
     const isReferralLanding = pathname.startsWith('/ref/');
+    const isRestaurantDetail = pathname.startsWith('/restaurants/');
 
     const isPublicRoute =
       publicRoutes.includes(pathname) ||
       isPublicProfile ||
       isPublicReview ||
       isPublicRequest ||
-      isReferralLanding;
+      isReferralLanding ||
+      isRestaurantDetail;
 
     if (user && isAuthRoute) {
       router.push('/');

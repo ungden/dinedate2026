@@ -19,34 +19,28 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
   // Các trang không hiển thị Header/Footer
   const isAuthPage = pathname === '/login' || pathname === '/register';
 
-  // Tự động xử lý khi bị kẹt ở màn hình loading
+  // Các trang public — cho phép render ngay cả khi auth đang loading
+  const publicRoutes = ['/', '/discover', '/restaurants', '/search', '/about', '/safety', '/referral', '/support'];
+  const isPublicRoute = publicRoutes.includes(pathname) || pathname.startsWith('/restaurants/');
+
+  // Tự động xử lý khi bị kẹt ở màn hình loading — chỉ cho trang protected
   useEffect(() => {
     let timer: NodeJS.Timeout;
     
-    if (isLoading) {
-      // Nếu loading quá 5 giây, báo lỗi và reset
+    if (isLoading && !isPublicRoute && !isAuthPage) {
+      // Nếu loading quá 10 giây trên trang protected, báo lỗi và redirect
       timer = setTimeout(async () => {
-        console.error("[ClientLayout] Loading timeout exceeded (5s). Force resetting session.");
-        toast.error("Phiên đăng nhập quá hạn hoặc lỗi mạng. Đang tải lại...", { id: 'auth-timeout' });
-        
-        if (typeof window !== 'undefined') {
-            localStorage.clear();
-        }
-        
-        try {
-            await logout();
-        } catch (e) {
-            console.error("Logout failed during timeout handling:", e);
-        }
-
+        console.error("[ClientLayout] Loading timeout exceeded (10s). Redirecting to login.");
+        toast.error("Phiên đăng nhập quá hạn. Vui lòng đăng nhập lại.", { id: 'auth-timeout' });
         window.location.href = '/login';
-      }, 5000);
+      }, 10000);
     }
 
     return () => clearTimeout(timer);
-  }, [isLoading, logout]);
+  }, [isLoading, isPublicRoute, isAuthPage, logout]);
 
-  if (isLoading) {
+  // Chỉ hiển thị loading spinner cho trang protected (không phải public hay auth)
+  if (isLoading && !isPublicRoute && !isAuthPage) {
     return (
       <div className="min-h-screen flex items-center justify-center p-4">
         <motion.div

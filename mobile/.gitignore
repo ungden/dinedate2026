@@ -34,6 +34,10 @@ yarn-error.*
 .env
 .env*.local
 
+# iOS signing credentials
+certs/
+credentials.json
+
 # typescript
 *.tsbuildinfo
 

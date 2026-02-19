@@ -15,16 +15,13 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.dinedate.app",
+      "bundleIdentifier": "com.titanlabs.dinedate",
       "infoPlist": {
         "NSCameraUsageDescription": "DineDate cần truy cập camera để chụp ảnh đại diện",
         "NSPhotoLibraryUsageDescription": "DineDate cần truy cập thư viện ảnh để chọn ảnh đại diện",
         "ITSAppUsesNonExemptEncryption": false
       },
-      "associatedDomains": [
-        "applinks:www.dinedate.vn",
-        "applinks:dinedate.vn"
-      ],
+
       "privacyManifests": {
         "NSPrivacyAccessedAPITypes": [
           {

@@ -31,8 +31,10 @@
     },
     "production": {
       "distribution": "store",
+      "credentialsSource": "local",
       "ios": {
-        "autoIncrement": true
+        "autoIncrement": true,
+        "credentialsSource": "local"
       },
       "android": {
         "autoIncrement": true
@@ -45,9 +47,9 @@
   "submit": {
     "production": {
       "ios": {
-        "appleId": "__SET_YOUR_APPLE_ID__",
-        "ascAppId": "__SET_YOUR_ASC_APP_ID__",
-        "appleTeamId": "__SET_YOUR_TEAM_ID__"
+        "appleId": "sai211dn@gmail.com",
+        "ascAppId": "6758265568",
+        "appleTeamId": "Q8A7CBYV5Z"
       },
       "android": {
         "serviceAccountKeyPath": "__SET_YOUR_KEY_PATH__",

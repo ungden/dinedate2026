@@ -1,0 +1,17 @@
+DineDate là ứng dụng hẹn hò ẩn danh kết hợp khám phá nhà hàng độc đáo tại Việt Nam.
+
+Cách hoạt động:
+1. Tạo đơn hẹn tại nhà hàng đối tác, chọn combo và thời gian.
+2. Người khác ứng tuyển vào đơn hẹn của bạn — tất cả đều ẩn danh với avatar anime DiceBear.
+3. Chọn người phù hợp, gặp mặt tại nhà hàng.
+4. Sau buổi hẹn, cả hai đánh giá lẫn nhau. Nếu cùng muốn gặp lại — danh tính thật mới được tiết lộ!
+
+Tính năng nổi bật:
+• Hẹn hò ẩn danh — an toàn, không áp lực
+• Khám phá nhà hàng đối tác với combo ưu đãi
+• Đánh giá nhà hàng 4 tiêu chí: món ăn, không gian, phục vụ, tổng thể
+• Ví điện tử tích hợp — nạp tiền QR ngân hàng tự động
+• Kết nối thật sự dựa trên trải nghiệm thực tế, không swipe
+• VIP/SVIP với ưu tiên hiển thị và tính năng đặc biệt
+
+DineDate — Bữa ăn ngon, cuộc hẹn đáng nhớ.

@@ -2,16 +2,25 @@
   "configVersion": 0,
   "apple": {
     "info": {
-      "vi-VN": {
-        "title": "DineDate - Hẹn ăn tối",
-        "subtitle": "Khám phá nhà hàng, gặp gỡ người mới",
-        "description": "DineDate là ứng dụng hẹn hò ẩn danh kết hợp khám phá nhà hàng độc đáo tại Việt Nam.\n\nCách hoạt động:\n1. Tạo đơn hẹn tại nhà hàng đối tác, chọn combo và thời gian.\n2. Người khác ứng tuyển vào đơn hẹn của bạn — tất cả đều ẩn danh với avatar anime DiceBear.\n3. Chọn người phù hợp, gặp mặt tại nhà hàng.\n4. Sau buổi hẹn, cả hai đánh giá lẫn nhau. Nếu cùng muốn gặp lại — danh tính thật mới được tiết lộ!\n\nTính năng nổi bật:\n• Hẹn hò ẩn danh — an toàn, không áp lực\n• Khám phá nhà hàng đối tác với combo ưu đãi\n• Đánh giá nhà hàng 4 tiêu chí: món ăn, không gian, phục vụ, tổng thể\n• Ví điện tử tích hợp — nạp tiền QR ngân hàng tự động\n• Kết nối thật sự dựa trên trải nghiệm thực tế, không swipe\n• VIP/SVIP với ưu tiên hiển thị và tính năng đặc biệt\n\nDineDate — Bữa ăn ngon, cuộc hẹn đáng nhớ.",
-        "keywords": "hẹn hò,ẩn danh,nhà hàng,dating,blind date,ăn uống,gặp gỡ,kết bạn,tình yêu,Việt Nam",
-        "promotionalText": "Hẹn hò ẩn danh tại nhà hàng yêu thích — gặp gỡ người mới qua bữa ăn thật sự!",
-        "whatsNew": "Phiên bản đầu tiên! Tạo đơn hẹn, ứng tuyển, gặp gỡ ẩn danh, đánh giá và kết nối.",
+      "en-US": {
+        "title": "DineDate - Dinner Dating",
+        "subtitle": "Restaurants & blind dates",
+        "description": "DineDate is an anonymous dating app combined with unique restaurant discovery in Vietnam.\n\nHow it works:\n1. Create a date order at a partner restaurant, choose a combo and time.\n2. Others apply to your date order — everyone is anonymous with DiceBear anime avatars.\n3. Choose the right match, meet at the restaurant.\n4. After the date, both rate each other. If both want to meet again — real identities are revealed!\n\nKey features:\n• Anonymous dating — safe, no pressure\n• Discover partner restaurants with combo deals\n• Rate restaurants on 4 criteria: food, ambiance, service, overall\n• Integrated e-wallet — auto QR bank top-up\n• Real connections based on real experiences, no swiping\n• VIP/SVIP with priority display and special features\n\nDineDate — Great food, memorable dates.",
+        "keywords": ["dating", "anonymous", "restaurant", "blind date", "dining", "meet", "friends", "love", "Vietnam", "dinner"],
+        "promoText": "Anonymous dating at your favorite restaurant — meet new people over a real meal!",
+        "releaseNotes": "First release! Create date orders, apply, meet anonymously, review and connect.",
         "privacyPolicyUrl": "https://www.dinedate.vn/privacy",
-        "privacyPolicyText": null,
-        "privacyChoicesUrl": null,
+        "supportUrl": "https://www.dinedate.vn/support",
+        "marketingUrl": "https://www.dinedate.vn"
+      },
+      "vi": {
+        "title": "DineDate - Hẹn ăn tối",
+        "subtitle": "Nhà hàng & hẹn hò ẩn danh",
+        "description": "DineDate là ứng dụng hẹn hò ẩn danh kết hợp khám phá nhà hàng độc đáo tại Việt Nam.\n\nCách hoạt động:\n1. Tạo đơn hẹn tại nhà hàng đối tác, chọn combo và thời gian.\n2. Người khác ứng tuyển vào đơn hẹn của bạn — tất cả đều ẩn danh với avatar anime DiceBear.\n3. Chọn người phù hợp, gặp mặt tại nhà hàng.\n4. Sau buổi hẹn, cả hai đánh giá lẫn nhau. Nếu cùng muốn gặp lại — danh tính thật mới được tiết lộ!\n\nTính năng nổi bật:\n• Hẹn hò ẩn danh — an toàn, không áp lực\n• Khám phá nhà hàng đối tác với combo ưu đãi\n• Đánh giá nhà hàng 4 tiêu chí: món ăn, không gian, phục vụ, tổng thể\n• Ví điện tử tích hợp — nạp tiền QR ngân hàng tự động\n• Kết nối thật sự dựa trên trải nghiệm thực tế, không swipe\n• VIP/SVIP với ưu tiên hiển thị và tính năng đặc biệt\n\nDineDate — Bữa ăn ngon, cuộc hẹn đáng nhớ.",
+        "keywords": ["hẹn hò", "ẩn danh", "nhà hàng", "dating", "blind date", "ăn uống", "gặp gỡ", "kết bạn", "tình yêu", "Việt Nam"],
+        "promoText": "Hẹn hò ẩn danh tại nhà hàng yêu thích — gặp gỡ người mới qua bữa ăn thật sự!",
+        "releaseNotes": "Phiên bản đầu tiên! Tạo đơn hẹn, ứng tuyển, gặp gỡ ẩn danh, đánh giá và kết nối.",
+        "privacyPolicyUrl": "https://www.dinedate.vn/privacy",
         "supportUrl": "https://www.dinedate.vn/support",
         "marketingUrl": "https://www.dinedate.vn"
       }
@@ -34,7 +43,9 @@
       "violenceRealisticProlongedGraphicOrSadistic": "NONE",
       "unrestrictedWebAccess": false,
       "kidsAgeBand": null,
-      "seventeenPlus": false
+      "seventeenPlus": false,
+      "ageRatingOverride": "NONE",
+      "koreaAgeRatingOverride": "NONE"
     },
     "review": {
       "firstName": "Tien Duong",

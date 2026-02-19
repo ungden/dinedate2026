@@ -1,0 +1,21 @@
+# Fastlane Deliver configuration
+# Using App Store Connect API Key (no Apple ID login needed)
+
+app_identifier "com.titanlabs.dinedate"
+team_id "Q8A7CBYV5Z"
+
+# Metadata
+metadata_path "./fastlane/metadata"
+force true
+skip_binary_upload true
+skip_screenshots false
+overwrite_screenshots true
+submit_for_review false
+automatic_release false
+precheck_include_in_app_purchases false
+
+# Pricing
+price_tier 0
+
+# App Rating
+app_rating_config_path "./fastlane/rating_config.json"

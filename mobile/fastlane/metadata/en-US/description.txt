@@ -1,0 +1,17 @@
+DineDate is an anonymous dating app combined with unique restaurant discovery in Vietnam.
+
+How it works:
+1. Create a date order at a partner restaurant, choose a combo and time.
+2. Others apply to your date order — everyone is anonymous with DiceBear anime avatars.
+3. Choose the right match, meet at the restaurant.
+4. After the date, both rate each other. If both want to meet again — real identities are revealed!
+
+Key features:
+• Anonymous dating — safe, no pressure
+• Discover partner restaurants with combo deals
+• Rate restaurants on 4 criteria: food, ambiance, service, overall
+• Integrated e-wallet — auto QR bank top-up
+• Real connections based on real experiences, no swiping
+• VIP/SVIP with priority display and special features
+
+DineDate — Great food, memorable dates.

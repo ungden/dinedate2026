@@ -1,0 +1,1 @@
+Demo account has sample restaurant data and date orders for review. The app requires login to use. The top-up system uses QR bank transfer (BIDV) — no real transfer needed for testing, just view the interface.
